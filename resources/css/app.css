@@ -1,9 +1,30 @@
 @import 'tailwindcss';
 
+@layer base {
+    html {
+        font-size: 16px;
+    }
+}
+
+[x-cloak] { display: none !important; }
+
+input[type='date']::-webkit-calendar-picker-indicator {
+    width: 1rem;
+    height: 1rem;
+    padding: 0;
+    opacity: 0.65;
+    cursor: pointer;
+}
+
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
 
 @theme {
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
+
+    /* Template Green Colors */
+    --color-avian-green: #1B7A43;
+    --color-avian-green-light: #E8F3EC;
+    --color-avian-green-dark: #145C33;
 }
