@@ -20,6 +20,7 @@ class DatabaseSeeder extends Seeder
             RasioSewaSeeder::class,
             JenisBiayaSeeder::class,
             CabangSkillSeeder::class,
+            ApprovalSeeder::class,
         ]);
     }
 }

@@ -14,9 +14,9 @@ class Approval extends Model
 
     protected $fillable = [
         'id_cabang',
-        'kategori_approval',
         'tingkat',
         'role_berwenang',
+        'id_approver',
         'id_approver_cadangan',
         'flag',
     ];

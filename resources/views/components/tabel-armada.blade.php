@@ -12,19 +12,19 @@ $sortBy = request('sort_armada', null);
 $sortOrder = request('order_armada', 'asc');
 
 $result = DbHelper::safeQuery(function () use ($limit, $sortBy, $sortOrder) {
-    $query = DB::connection('sqlsrv')->table('sesi_armada')
-        ->join('sesi_perusahaan_ekspedisi', 'sesi_armada.id_perusahaan', '=', 'sesi_perusahaan_ekspedisi.id_perusahaan')
+    $query = DB::connection('sqlsrv')->table('sesi_unit_kendaraan')
+        ->join('sesi_perusahaan_ekspedisi', 'sesi_unit_kendaraan.id_perusahaan', '=', 'sesi_perusahaan_ekspedisi.id_perusahaan')
         ->select(
-            'sesi_armada.id_armada as id',
+            'sesi_unit_kendaraan.id_kendaraan as id',
             'sesi_perusahaan_ekspedisi.badan_usaha as badan_usaha',
             'sesi_perusahaan_ekspedisi.nama_perusahaan as nama',
-            'sesi_armada.id_skill as skill',
-            'sesi_armada.nama_kendaraan as kendaraan',
-            'sesi_armada.muatan_maksimal as muatan_raw',
-            DB::raw("'Rp 0' as harga"),
-            DB::raw("FORMAT(sesi_armada.updated_at, 'dd MMM yyyy') as updated")
+            'sesi_unit_kendaraan.id_skill as skill',
+            'sesi_unit_kendaraan.jenis_kendaraan as kendaraan',
+            'sesi_unit_kendaraan.muatan_maksimal as muatan_raw',
+            DB::raw("(SELECT TOP 1 p.harga_sewa FROM sesi_pengajuan_sewa p WHERE p.id_kendaraan = sesi_unit_kendaraan.id_kendaraan AND p.status_pengajuan = 'approved' ORDER BY p.submitted_at DESC) as harga_sewa_raw"),
+            DB::raw("FORMAT(sesi_unit_kendaraan.updated_at, 'dd MMM yyyy') as updated")
         )
-        ->where('sesi_armada.flag', true);
+        ->where('sesi_unit_kendaraan.flag', true);
 
     // Jika ada sort eksplisit dari user, gunakan itu; jika tidak, gunakan default (updated_at desc, nanti diurutkan lagi by skill priority)
     if ($sortBy) {
@@ -34,6 +34,7 @@ $result = DbHelper::safeQuery(function () use ($limit, $sortBy, $sortOrder) {
             'skill' => 'sesi_armada.id_skill',
             'kendaraan' => 'sesi_armada.nama_kendaraan',
             'muatan' => 'sesi_armada.muatan_maksimal',
+            'harga' => 'harga_sewa_raw',
             'updated' => 'sesi_armada.updated_at',
         ];
         $sortCol = $sortMap[$sortBy] ?? 'sesi_armada.updated_at';
@@ -46,8 +47,14 @@ $result = DbHelper::safeQuery(function () use ($limit, $sortBy, $sortOrder) {
         ->map(fn($a) => (array)$a)
         ->toArray();
 
-    // Format muatan dengan trim decimal (2.00 -> "2", 2.75 -> "2.75")
-    $allArmada = array_map(fn($a) => [...$a, 'muatan' => FormatHelper::ton($a['muatan_raw'])], $allArmada);
+    // Format muatan dan harga
+    $allArmada = array_map(function($a) {
+        return [
+            ...$a,
+            'muatan' => FormatHelper::ton($a['muatan_raw']),
+            'harga'  => $a['harga_sewa_raw'] ? 'Rp ' . number_format($a['harga_sewa_raw'], 0, ',', '.') : 'Rp 0',
+        ];
+    }, $allArmada);
 
     // Jika tidak ada sort eksplisit, terapkan prioritas skill cabang user
     if (!$sortBy) {
@@ -56,11 +63,11 @@ $result = DbHelper::safeQuery(function () use ($limit, $sortBy, $sortOrder) {
     $cabangSkills = [];
     if ($cabangCode) {
         $cabangSkills = DB::connection('sqlsrv')->table('sesi_cabang_skill as cs')
-            ->join('sesi_master_skill as ms', 'ms.nama_skill', '=', 'cs.id_skill')
+            ->join('sesi_master_skill as ms', 'ms.id_skill', '=', 'cs.id_skill')
             ->where('cs.cabang_code', $cabangCode)
             ->where('cs.flag', true)
             ->where('ms.flag', true)
-            ->pluck('ms.nama_skill')
+            ->pluck('ms.id_skill')
             ->map(fn($s) => strtoupper(trim($s)))
             ->toArray();
     }
@@ -93,8 +100,9 @@ $error = $result['error'];
 {{-- Search --}}
 <input
     type="text"
-    placeholder="Cari perusahaan..."
-    class="mb-4 w-full rounded-lg border border-gray-300 px-4 py-2 text-sm 
+    @if($mode === 'pilih') id="searchArmadaPilih" @else id="searchArmada" @endif
+    placeholder="Cari nama, badan usaha, jenis kendaraan, atau skill..."
+    class="mb-4 w-full rounded-lg border border-gray-300 px-4 py-2 text-sm
     focus:border-avian-green focus:outline-none"
     @if($mode === 'pilih') x-model="searchArmada" @endif>
 
@@ -102,14 +110,14 @@ $error = $result['error'];
 <div class="overflow-hidden rounded-xl border border-gray-200">
     <table class="w-full table-fixed text-sm">
         <colgroup>
-            <col class="w-[12%]"> {{-- Nama --}}
-            <col class="w-[6%]"> {{-- badan usaha --}}
-            <col class="w-[10%]"> {{-- skill / area --}}
-            <col class="w-[8%]"> {{-- jenis kendaraan --}}
-            <col class="w-[8%]"> {{-- Muatan --}}
-            <col class="w-[10%]"> {{-- Harga --}}
-            <col class="w-[8%]"> {{-- Update_at --}}
-            <col class="w-[5%]"> {{-- Action --}}
+            <col style="width: 15%;"> {{-- Nama --}}
+            <col style="width: 10%;"> {{-- badan usaha --}}
+            <col style="width: 22%;"> {{-- skill / area --}}
+            <col style="width: 12%;"> {{-- jenis kendaraan --}}
+            <col style="width: 12%;"> {{-- Muatan --}}
+            <col style="width: 12%;"> {{-- Harga --}}
+            <col style="width: 10%;"> {{-- Update_at --}}
+            <col style="width: 7%;"> {{-- Action --}}
         </colgroup>
 
         <thead>
@@ -119,7 +127,7 @@ $error = $result['error'];
                 <x-sortable-th col="skill" label="Skill / Area Pengantaran" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort_armada" orderParam="order_armada" />
                 <x-sortable-th col="kendaraan" label="Jenis Kendaraan" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort_armada" orderParam="order_armada" />
                 <x-sortable-th col="muatan" label="Maksimal Muatan" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort_armada" orderParam="order_armada" />
-                <th class="px-3 py-3 text-left whitespace-nowrap">Harga Sewa</th>
+                <x-sortable-th col="harga" label="Harga Sewa" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort_armada" orderParam="order_armada" />
                 <x-sortable-th col="updated" label="Diperbarui" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort_armada" orderParam="order_armada" />
                 <th class="px-3 py-3 text-right">Action</th>
             </tr>
@@ -142,12 +150,19 @@ $error = $result['error'];
             @else
                 @foreach ($displayArmada as $a)
                 <tr
-                    class="cursor-pointer transition hover:bg-gray-50"
+                    class="cursor-pointer transition hover:bg-gray-50 armada-row"
                     @if($mode === 'pilih')
                         :class="armadaTerpilih?.id === {{ $a['id'] }} ? 'bg-avian-green-light' : 'hover:bg-gray-50'"
                         @click="armadaTerpilih = {{ json_encode($a) }}"
+                        x-show="'{{ strtolower($a['nama'] . ' ' . $a['badan_usaha'] . ' ' . $a['kendaraan'] . ' ' . $a['skill']) }}'.includes(searchArmada.toLowerCase())"
                     @else
                         @click="void 0"
+                    @endif
+                    @if($mode !== 'pilih')
+                        data-nama="{{ strtolower($a['nama']) }}"
+                        data-badan="{{ strtolower($a['badan_usaha']) }}"
+                        data-skill="{{ strtolower($a['skill']) }}"
+                        data-kendaraan="{{ strtolower($a['kendaraan']) }}"
                     @endif>
                     <td class="px-3 py-3 font-medium text-gray-800 whitespace-nowrap">{{ $a['nama'] }}</td>
                     <td class="px-3 py-3 text-gray-600 whitespace-nowrap">{{ $a['badan_usaha'] }}</td>

@@ -23,6 +23,14 @@
             yang akan di muat (bisa lebih dari 1)
         </label>
 
+        <input
+            type="text"
+            x-model="dokumenSearch"
+            @input="dokumenPage = 1"
+            placeholder="Cari nomor dokumen, tipe, skill, atau kategori..."
+            class="mb-3 w-full rounded-lg border border-gray-300 px-4 py-2 text-sm
+            focus:border-avian-green focus:outline-none">
+
         <div class="overflow-x-auto rounded-lg border border-gray-200">
             <table class="w-full text-sm">
                 <thead>
@@ -204,6 +212,29 @@
                 <span class="font-medium text-gray-800"
                     x-text="'Rp ' + Number(pengajuan.harga_sewa || 0).toLocaleString('id-ID')"></span>
             </div>
+            <div x-show="biayaTambahan.length === 0" class="flex items-center justify-between">
+                <span class="text-gray-600">Biaya Tambahan</span>
+                <span class="font-medium text-gray-800"
+                    x-text="'Rp ' + totalBiayaTambahan.toLocaleString('id-ID')"></span>
+            </div>
+            <div x-show="biayaTambahan.length > 0" class="space-y-1">
+                <div class="flex items-center justify-between">
+                    <span class="text-gray-600">Biaya Tambahan</span>
+                    <span class="font-medium text-gray-800"
+                        x-text="'Rp ' + totalBiayaTambahan.toLocaleString('id-ID')"></span>
+                </div>
+                <template x-for="b in biayaTambahan" :key="b.id_jenis_biaya">
+                    <div class="flex items-center justify-between pl-4 text-xs text-gray-500">
+                        <span x-text="jenisBiayaList.find(j => j.id_jenis_biaya == b.id_jenis_biaya)?.nama_biaya || '—'"></span>
+                        <span x-text="'Rp ' + Number(b.nominal || 0).toLocaleString('id-ID')"></span>
+                    </div>
+                </template>
+            </div>
+            <div class="flex items-center justify-between">
+                <span class="text-gray-600 font-medium">Total Biaya</span>
+                <span class="font-semibold text-gray-900"
+                    x-text="'Rp ' + totalDenganBiayaTambahan.toLocaleString('id-ID')"></span>
+            </div>
             <div class="flex items-center justify-between">
                 <span class="text-gray-600">Value Muatan (Total)</span>
                 <span class="font-medium text-gray-800"
@@ -212,25 +243,35 @@
                             const doc = dokumenList.find(d => d.id === docId);
                             return sum + (doc ? Number(doc.value) : 0);
                         }, 0).toLocaleString('id-ID')
-                        : '—'">
+                        : (editId && pengajuan.value_muatan
+                            ? 'Rp ' + Number(pengajuan.value_muatan).toLocaleString('id-ID') + ' (dari DB)'
+                            : '—')">
+                </span>
+            </div>
+            <div class="flex items-center justify-between">
+                <span class="text-gray-600">Jumlah Toko</span>
+                <span class="font-medium text-gray-800"
+                    x-text="jumlahTokoDipilih === null ? '-' : jumlahTokoDipilih + ' toko'">
                 </span>
             </div>
             <div class="border-t border-gray-200 pt-3 flex items-center justify-between">
-                <span class="text-gray-700 font-medium">Rasio Sewa</span>
+                <span class="text-gray-700 font-medium">Rasio Sewa (Total Biaya / Value Muatan)</span>
                 <span class="text-lg font-bold text-avian-green"
-                    x-text="dokumenDipilih.length > 0 && pengajuan.harga_sewa
-                        ? ((Number(pengajuan.harga_sewa) / dokumenDipilih.reduce((sum, docId) => {
+                    x-text="(dokumenDipilih.length > 0 && totalDenganBiayaTambahan
+                        ? ((totalDenganBiayaTambahan / dokumenDipilih.reduce((sum, docId) => {
                             const doc = dokumenList.find(d => d.id === docId);
                             return sum + (doc ? Number(doc.value) : 0);
                         }, 0)) * 100).toFixed(2) + '%'
-                        : '—'">
+                        : (editId && pengajuan.value_muatan && totalDenganBiayaTambahan
+                            ? ((totalDenganBiayaTambahan / Number(pengajuan.value_muatan)) * 100).toFixed(2) + '% (dari DB)'
+                            : '—'))">
                 </span>
             </div>
         </div>
         <div class="mt-3 pt-3 space-y-2">
             <div class="flex items-center justify-between">
                 <span class="text-xs text-gray-600">Skill / Area:</span>
-                <span class="text-xs font-medium text-gray-800" x-text="pengajuan.id_skill || '—'"></span>
+                <span class="text-xs font-medium text-gray-800" x-text="skillGabungan.join(', ') || '—'"></span>
             </div>
             <div class="flex items-center justify-between">
                 <span class="text-xs text-gray-600">Kategori Toko:</span>
@@ -239,17 +280,26 @@
         </div>
         <div class="mt-3 pt-3 border-t border-gray-200">
             <p class="text-xs text-gray-600">
-                <span class="font-medium">Kategori Rasio Sewa:</span>                <span x-show="!dokumenDipilih.length || !pengajuan.harga_sewa" class="text-gray-400">— (pilih dokumen dulu)</span>
-                <span x-show="dokumenDipilih.length > 0 && pengajuan.harga_sewa && ((Number(pengajuan.harga_sewa) / dokumenDipilih.reduce((sum, docId) => {
-                    const doc = dokumenList.find(d => d.id === docId);
-                    return sum + (doc ? Number(doc.value) : 0);
-                }, 0)) * 100) <= 2.5"
-                    class="text-blue-600 font-medium">Normal ✓</span>
-                <span x-show="dokumenDipilih.length > 0 && pengajuan.harga_sewa && ((Number(pengajuan.harga_sewa) / dokumenDipilih.reduce((sum, docId) => {
-                    const doc = dokumenList.find(d => d.id === docId);
-                    return sum + (doc ? Number(doc.value) : 0);
-                }, 0)) * 100) > 2.5"
-                    class="text-orange-600 font-medium">Over Threshold ⚠️</span>
+                <span class="font-medium">Kategori Rasio Sewa:</span>
+                <template x-if="editId && !dokumenDipilih.length && pengajuan.value_muatan">
+                    <span x-show="totalDenganBiayaTambahan && ((totalDenganBiayaTambahan / Number(pengajuan.value_muatan)) * 100) <= 2.5"
+                        class="text-blue-600 font-medium">Normal ✓ (dari DB)</span>
+                    <span x-show="totalDenganBiayaTambahan && ((totalDenganBiayaTambahan / Number(pengajuan.value_muatan)) * 100) > 2.5"
+                        class="text-orange-600 font-medium">Over Threshold ⚠️ (dari DB)</span>
+                </template>
+                <template x-if="!editId || dokumenDipilih.length">
+                    <span x-show="!dokumenDipilih.length || !totalDenganBiayaTambahan" class="text-gray-400">— (pilih dokumen dulu)</span>
+                    <span x-show="dokumenDipilih.length > 0 && totalDenganBiayaTambahan && ((totalDenganBiayaTambahan / dokumenDipilih.reduce((sum, docId) => {
+                        const doc = dokumenList.find(d => d.id === docId);
+                        return sum + (doc ? Number(doc.value) : 0);
+                    }, 0)) * 100) <= 2.5"
+                        class="text-blue-600 font-medium">Normal ✓</span>
+                    <span x-show="dokumenDipilih.length > 0 && totalDenganBiayaTambahan && ((totalDenganBiayaTambahan / dokumenDipilih.reduce((sum, docId) => {
+                        const doc = dokumenList.find(d => d.id === docId);
+                        return sum + (doc ? Number(doc.value) : 0);
+                    }, 0)) * 100) > 2.5"
+                        class="text-orange-600 font-medium">Over Threshold ⚠️</span>
+                </template>
             </p>
         </div>
     </div>
@@ -284,8 +334,9 @@
         <button
             type="button"
             @click="goToStep(4)"
-            :disabled="dokumenDipilih.length === 0 || beratMelebihi"
-            :class="dokumenDipilih.length > 0 && !beratMelebihi
+            :disabled="(dokumenDipilih.length === 0 && !(editId && pengajuan.value_muatan)) || beratMelebihi"
+            :title="tooltipStep3"
+            :class="((dokumenDipilih.length > 0 || (editId && pengajuan.value_muatan)) && !beratMelebihi)
                 ? 'bg-avian-green text-white hover:bg-avian-green-dark'
                 : 'bg-gray-100 text-gray-400 cursor-not-allowed'"
             class="rounded-lg px-4 py-2 text-sm font-medium transition">

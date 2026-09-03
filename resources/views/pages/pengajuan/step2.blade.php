@@ -15,6 +15,7 @@
             <span class="text-avian-green/70" x-text="armadaTerpilih?.update_at"></span>
         </div>
         <button type="button" @click="goToStep(1)"
+            x-show="!editId"
             class="ml-auto text-xs text-avian-green underline hover:no-underline">
             Ganti
         </button>
@@ -268,13 +269,13 @@
             <div>
                 <p class="text-xs text-gray-400">Biaya Tambahan</p>
                 <p class="font-semibold text-gray-800"
-                    x-text="'Rp ' + biayaTambahan.reduce((s, b) => s + (Number(b.nominal) || 0), 0).toLocaleString('id-ID')">
+                    x-text="'Rp ' + totalBiayaTambahan.toLocaleString('id-ID')">
                 </p>
             </div>
             <div>
                 <p class="text-xs text-gray-400">Total Biaya</p>
                 <p class="font-semibold text-gray-800"
-                    x-text="'Rp ' + (Number(pengajuan.harga_sewa || 0) + biayaTambahan.reduce((s, b) => s + (Number(b.nominal) || 0), 0)).toLocaleString('id-ID')">
+                    x-text="'Rp ' + totalDenganBiayaTambahan.toLocaleString('id-ID')">
                 </p>
             </div>
         </div>
@@ -297,8 +298,9 @@
         <button
             type="button"
             @click="goToStep(3)"
-            :disabled="!pengajuan.tanggal_pengiriman || !pengajuan.harga_sewa || !pengajuan.tujuan_penyewaan || (!skillLocked) || !pengajuan.kategoriToko"
-            :class="(pengajuan.tanggal_pengiriman && pengajuan.harga_sewa && pengajuan.tujuan_penyewaan && skillLocked && pengajuan.kategoriToko)
+            :disabled="!pengajuan.tanggal_pengiriman || !pengajuan.harga_sewa || !pengajuan.tujuan_penyewaan || !adaSkillTerpilih || !pengajuan.kategoriToko"
+            :title="tooltipStep2"
+            :class="(pengajuan.tanggal_pengiriman && pengajuan.harga_sewa && pengajuan.tujuan_penyewaan && adaSkillTerpilih && pengajuan.kategoriToko)
                 ? 'bg-avian-green text-white hover:bg-avian-green-dark'
                 : 'bg-gray-100 text-gray-400 cursor-not-allowed'"
             class="rounded-lg px-4 py-2 text-sm font-medium transition">

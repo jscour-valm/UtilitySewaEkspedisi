@@ -15,7 +15,7 @@
 
         {{-- Armada --}}
         <div class="rounded-lg border border-gray-200 p-4 bg-gray-50">
-            <p class="mb-3 text-xs font-medium text-gray-500 uppercase">Armada Dipilih</p>
+            <p class="mb-3 text-xs font-medium text-gray-500 uppercase">Ekspedisi Dipilih</p>
             <p class="mb-1 text-sm font-semibold text-gray-800" x-text="armadaTerpilih?.nama"></p>
             <p class="text-xs text-gray-600" x-text="armadaTerpilih?.kendaraan"></p>
             <p class="mt-2 text-xs text-gray-500">
@@ -29,7 +29,7 @@
             <p class="mb-3 text-xs font-medium text-gray-500 uppercase">Tanggal & Harga</p>
             <p class="text-xs text-gray-600 mb-1">
                 <span class="font-medium">Pengiriman:</span>
-                <span x-text="pengajuan.tanggal_pengiriman"></span>
+                <span x-text="formatTanggalID(pengajuan.tanggal_pengiriman)"></span>
             </p>
             <p class="text-xs text-gray-600 mb-1">
                 <span class="font-medium">Harga Sewa:</span>
@@ -53,17 +53,21 @@
             </p>
             <p class="text-xs text-gray-600 mb-1">
                 <span class="font-medium">Skill / Area:</span>
-                <span x-text="pengajuan.id_skill"></span>
+                <span x-text="skillGabungan.join(', ') || '—'"></span>
             </p>
-            <p class="text-xs text-gray-600">
+            <p class="text-xs text-gray-600 mb-1">
                 <span class="font-medium">Kategori Toko:</span>
                 <span x-text="pengajuan.kategoriToko"></span>
+            </p>
+            <p class="text-xs text-gray-600">
+                <span class="font-medium">Jumlah Toko:</span>
+                <span x-text="jumlahTokoDipilih === null ? '-' : jumlahTokoDipilih + ' toko'"></span>
             </p>
         </div>
 
         {{-- Total Biaya --}}
         <div class="rounded-lg border border-gray-200 p-4 bg-gray-50">
-            <p class="mb-3 text-xs font-medium text-gray-500 uppercase">Total Biaya</p>
+            <p class="mb-3 text-xs font-medium text-gray-500 uppercase">Rincian Biaya</p>
             <p class="text-sm font-bold text-avian-green"
                 x-text="'Rp ' + (Number(pengajuan.harga_sewa || 0) + biayaTambahan.reduce((s, b) => s + (Number(b.nominal) || 0), 0)).toLocaleString('id-ID')">
             </p>
@@ -218,7 +222,6 @@
             </div>
             <p class="mt-2 text-xs text-avian-green/70">
                 Threshold standar rasio sewa adalah <span class="font-semibold">2.5%</span>.
-                Tujuan PAC selalu masuk kategori over threshold terlepas dari nilai rasio.
             </p>
         </div>
     </div>

@@ -28,11 +28,12 @@ class RasioSewa extends Model
     {
         return static::where('flag', true)
             ->where(function ($q) {
-                $q->whereNull('effective_date')->orWhere('effective_date', '<=', now())
-                  ->where(function ($q2) {
-                      $q2->whereNull('end_date')->orWhere('end_date', '>=', now());
-                  });
+                $q->whereNull('effective_date')->orWhere('effective_date', '<=', now());
             })
+            ->where(function ($q) {
+                $q->whereNull('end_date')->orWhere('end_date', '>=', now());
+            })
+            ->orderByDesc('effective_date')
             ->first();
     }
 }

@@ -56,6 +56,19 @@ class User extends Authenticatable
         return $userCabang?->cabang_code;
     }
 
+    public function getCabangIds(): array
+    {
+        // Untuk role multi-cabang (WM = area-based, punya banyak cabang dalam 1 area)
+        // Query SEMUA cabang_code yang di-assign ke user ini
+        $userCabangs = \DB::connection('sqlsrv')->table('sesi_user_cabang')
+            ->where('username', $this->username)
+            ->where('flag', true)
+            ->pluck('cabang_code')
+            ->toArray();
+
+        return array_values($userCabangs); // Re-index numerik, bukan string keys
+    }
+
     public function getRoleLabel(): string
     {
         $role = $this->userUtility?->role;
@@ -91,6 +104,27 @@ class User extends Authenticatable
             ->exists();
 
         return $userCabang;
+    }
+
+    public function getArea(): ?string
+    {
+        return \DB::connection('sqlsrv')->table('sesi_user_cabang')
+            ->where('username', $this->username)
+            ->where('flag', true)
+            ->whereNotNull('area')
+            ->value('area');
+    }
+
+    public function getCabangDetails(): array
+    {
+        // [code => name] untuk semua cabang yang di-assign ke user ini
+        $codes = $this->getCabangIds();
+        if (empty($codes)) return [];
+
+        return \DB::connection('sqlsrv')->table('sesi_master_cabang')
+            ->whereIn('Code', $codes)
+            ->pluck('Name', 'Code')
+            ->toArray();
     }
 }
 

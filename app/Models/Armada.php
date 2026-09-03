@@ -9,8 +9,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Armada extends Model
 {
     protected $connection = 'sqlsrv';
-    protected $table = 'sesi_armada';
-    protected $primaryKey = 'id_armada';
+    protected $table = 'sesi_unit_kendaraan';
+    protected $primaryKey = 'id_kendaraan';
     public $timestamps = false;
 
     protected $fillable = [
@@ -19,8 +19,8 @@ class Armada extends Model
         'ktp_supir',
         'sim_supir',
         'id_skill',
-        'nama_kendaraan',
-        'plat_nomor',
+        'jenis_kendaraan',
+        'plat_nomor_truk',
         'muatan_maksimal',
         'flag',
     ];
@@ -39,6 +39,6 @@ class Armada extends Model
 
     public function pengajuan(): HasMany
     {
-        return $this->hasMany(PengajuanSewa::class, 'id_armada', 'id_armada');
+        return $this->hasMany(PengajuanSewa::class, 'id_kendaraan', 'id_kendaraan');
     }
 }

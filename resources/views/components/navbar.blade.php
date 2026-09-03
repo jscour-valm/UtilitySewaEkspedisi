@@ -1,7 +1,26 @@
-{{-- Page Title --}}
-<h1 class="text-xl font-semibold text-gray-900">
-    @yield('title')
-</h1>
+{{-- Left: Breadcrumb or Title --}}
+<div class="flex items-center gap-3">
+    @if(isset($breadcrumb))
+        {{-- Breadcrumb Navigation --}}
+        <a href="{{ $breadcrumb['back_url'] }}" class="flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+            <span class="text-sm font-medium text-gray-700">{{ $breadcrumb['back_label'] }}</span>
+        </a>
+
+        <span class="text-gray-300">/</span>
+
+        <h1 class="text-lg font-semibold text-gray-900">
+            {{ $breadcrumb['title'] }}
+        </h1>
+    @else
+        {{-- Regular Title --}}
+        <h1 class="text-xl font-semibold text-gray-900">
+            @yield('title')
+        </h1>
+    @endif
+</div>
 
 {{-- Right Side --}}
 <div class="flex items-center gap-4">
@@ -56,17 +75,46 @@
                     <p class="text-xs text-gray-500 mt-0.5">{{ auth()->user()->getRoleLabel() }}</p>
                 </div>
                 @php
-                    $cabangCode = session('cabang_code');
-                    $cabangName = session('cabang_name');
+                    $userRole = auth()->user()->userUtility?->role;
+                    $isWM = $userRole === 'WM';
                 @endphp
                 <div class="pt-1 border-t border-gray-100">
-                    <p class="text-xs text-gray-600">
-                        <span class="font-medium text-gray-700">{{ $cabangCode ?? '-' }}</span>
-                        @if($cabangName)
-                            <span class="text-gray-400">—</span>
-                            <span class="text-gray-600">{{ $cabangName }}</span>
+                    @if($isWM)
+                        {{-- WM: Tampilkan Area + Daftar Cabang --}}
+                        @php
+                            $area = auth()->user()->getArea();
+                            $cabangDetails = auth()->user()->getCabangDetails();
+                        @endphp
+                        @if($area)
+                            <p class="text-xs font-medium text-gray-700 mb-2">Area: {{ $area }}</p>
                         @endif
-                    </p>
+                        @if(!empty($cabangDetails))
+                            <div class="space-y-1">
+                                @foreach($cabangDetails as $code => $name)
+                                    <p class="text-xs text-gray-600">
+                                        <span class="font-medium text-gray-700">{{ $code }}</span>
+                                        <span class="text-gray-400">—</span>
+                                        <span class="text-gray-600">{{ $name }}</span>
+                                    </p>
+                                @endforeach
+                            </div>
+                        @else
+                            <p class="text-xs text-gray-600">-</p>
+                        @endif
+                    @else
+                        {{-- Role lain: Single cabang dari session --}}
+                        @php
+                            $cabangCode = session('cabang_code');
+                            $cabangName = session('cabang_name');
+                        @endphp
+                        <p class="text-xs text-gray-600">
+                            <span class="font-medium text-gray-700">{{ $cabangCode ?? '-' }}</span>
+                            @if($cabangName)
+                                <span class="text-gray-400">—</span>
+                                <span class="text-gray-600">{{ $cabangName }}</span>
+                            @endif
+                        </p>
+                    @endif
                 </div>
             </div>
 

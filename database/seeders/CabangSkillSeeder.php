@@ -23,11 +23,11 @@ class CabangSkillSeeder extends Seeder
 
         $this->command->info('Valid cabang ditemukan: ' . count($validCabang));
 
-        // Ambil semua master skill sebagai lookup nama_skill → id_master_skill
+        // Ambil semua master skill sebagai lookup id_skill (sekarang PK-nya id_skill, jadi pluck cuma id_skill)
         $masterSkill = DB::connection('sqlsrv')
             ->table('sesi_master_skill')
             ->where('flag', true)
-            ->pluck('id_master_skill', 'nama_skill')
+            ->pluck('id_skill', 'id_skill')
             ->toArray();
 
         $this->command->info('Master skill ditemukan: ' . count($masterSkill));

@@ -16,6 +16,13 @@ class ArmadaController extends Controller
     public function show($id)
     {
         $armada = Armada::with('perusahaan')->findOrFail($id);
-        return view('pages.armada.detail', compact('armada'));
+
+        // Get harga sewa terakhir dari pengajuan yang sudah approved
+        $hargaSewaTerakhir = $armada->pengajuan()
+            ->where('status_pengajuan', 'approved')
+            ->orderByDesc('submitted_at')
+            ->value('harga_sewa');
+
+        return view('pages.armada.detail', compact('armada', 'hargaSewaTerakhir'));
     }
 }

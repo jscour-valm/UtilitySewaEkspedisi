@@ -46,7 +46,7 @@ class MasterSkillSeeder extends Seeder
                         }
                         $seen[$skill] = true;
                         $inserts[] = [
-                            'nama_skill' => $skill,
+                            'id_skill'   => $skill,
                             'flag'       => true,
                             'created_at' => now(),
                             'updated_at' => now(),

@@ -17,10 +17,12 @@ class PerusahaanEkspedisi extends Model
         'badan_usaha',
         'no_telepon',
         'alamat_kantor',
+        'identitas_owner',
         'flag',
     ];
 
     protected $casts = [
+        'identitas_owner' => 'array',
         'flag' => 'boolean',
     ];
 

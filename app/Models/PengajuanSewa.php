@@ -14,7 +14,7 @@ class PengajuanSewa extends Model
     public $timestamps = true;
 
     protected $fillable = [
-        'id_armada',
+        'id_kendaraan',
         'id_cabang',
         'tanggal_pengiriman',
         'value_muatan',
@@ -22,7 +22,7 @@ class PengajuanSewa extends Model
         'rasio_sewa',
         'kategori_approval',
         'tujuan_penyewaan',
-        'jenis_pengiriman',
+        'jenis_pengajuan',
         'id_skill',
         'status_pengajuan',
         'current_approval_rule_id',
@@ -44,10 +44,15 @@ class PengajuanSewa extends Model
 
     public function armada(): BelongsTo
     {
-        return $this->belongsTo(Armada::class, 'id_armada', 'id_armada');
+        return $this->belongsTo(Armada::class, 'id_kendaraan', 'id_kendaraan');
     }
 
     public function pengaju(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'submitted_by', 'id');
+    }
+
+    public function submittedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'submitted_by', 'id');
     }

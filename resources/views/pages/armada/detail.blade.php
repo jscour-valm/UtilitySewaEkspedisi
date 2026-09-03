@@ -23,7 +23,7 @@
                         </svg>
                     </div>
                     <div>
-                        <h1 class="text-base font-semibold text-gray-900">{{ $armada->nama_kendaraan }}</h1>
+                        <h1 class="text-base font-semibold text-gray-900">{{ $armada->jenis_kendaraan }}</h1>
                         <p class="text-xs text-gray-400 mt-0.5">{{ $armada->perusahaan?->nama_perusahaan }} &middot; Diperbarui {{ $armada->updated_at?->translatedFormat('d M Y') }}</p>
                     </div>
                 </div>
@@ -48,11 +48,11 @@
                 <div class="space-y-3">
                     <div class="flex justify-between items-center py-2 border-b border-gray-50">
                         <span class="text-sm text-gray-500">Nama Kendaraan</span>
-                        <span class="text-sm font-medium text-gray-800">{{ $armada->nama_kendaraan }}</span>
+                        <span class="text-sm font-medium text-gray-800">{{ $armada->jenis_kendaraan }}</span>
                     </div>
                     <div class="flex justify-between items-center py-2 border-b border-gray-50">
                         <span class="text-sm text-gray-500">Plat Nomor</span>
-                        <span class="text-sm font-mono font-medium text-gray-800">{{ $armada->plat_nomor }}</span>
+                        <span class="text-sm font-mono font-medium text-gray-800">{{ $armada->plat_nomor_truk }}</span>
                     </div>
                     <div class="flex justify-between items-center py-2 border-b border-gray-50">
                         <span class="text-sm text-gray-500">Kapasitas Muatan</span>
@@ -146,7 +146,7 @@
 
 {{-- Floating Action Button --}}
 <div class="fixed bottom-6 right-6">
-    <a href="{{ route('pengajuan.kg', ['id' => $armada->id_armada, 'nama' => $armada->perusahaan->nama_perusahaan ?? $armada->nama_kendaraan, 'kendaraan' => $armada->nama_kendaraan, 'muatan' => \App\Helpers\FormatHelper::ton($armada->muatan_maksimal), 'muatan_raw' => $armada->muatan_maksimal, 'harga' => 'Rp 0', 'skill' => $armada->id_skill]) }}"
+    <a href="{{ route('pengajuan.kg', ['id' => $armada->id_kendaraan, 'nama' => $armada->perusahaan->nama_perusahaan ?? $armada->jenis_kendaraan, 'kendaraan' => $armada->jenis_kendaraan, 'muatan' => \App\Helpers\FormatHelper::ton($armada->muatan_maksimal), 'muatan_raw' => $armada->muatan_maksimal, 'harga' => $hargaSewaTerakhir ? 'Rp ' . number_format($hargaSewaTerakhir, 0, ',', '.') : 'Rp 0', 'skill' => $armada->id_skill]) }}"
         class="group relative flex h-14 w-14 items-center justify-center rounded-full bg-avian-green text-white shadow-lg hover:shadow-xl transition-all hover:scale-105"
         title="Buat Pengajuan Sewa">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
