@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasFlag;
 use Illuminate\Database\Eloquent\Model;
 
 class RasioSewa extends Model
 {
+    use HasFlag;
+
     protected $connection = 'sqlsrv';
     protected $table = 'sesi_rasio_sewa';
     protected $primaryKey = 'id_rasio_sewa';

@@ -2,12 +2,16 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasFlag;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
 class PengajuanSewa extends Model
 {
+    use HasFlag;
+
     protected $connection = 'sqlsrv';
     protected $table = 'sesi_pengajuan_sewa';
     protected $primaryKey = 'id_pengajuan_sewa';
@@ -15,6 +19,7 @@ class PengajuanSewa extends Model
 
     protected $fillable = [
         'id_kendaraan',
+        'id_perusahaan_ekspedisi',
         'id_cabang',
         'tanggal_pengiriman',
         'value_muatan',
@@ -42,9 +47,9 @@ class PengajuanSewa extends Model
         'submitted_at' => 'datetime',
     ];
 
-    public function armada(): BelongsTo
+    public function kendaraan(): BelongsTo
     {
-        return $this->belongsTo(Armada::class, 'id_kendaraan', 'id_kendaraan');
+        return $this->belongsTo(Kendaraan::class, 'id_kendaraan', 'id_kendaraan');
     }
 
     public function pengaju(): BelongsTo
@@ -65,6 +70,40 @@ class PengajuanSewa extends Model
     public function approvalLogs(): HasMany
     {
         return $this->hasMany(ApprovalLog::class, 'id_pengajuan_sewa', 'id_pengajuan_sewa');
+    }
+
+    /**
+     * Relasi ke Surat Jalan (junction table)
+     * Reference-Only: id_surat_jalan adalah reference ke Quantum (bukan FK)
+     */
+    public function suratJalans(): HasMany
+    {
+        return $this->hasMany(PengajuanSewaSuratJalan::class, 'id_pengajuan_sewa', 'id_pengajuan_sewa');
+    }
+
+    /**
+     * Relasi ke Transfer Antar Cabang (junction table)
+     * Reference-Only: id_to_acb adalah reference ke ERP (bukan FK)
+     */
+    public function transferAntarCabang(): HasMany
+    {
+        return $this->hasMany(PengajuanSewaToAcb::class, 'id_pengajuan_sewa', 'id_pengajuan_sewa');
+    }
+
+    /**
+     * Relasi ke Vendor (Perusahaan Ekspedisi) untuk Kiriman Rutin
+     */
+    public function perusahaanEkspedisi(): BelongsTo
+    {
+        return $this->belongsTo(PerusahaanEkspedisi::class, 'id_perusahaan_ekspedisi', 'id_perusahaan');
+    }
+
+    /**
+     * Relasi ke Detail Kiriman Rutin (line items)
+     */
+    public function detailKirimanRutin(): HasMany
+    {
+        return $this->hasMany(DetailKirimanRutin::class, 'id_pengajuan_sewa', 'id_pengajuan_sewa');
     }
 
     public function hitungRasio()

@@ -2,11 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasFlag;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class JenisBiaya extends Model
 {
+    use HasFlag;
+
     protected $connection = 'sqlsrv';
     protected $table = 'sesi_jenis_biaya';
     protected $primaryKey = 'id_jenis_biaya';

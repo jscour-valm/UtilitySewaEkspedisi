@@ -11,7 +11,9 @@ class MasterSkillSeeder extends Seeder
     {
         $this->command->info('Seeding sesi_master_skill dari Q_CustomerLocusAtribute.skills...');
 
-        DB::connection('sqlsrv')->table('sesi_master_skill')->truncate();
+        // delete() bukan truncate() — TRUNCATE ditolak SQL Server selama ada FK
+        // constraint dari sesi_cabang_skill ke tabel ini, walau child-nya kosong.
+        DB::connection('sqlsrv')->table('sesi_master_skill')->delete();
 
         $seen  = [];
         $total = 0;
@@ -41,12 +43,13 @@ class MasterSkillSeeder extends Seeder
 
                     foreach ($tokens as $token) {
                         $skill = strtoupper(trim(preg_replace('/\s+/', ' ', $token)));
+                        $skill = preg_replace('/^[^A-Z0-9]+|[^A-Z0-9]+$/', '', $skill); // strip karakter kotor (mis. "?") di awal/akhir — bug ?ACBAR dari source korup
                         if ($skill === '' || isset($seen[$skill])) {
                             continue;
                         }
                         $seen[$skill] = true;
                         $inserts[] = [
-                            'id_skill'   => $skill,
+                            'nama_skill' => $skill,
                             'flag'       => true,
                             'created_at' => now(),
                             'updated_at' => now(),

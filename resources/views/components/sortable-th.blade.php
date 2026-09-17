@@ -15,7 +15,7 @@ $icon = $isActive ? ($sortOrder === 'asc' ? '↑' : '↓') : '⇅';
 $iconClass = $isActive ? 'text-gray-900 font-bold' : 'text-gray-400 group-hover:text-gray-600';
 @endphp
 
-<th class="px-3 py-3 text-{{ $align }} whitespace-nowrap">
+<th class="overflow-hidden text-ellipsis px-3 py-3 text-{{ $align }} whitespace-nowrap">
     <a href="{{ $sortUrl }}" class="group inline-flex items-center gap-1.5 select-none hover:text-gray-700 transition">
         <span>{{ $label }}</span>
         <span class="text-sm leading-none {{ $iconClass }}">{{ $icon }}</span>

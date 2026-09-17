@@ -16,7 +16,13 @@
         x-init="$watch('sidebarOpen', val => localStorage.setItem('sidebarOpen', val))">
         <div class="flex h-screen overflow-hidden">
             @include('components.sidebar')
-            <div class="flex flex-1 flex-col">
+            {{-- min-w-0: tanpa ini, flex item defaultnya nggak mau menyusut di bawah
+                 lebar konten aslinya (min-width:auto bawaan flexbox) — akibatnya
+                 halaman dengan tabel lebar (mis. Kelola Tarif) bikin SELURUH layout
+                 ikut melebar, lalu overflow-nya kepotong diam-diam sama
+                 overflow-hidden di div terluar, bukan discroll sama overflow-x-auto
+                 yang dipasang di tabelnya sendiri. --}}
+            <div class="flex flex-1 flex-col min-w-0">
                 <header class="bg-white border-b border-gray-200">
                     {{-- Status-aware strip (shows only on pengajuan detail pages with status) --}}
                     @if(isset($breadcrumb['status']))

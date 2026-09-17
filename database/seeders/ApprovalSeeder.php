@@ -14,16 +14,22 @@ class ApprovalSeeder extends Seeder
 
         $inserts = [];
 
-        // 1. WM Rows — 1 per cabang
-        $wmMappings = DB::connection('sqlsrv')->table('sesi_user_cabang as uc')
-            ->join('lntrn_users as u', 'u.username', '=', 'uc.username')
-            ->where('uc.role', 'WM')
-            ->whereNotNull('uc.cabang_code')
-            ->where('uc.flag', true)
-            ->select('uc.cabang_code', 'u.id', 'u.username')
-            ->distinct()
-            ->orderBy('uc.cabang_code')
-            ->get();
+        try {
+            // 1. WM Rows — 1 per cabang
+            $wmMappings = DB::connection('sqlsrv')->table('sesi_user_cabang as uc')
+                ->join('lntrn_users as u', 'u.username', '=', 'uc.username')
+                ->where('uc.role', 'WM')
+                ->whereNotNull('uc.cabang_code')
+                ->where('uc.flag', true)
+                ->select('uc.cabang_code', 'u.id', 'u.username')
+                ->distinct()
+                ->orderBy('uc.cabang_code')
+                ->get();
+        } catch (\Exception $e) {
+            $this->command->warn("⚠ lntrn_users tidak ditemukan (external table dari IT system)");
+            $this->command->info("ℹ Approval rules harus di-seed manual di production dengan user data yang valid");
+            return;
+        }
 
         $wmCabangs = [];
         foreach ($wmMappings as $map) {

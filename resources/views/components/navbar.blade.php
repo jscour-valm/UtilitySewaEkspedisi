@@ -71,7 +71,7 @@
             {{-- Info user --}}
             <div class="px-4 py-3 border-b border-gray-100 space-y-2">
                 <div>
-                    <p class="text-sm font-medium text-gray-900">{{ auth()->user()->name ?? '-' }}</p>
+                    <p class="text-sm font-medium text-gray-900">{{ auth()->user()->name ?? 'Guest' }}</p>
                     <p class="text-xs text-gray-500 mt-0.5">{{ auth()->user()->getRoleLabel() }}</p>
                 </div>
                 @php
@@ -99,7 +99,7 @@
                                 @endforeach
                             </div>
                         @else
-                            <p class="text-xs text-gray-600">-</p>
+                            <p class="text-xs text-gray-600">{{ $cabangCode ?? 'Tidak Memiliki Cabang' }}</p>
                         @endif
                     @else
                         {{-- Role lain: Single cabang dari session --}}
@@ -108,7 +108,7 @@
                             $cabangName = session('cabang_name');
                         @endphp
                         <p class="text-xs text-gray-600">
-                            <span class="font-medium text-gray-700">{{ $cabangCode ?? '-' }}</span>
+                            <span class="font-medium text-gray-700">{{ $cabangCode ?? 'Tidak Memiliki Cabang' }}</span>
                             @if($cabangName)
                                 <span class="text-gray-400">—</span>
                                 <span class="text-gray-600">{{ $cabangName }}</span>

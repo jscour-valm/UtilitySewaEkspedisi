@@ -8,6 +8,18 @@
 
 [x-cloak] { display: none !important; }
 
+/* UI chrome (judul, label, header tabel, tombol) gak bisa di-select kayak teks biasa -
+   data di dalam tabel/cell & form input tetap bisa di-select/copy seperti biasa. */
+body {
+    user-select: none;
+}
+td, input, textarea, select, [contenteditable] {
+    user-select: text;
+}
+button, a, summary {
+    user-select: none;
+}
+
 input[type='date']::-webkit-calendar-picker-indicator {
     width: 1rem;
     height: 1rem;

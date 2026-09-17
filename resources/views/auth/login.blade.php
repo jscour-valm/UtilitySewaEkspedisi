@@ -12,7 +12,7 @@
 
                 <div class="text-center mb-6">
                     <h1 class="text-lg font-semibold text-gray-900">Utility Sewa Ekspedisi</h1>
-                    <p class="text-sm text-gray-500">Sistem Monitoring dan Approval Sewa Armada Ekspedisi</p>
+                    <p class="text-sm text-gray-500">Sistem Monitoring dan Approval Sewa Kendaraan Ekspedisi</p>
                 </div>
 
                 @if ($errors->any())

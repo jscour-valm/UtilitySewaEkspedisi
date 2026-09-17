@@ -17,8 +17,8 @@ class WmDashboardController extends Controller
 
         // Fetch all pengajuan untuk semua cabang WM (status = pending, approved, rejected)
         $query = PengajuanSewa::with([
-            'armada',
-            'armada.perusahaan',
+            'kendaraan',
+            'kendaraan.perusahaan',
             'submittedBy',
         ]);
 
@@ -42,7 +42,7 @@ class WmDashboardController extends Controller
             'id' => $p->id_pengajuan_sewa,
             'kagud' => $p->submittedBy?->name ?? 'Unknown',
             'cabang' => $p->id_cabang,
-            'perusahaan' => $p->armada->perusahaan->nama_perusahaan ?? '-',
+            'perusahaan' => $p->kendaraan->perusahaan->nama_perusahaan ?? '-',
             'tanggal' => $p->tanggal_pengiriman->format('d M Y'),
             'harga_sewa' => number_format($p->harga_sewa, 0, ',', '.'),
             'rasio' => number_format($p->rasio_sewa, 2, ',', '.'),

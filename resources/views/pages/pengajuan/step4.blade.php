@@ -13,14 +13,14 @@
     {{-- Summary Cards --}}
     <div class="grid grid-cols-2 gap-4">
 
-        {{-- Armada --}}
+        {{-- Kendaraan --}}
         <div class="rounded-lg border border-gray-200 p-4 bg-gray-50">
             <p class="mb-3 text-xs font-medium text-gray-500 uppercase">Ekspedisi Dipilih</p>
-            <p class="mb-1 text-sm font-semibold text-gray-800" x-text="armadaTerpilih?.nama"></p>
-            <p class="text-xs text-gray-600" x-text="armadaTerpilih?.kendaraan"></p>
+            <p class="mb-1 text-sm font-semibold text-gray-800" x-text="kendaraanTerpilih?.nama"></p>
+            <p class="text-xs text-gray-600" x-text="kendaraanTerpilih?.kendaraan"></p>
             <p class="mt-2 text-xs text-gray-500">
                 <span class="font-medium">Muatan Max:</span>
-                <span x-text="armadaTerpilih?.muatan"></span>
+                <span x-text="kendaraanTerpilih?.muatan"></span>
             </p>
         </div>
 
@@ -37,10 +37,7 @@
             </p>
             <p class="text-xs text-gray-600">
                 <span class="font-medium">Value Muatan:</span>
-                <span x-text="'Rp ' + dokumenDipilih.reduce((sum, docId) => {
-                    const doc = dokumenList.find(d => d.id === docId);
-                    return sum + (doc ? Number(doc.value) : 0);
-                }, 0).toLocaleString('id-ID')"></span>
+                <span x-text="'Rp ' + valueMuatanDipilih.toLocaleString('id-ID')"></span>
             </p>
         </div>
 
@@ -53,7 +50,7 @@
             </p>
             <p class="text-xs text-gray-600 mb-1">
                 <span class="font-medium">Skill / Area:</span>
-                <span x-text="skillGabungan.join(', ') || '—'"></span>
+                <span x-text="skillGabunganLabel.join(', ') || '—'"></span>
             </p>
             <p class="text-xs text-gray-600 mb-1">
                 <span class="font-medium">Kategori Toko:</span>
@@ -86,76 +83,82 @@
         <div class="rounded-lg border border-gray-200 p-4 bg-gray-50 col-span-2">
             <p class="mb-3 text-xs font-medium text-gray-500 uppercase">
                 Dokumen Terpilih
-                (<span x-text="dokumenDipilih.length"></span> dokumen)
+                (<span x-text="dokumenDipilihResolved.length"></span> dokumen)
             </p>
-            <p x-show="dokumenDipilih.length === 0" class="text-xs text-gray-400">Tidak ada dokumen</p>
-            <div x-show="dokumenDipilih.length > 0" class="divide-y divide-gray-100">
-                <template x-for="docId in dokumenDipilih" :key="docId">
-                    <template x-if="dokumenList.find(d => d.id === docId)">
-                        <div class="flex items-center justify-between py-1.5">
-                            <div class="flex items-center gap-2">
-                                <span
-                                    :class="dokumenList.find(d => d.id === docId).tipe === 'SJ' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'"
-                                    class="inline-block px-1.5 py-0.5 rounded text-xs font-medium"
-                                    x-text="dokumenList.find(d => d.id === docId).tipe">
-                                </span>
-                                <span class="text-xs font-medium text-gray-700"
-                                    x-text="dokumenList.find(d => d.id === docId).nomor_dokumen">
-                                </span>
-                            </div>
-                            <span class="text-xs text-gray-600"
-                                x-text="'Rp ' + Number(dokumenList.find(d => d.id === docId).value).toLocaleString('id-ID')">
+            <p x-show="dokumenDipilihResolved.length === 0" class="text-xs text-gray-400">Tidak ada dokumen</p>
+            <div x-show="dokumenDipilihResolved.length > 0" class="divide-y divide-gray-100">
+                <template x-for="doc in (ringkasanDokumenExpanded ? dokumenDipilihResolved : dokumenDipilihResolved.slice(0, 5))" :key="doc.id">
+                    <div class="flex items-center justify-between py-1.5">
+                        <div class="flex items-center gap-2">
+                            <span
+                                :class="doc.tipe === 'SJ' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'"
+                                class="inline-block px-1.5 py-0.5 rounded text-xs font-medium"
+                                x-text="doc.tipe">
                             </span>
+                            <span class="text-xs font-medium text-gray-700" x-text="doc.nomor_dokumen"></span>
                         </div>
-                    </template>
+                        <span class="text-xs text-gray-600" x-text="'Rp ' + Number(doc.value).toLocaleString('id-ID')"></span>
+                    </div>
                 </template>
+                <button type="button" x-show="dokumenDipilihResolved.length > 5"
+                    @click="ringkasanDokumenExpanded = !ringkasanDokumenExpanded"
+                    class="pt-1.5 text-xs font-medium text-avian-green hover:underline"
+                    x-text="ringkasanDokumenExpanded ? 'Tampilkan lebih sedikit' : 'Lihat semua (' + dokumenDipilihResolved.length + ')'">
+                </button>
                 <div class="flex justify-between pt-2 mt-1">
                     <span class="text-xs font-semibold text-gray-700">Total Value Muatan</span>
-                    <span class="text-xs font-semibold text-avian-green"
-                        x-text="'Rp ' + dokumenDipilih.reduce((sum, docId) => {
-                            const doc = dokumenList.find(d => d.id === docId);
-                            return sum + (doc ? Number(doc.value) : 0);
-                        }, 0).toLocaleString('id-ID')">
-                    </span>
+                    <span class="text-xs font-semibold text-avian-green" x-text="'Rp ' + valueMuatanDipilih.toLocaleString('id-ID')"></span>
                 </div>
             </div>
         </div>
 
     </div>
 
-    {{-- Progress Bar Kapasitas Muatan --}}
-    <div class="rounded-lg border border-gray-200 bg-gray-50 px-4 py-4">
-        <p class="mb-3 text-xs font-medium uppercase tracking-wide text-gray-500">Perbandingan Muatan</p>
-        <div class="space-y-3">
-            {{-- Progress Bar --}}
-            <div>
-                <div class="h-2 w-full rounded-full bg-gray-200 overflow-hidden">
-                    <div
-                        class="h-full rounded-full transition-all duration-300"
-                        :class="beratMelebihi ? 'bg-red-500' : 'bg-avian-green'"
-                        :style="{ width: persentaseMuatan + '%' }">
+    {{-- Progress Bar Kapasitas & Rasio Sewa (2 kolom biar padat) --}}
+    <div class="grid grid-cols-2 gap-4 items-start">
+        {{-- Progress Bar Kapasitas Muatan --}}
+        <div class="rounded-lg border border-gray-200 bg-gray-50 px-4 py-4 h-full">
+            <p class="mb-3 text-xs font-medium uppercase tracking-wide text-gray-500">Perbandingan Muatan</p>
+            <div class="space-y-3">
+                {{-- Progress Bar --}}
+                <div>
+                    <div class="h-2 w-full rounded-full bg-gray-200 overflow-hidden">
+                        <div
+                            class="h-full rounded-full transition-all duration-300"
+                            :class="beratMelebihi ? 'bg-red-500' : 'bg-avian-green'"
+                            :style="{ width: persentaseMuatan + '%' }">
+                        </div>
+                    </div>
+                </div>
+                {{-- Info Text --}}
+                <div class="flex items-center justify-between text-xs">
+                    <div class="space-y-1">
+                        <p class="text-gray-600">
+                            <span class="font-medium text-gray-700" x-text="totalBeratDipilih.toLocaleString('id-ID')"></span>
+                            <span class="text-gray-500"> / </span>
+                            <span class="font-medium text-gray-700" x-text="muatanMaksimalKg ? muatanMaksimalKg.toLocaleString('id-ID') : '—'"></span>
+                            <span class="text-gray-500"> kg</span>
+                        </p>
+                        <p :class="beratMelebihi ? 'text-red-600 font-medium' : 'text-gray-600'"
+                            x-text="beratMelebihi
+                                ? 'Melebihi kapasitas'
+                                : 'Kapasitas ' + Math.round(persentaseMuatan) + '%'">
+                        </p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-xl font-bold" :class="beratMelebihi ? 'text-red-600' : 'text-avian-green'" x-text="Math.round(persentaseMuatan) + '%'"></p>
                     </div>
                 </div>
             </div>
-            {{-- Info Text --}}
-            <div class="flex items-center justify-between text-xs">
-                <div class="space-y-1">
-                    <p class="text-gray-600">
-                        <span class="font-medium text-gray-700" x-text="totalBeratDipilih.toLocaleString('id-ID')"></span>
-                        <span class="text-gray-500"> / </span>
-                        <span class="font-medium text-gray-700" x-text="muatanMaksimalKg ? muatanMaksimalKg.toLocaleString('id-ID') : '—'"></span>
-                        <span class="text-gray-500"> kg</span>
-                    </p>
-                    <p :class="beratMelebihi ? 'text-red-600 font-medium' : 'text-gray-600'"
-                        x-text="beratMelebihi
-                            ? 'Melebihi kapasitas'
-                            : 'Kapasitas ' + Math.round(persentaseMuatan) + '%'">
-                    </p>
-                </div>
-                <div class="text-right">
-                    <p class="text-xl font-bold" :class="beratMelebihi ? 'text-red-600' : 'text-avian-green'" x-text="Math.round(persentaseMuatan) + '%'"></p>
-                </div>
-            </div>
+        </div>
+
+        {{-- Catatan (jika ada) --}}
+        <div x-show="pengajuan.catatan" class="rounded-lg border border-gray-200 p-4 bg-gray-50 h-full">
+            <p class="mb-2 text-xs font-medium text-gray-600">Catatan</p>
+            <p class="text-sm text-gray-700" x-text="pengajuan.catatan"></p>
+        </div>
+        <div x-show="!pengajuan.catatan" class="rounded-lg border border-dashed border-gray-200 p-4 h-full flex items-center justify-center">
+            <p class="text-xs text-gray-400">Tidak ada catatan</p>
         </div>
     </div>
 
@@ -171,25 +174,12 @@
             </div>
             <div>
                 <p class="text-xs text-avian-green/70 mb-1">Value Muatan</p>
-                <p class="text-sm font-semibold text-avian-green"
-                    x-text="'Rp ' + dokumenDipilih.reduce((sum, docId) => {
-                        const doc = dokumenList.find(d => d.id === docId);
-                        return sum + (doc ? Number(doc.value) : 0);
-                    }, 0).toLocaleString('id-ID')">
-                </p>
+                <p class="text-sm font-semibold text-avian-green" x-text="'Rp ' + valueMuatanDipilih.toLocaleString('id-ID')"></p>
             </div>
             <div>
                 <p class="text-xs text-avian-green/70 mb-1">Rasio</p>
                 <p class="text-lg font-bold text-avian-green"
-                    x-text="dokumenDipilih.reduce((sum, docId) => {
-                        const doc = dokumenList.find(d => d.id === docId);
-                        return sum + (doc ? Number(doc.value) : 0);
-                    }, 0) > 0
-                        ? ((Number(pengajuan.harga_sewa || 0) / dokumenDipilih.reduce((sum, docId) => {
-                            const doc = dokumenList.find(d => d.id === docId);
-                            return sum + (doc ? Number(doc.value) : 0);
-                        }, 0)) * 100).toFixed(2) + '%'
-                        : '—'">
+                    x-text="rasioSewaEstimasi !== null ? rasioSewaEstimasi.toFixed(2) + '%' : '—'">
                 </p>
             </div>
         </div>
@@ -205,16 +195,14 @@
                 {{-- Toko: cek rasio --}}
                 <template x-if="pengajuan.tujuan_penyewaan !== 'PAC'">
                     <span
-                        x-show="dokumenDipilih.reduce((s,id) => { const d=dokumenList.find(x=>x.id===id); return s+(d?Number(d.value):0); },0) > 0
-                            && ((Number(pengajuan.harga_sewa||0) / dokumenDipilih.reduce((s,id) => { const d=dokumenList.find(x=>x.id===id); return s+(d?Number(d.value):0); },0)) * 100) <= 2.5"
+                        x-show="rasioSewaEstimasi !== null && rasioSewaEstimasi <= 2.5"
                         class="inline-block px-3 py-1 rounded-lg bg-blue-100 text-blue-700 text-xs font-semibold">
                         ✓ NORMAL
                     </span>
                 </template>
                 <template x-if="pengajuan.tujuan_penyewaan !== 'PAC'">
                     <span
-                        x-show="dokumenDipilih.reduce((s,id) => { const d=dokumenList.find(x=>x.id===id); return s+(d?Number(d.value):0); },0) > 0
-                            && ((Number(pengajuan.harga_sewa||0) / dokumenDipilih.reduce((s,id) => { const d=dokumenList.find(x=>x.id===id); return s+(d?Number(d.value):0); },0)) * 100) > 2.5"
+                        x-show="rasioSewaEstimasi !== null && rasioSewaEstimasi > 2.5"
                         class="inline-block px-3 py-1 rounded-lg bg-orange-100 text-orange-700 text-xs font-semibold">
                         ⚠️ OVER THRESHOLD — Rasio > 2.5%
                     </span>
@@ -224,12 +212,6 @@
                 Threshold standar rasio sewa adalah <span class="font-semibold">2.5%</span>.
             </p>
         </div>
-    </div>
-
-    {{-- Catatan (jika ada) --}}
-    <div x-show="pengajuan.catatan" class="rounded-lg border border-gray-200 p-4 bg-gray-50">
-        <p class="mb-2 text-xs font-medium text-gray-600">Catatan</p>
-        <p class="text-sm text-gray-700" x-text="pengajuan.catatan"></p>
     </div>
 
     {{-- Navigasi --}}

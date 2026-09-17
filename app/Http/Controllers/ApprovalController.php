@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\PengajuanSewa;
 use App\Models\ApprovalLog;
 use App\Models\Approval;
-use App\Models\Armada;
+use App\Models\Kendaraan;
 use App\Models\RasioSewa;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
@@ -21,51 +21,51 @@ class ApprovalController extends Controller
             // Parse skill dari pengajuan (comma-separated)
             $pengajuanSkills = array_map(
                 fn($s) => strtoupper(trim($s)),
-                array_filter(explode(',', $pengajuan->armada->id_skill), fn($s) => $s !== '')
+                array_filter(explode(',', $pengajuan->kendaraan->id_skill), fn($s) => $s !== '')
             );
 
             if (empty($pengajuanSkills)) {
                 return [];
             }
 
-            // Query armada lain dengan skill yang mungkin match
-            $candidateArmada = Armada::with('perusahaan')
+            // Query kendaraan lain dengan skill yang mungkin match
+            $candidateKendaraan = Kendaraan::with('perusahaan')
                 ->where('flag', true)
                 ->where('id_kendaraan', '!=', $pengajuan->id_kendaraan)
                 ->get();
 
             $vendorLain = [];
 
-            foreach ($candidateArmada as $armada) {
-                // Parse skill dari armada kandidat
-                $armadaSkills = array_map(
+            foreach ($candidateKendaraan as $kendaraan) {
+                // Parse skill dari kendaraan kandidat
+                $kendaraanSkills = array_map(
                     fn($s) => strtoupper(trim($s)),
-                    array_filter(explode(',', $armada->id_skill), fn($s) => $s !== '')
+                    array_filter(explode(',', $kendaraan->id_skill), fn($s) => $s !== '')
                 );
 
                 // Check apakah ada skill yang sama (intersect)
-                $skillIntersect = array_intersect($armadaSkills, $pengajuanSkills);
+                $skillIntersect = array_intersect($kendaraanSkills, $pengajuanSkills);
 
                 if (!empty($skillIntersect)) {
                     // Ambil harga referensi dari pengajuan terbaru yang approved
-                    $lastApprovedPengajuan = $armada->pengajuan()
+                    $lastApprovedPengajuan = $kendaraan->pengajuan()
                         ->where('status_pengajuan', 'approved')
                         ->orderByDesc('submitted_at')
                         ->first();
 
                     // Fallback ke pengajuan terbaru apa pun kalau belum ada yang approved
-                    $lastPengajuan = $lastApprovedPengajuan ?? $armada->pengajuan()
+                    $lastPengajuan = $lastApprovedPengajuan ?? $kendaraan->pengajuan()
                         ->orderByDesc('submitted_at')
                         ->first();
 
                     $hargaSewa = $lastPengajuan ? $lastPengajuan->harga_sewa : null;
 
                     $vendorLain[] = [
-                        'nama_vendor'  => $armada->perusahaan->nama_perusahaan,
-                        'skill'        => $armada->id_skill,
+                        'nama_vendor'  => $kendaraan->perusahaan->nama_perusahaan,
+                        'skill'        => implode(',', \App\Helpers\FormatHelper::skillNames($kendaraan->id_skill)),
                         'harga_sewa'   => $hargaSewa,
-                        'muatan'       => \App\Helpers\FormatHelper::ton($armada->muatan_maksimal),
-                        'badan_usaha'  => $armada->perusahaan->badan_usaha,
+                        'muatan'       => \App\Helpers\FormatHelper::ton($kendaraan->muatan_maksimal),
+                        'badan_usaha'  => $kendaraan->perusahaan->badan_usaha,
                     ];
                 }
             }
@@ -90,7 +90,7 @@ class ApprovalController extends Controller
                 'no_dokumen'   => 'SJ/' . now()->format('Ym') . '/0001',
                 'value_muatan' => $pengajuan->value_muatan,
                 'qty'          => 1,
-                'total_weight' => $pengajuan->armada->muatan_maksimal ?? null,
+                'total_weight' => $pengajuan->kendaraan->muatan_maksimal ?? null,
             ],
         ];
     }
@@ -101,8 +101,8 @@ class ApprovalController extends Controller
     public function showForWm($id)
     {
         $pengajuan = PengajuanSewa::with([
-            'armada',
-            'armada.perusahaan',
+            'kendaraan',
+            'kendaraan.perusahaan',
             'biayaTambahan',
             'biayaTambahan.jenisBiaya',
             'approvalLogs.approver',
@@ -150,9 +150,9 @@ class ApprovalController extends Controller
         $dokumenSj = $this->getDummyDokumenSj($pengajuan);
 
         // Get history of this vendor (all pengajuan from same perusahaan)
-        $idPerusahaan = $pengajuan->armada->id_perusahaan;
+        $idPerusahaan = $pengajuan->kendaraan->id_perusahaan;
 
-        $historyVendor = PengajuanSewa::whereHas('armada', function ($q) use ($idPerusahaan) {
+        $historyVendor = PengajuanSewa::whereHas('kendaraan', function ($q) use ($idPerusahaan) {
                 $q->where('id_perusahaan', $idPerusahaan);
             })
             ->where('id_pengajuan_sewa', '!=', $pengajuan->id_pengajuan_sewa)

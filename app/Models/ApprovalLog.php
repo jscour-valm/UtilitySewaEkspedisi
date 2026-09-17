@@ -2,11 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasFlag;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ApprovalLog extends Model
 {
+    use HasFlag;
+
     protected $connection = 'sqlsrv';
     protected $table = 'sesi_approval_log';
     protected $primaryKey = 'id_approval_log';

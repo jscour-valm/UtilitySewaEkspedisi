@@ -9,6 +9,9 @@ class JenisBiayaSeeder extends Seeder
 {
     public function run(): void
     {
+        // Delete instead of truncate to avoid foreign key constraint issues
+        DB::connection('sqlsrv')->table('sesi_jenis_biaya')->delete();
+
         DB::connection('sqlsrv')->table('sesi_jenis_biaya')->insert([
             [
                 'nama_biaya' => 'Helper',

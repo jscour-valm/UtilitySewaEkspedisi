@@ -2,11 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasFlag;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class BiayaTambahan extends Model
 {
+    use HasFlag;
+
     protected $connection = 'sqlsrv';
     protected $table = 'sesi_biaya_tambahan';
     protected $primaryKey = 'id_biaya_tambahan';

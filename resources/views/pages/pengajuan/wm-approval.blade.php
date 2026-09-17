@@ -20,7 +20,7 @@
         <div class="flex items-start justify-between gap-5 flex-wrap">
             <div class="min-w-0">
                 <h1 class="text-[22px] font-bold tracking-tight text-gray-900">
-                    {{ $pengajuan->armada->perusahaan->badan_usaha }} {{ $pengajuan->armada->perusahaan->nama_perusahaan }}
+                    {{ $pengajuan->kendaraan->perusahaan->badan_usaha }} {{ $pengajuan->kendaraan->perusahaan->nama_perusahaan }}
                 </h1>
                 <p class="text-[13px] text-gray-500 mt-1">
                     Diajukan oleh <strong class="text-gray-700">{{ $pengajuan->submittedBy?->name ?? 'Unknown' }}</strong>
@@ -78,11 +78,11 @@
 
             <div class="flex-1 min-w-[160px] basis-44 px-6">
                 <p class="text-[11px] font-semibold tracking-[0.09em] text-gray-500">TOTAL BIAYA SEWA</p>
-                <p class="text-[22px] font-bold tracking-tight text-gray-900 mt-2">Rp {{ number_format($totalBiayaSewa, 0, ',', '.') }}</p>
+                <p class="text-[22px] font-bold tracking-tight text-gray-900 mt-2">{{ \App\Helpers\FormatHelper::rupiah($totalBiayaSewa) }}</p>
                 <p class="text-xs text-gray-400 mt-1">
                     {{ $totalBiayaTambahan > 0
-                        ? 'Termasuk Rp ' . number_format($totalBiayaTambahan, 0, ',', '.') . ' biaya tambahan'
-                        : 'Sewa armada, tanpa biaya tambahan' }}
+                        ? 'Termasuk ' . \App\Helpers\FormatHelper::rupiah($totalBiayaTambahan) . ' biaya tambahan'
+                        : 'Sewa kendaraan, tanpa biaya tambahan' }}
                 </p>
             </div>
 
@@ -90,9 +90,9 @@
 
             <div class="flex-1 min-w-[160px] basis-44 pl-6">
                 <p class="text-[11px] font-semibold tracking-[0.09em] text-gray-500">VALUE MUATAN</p>
-                <p class="text-[22px] font-bold tracking-tight text-gray-900 mt-2">Rp {{ number_format($pengajuan->value_muatan, 0, ',', '.') }}</p>
+                <p class="text-[22px] font-bold tracking-tight text-gray-900 mt-2">{{ \App\Helpers\FormatHelper::rupiah($pengajuan->value_muatan) }}</p>
                 <p class="text-xs text-gray-400 mt-1">
-                    {{ $pengajuan->armada->jenis_kendaraan }} &middot; {{ \App\Helpers\FormatHelper::ton($pengajuan->armada->muatan_maksimal) }}
+                    {{ $pengajuan->kendaraan->jenis_kendaraan }} &middot; {{ \App\Helpers\FormatHelper::ton($pengajuan->kendaraan->muatan_maksimal) }}
                 </p>
             </div>
         </div>
@@ -102,45 +102,45 @@
     <div class="rounded-xl bg-white shadow-sm border border-gray-100 p-6
                 grid grid-cols-[1.25fr_1px_1fr_1px_1fr] gap-x-6">
 
-        {{-- Kolom 1: Informasi Armada --}}
+        {{-- Kolom 1: Informasi Kendaraan --}}
         <div class="min-w-0">
-            <p class="text-[11px] font-semibold tracking-[0.09em] text-gray-500 mb-1">INFORMASI ARMADA</p>
+            <p class="text-[11px] font-semibold tracking-[0.09em] text-gray-500 mb-1">INFORMASI KENDARAAN</p>
 
             <div class="flex justify-between gap-4 py-2.5 border-b border-gray-50">
                 <span class="text-sm text-gray-500">Jenis Kendaraan</span>
-                <span class="text-sm font-semibold text-gray-900">{{ $pengajuan->armada->jenis_kendaraan }}</span>
+                <span class="text-sm font-semibold text-gray-900">{{ $pengajuan->kendaraan->jenis_kendaraan }}</span>
             </div>
             <div class="flex justify-between gap-4 py-2.5 border-b border-gray-50">
                 <span class="text-sm text-gray-500">Plat Nomor</span>
-                <span class="text-sm font-semibold text-gray-900 tabular-nums">{{ $pengajuan->armada->plat_nomor_truk }}</span>
+                <span class="text-sm font-semibold text-gray-900 tabular-nums">{{ $pengajuan->kendaraan->plat_nomor_truk }}</span>
             </div>
             <div class="flex items-center justify-between gap-4 py-2.5 border-b border-gray-50">
                 <span class="text-sm text-gray-500">Skill / Area</span>
                 <span class="flex flex-wrap justify-end gap-1.5">
-                    @foreach(array_filter(array_map('trim', explode(',', $pengajuan->armada->id_skill ?? ''))) as $skill)
+                    @foreach(\App\Helpers\FormatHelper::skillNames($pengajuan->kendaraan->id_skill ?? '') as $skill)
                         <span class="rounded-md bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-700">{{ $skill }}</span>
                     @endforeach
                 </span>
             </div>
             <div class="flex justify-between gap-4 py-2.5 border-b border-gray-50">
                 <span class="text-sm text-gray-500">Kapasitas Muatan</span>
-                <span class="text-sm font-semibold text-gray-900">{{ \App\Helpers\FormatHelper::ton($pengajuan->armada->muatan_maksimal) }}</span>
+                <span class="text-sm font-semibold text-gray-900">{{ \App\Helpers\FormatHelper::ton($pengajuan->kendaraan->muatan_maksimal) }}</span>
             </div>
             <div class="flex justify-between gap-4 py-2.5 border-b border-gray-50">
                 <span class="text-sm text-gray-500">Badan Usaha &amp; Perusahaan</span>
                 <span class="text-sm font-semibold text-gray-900 text-right">
-                    {{ $pengajuan->armada->perusahaan->badan_usaha }} {{ $pengajuan->armada->perusahaan->nama_perusahaan }}
+                    {{ $pengajuan->kendaraan->perusahaan->badan_usaha }} {{ $pengajuan->kendaraan->perusahaan->nama_perusahaan }}
                 </span>
             </div>
             <div class="flex justify-between gap-4 py-2.5 border-b border-gray-50">
                 <span class="text-sm text-gray-500">No. Telepon</span>
-                <a href="tel:{{ $pengajuan->armada->perusahaan->no_telepon }}" class="text-sm font-semibold text-green-800 hover:underline">
-                    {{ $pengajuan->armada->perusahaan->no_telepon }}
+                <a href="tel:{{ $pengajuan->kendaraan->perusahaan->no_telepon }}" class="text-sm font-semibold text-green-800 hover:underline">
+                    {{ $pengajuan->kendaraan->perusahaan->no_telepon }}
                 </a>
             </div>
             <div class="flex justify-between gap-4 py-2.5">
                 <span class="text-sm text-gray-500">Alamat Kantor</span>
-                <span class="text-sm font-semibold text-gray-900 text-right">{{ $pengajuan->armada->perusahaan->alamat_kantor }}</span>
+                <span class="text-sm font-semibold text-gray-900 text-right">{{ $pengajuan->kendaraan->perusahaan->alamat_kantor }}</span>
             </div>
         </div>
 
@@ -175,14 +175,14 @@
             <p class="text-[11px] font-semibold tracking-[0.09em] text-gray-500 mb-1">RINCIAN BIAYA</p>
 
             <div class="flex justify-between gap-4 py-2.5 border-b border-gray-50">
-                <span class="text-sm text-gray-500">Sewa Armada</span>
-                <span class="text-sm font-semibold text-gray-900 tabular-nums">Rp {{ number_format($pengajuan->harga_sewa, 0, ',', '.') }}</span>
+                <span class="text-sm text-gray-500">Sewa Kendaraan</span>
+                <span class="text-sm font-semibold text-gray-900 tabular-nums">{{ \App\Helpers\FormatHelper::rupiah($pengajuan->harga_sewa) }}</span>
             </div>
 
             @forelse($pengajuan->biayaTambahan ?? [] as $biaya)
                 <div class="flex justify-between gap-4 py-2.5 border-b border-gray-50">
                     <span class="text-sm text-gray-500">{{ $biaya->jenisBiaya->nama_biaya ?? '-' }}</span>
-                    <span class="text-sm font-semibold text-gray-900 tabular-nums">Rp {{ number_format($biaya->jumlah, 0, ',', '.') }}</span>
+                    <span class="text-sm font-semibold text-gray-900 tabular-nums">{{ \App\Helpers\FormatHelper::rupiah($biaya->jumlah) }}</span>
                 </div>
             @empty
                 <div class="flex justify-between gap-4 py-2.5 border-b border-gray-50">
@@ -193,46 +193,44 @@
 
             <div class="flex justify-between gap-4 pt-3 pb-1">
                 <span class="text-sm font-bold text-gray-900">Total Biaya Sewa</span>
-                <span class="text-base font-bold text-gray-900 tabular-nums">Rp {{ number_format($totalBiayaSewa, 0, ',', '.') }}</span>
+                <span class="text-base font-bold text-gray-900 tabular-nums">{{ \App\Helpers\FormatHelper::rupiah($totalBiayaSewa) }}</span>
             </div>
         </div>
     </div>
 
-    {{-- ==================== DOKUMEN PENGEMUDI ==================== --}}
+    {{-- ==================== DOKUMEN IDENTITAS PERUSAHAAN ====================
+    @php
+        $dokumenIdentitas = $pengajuan->kendaraan?->perusahaan?->identitas_owner ?? [];
+    @endphp
     <div class="rounded-xl bg-white shadow-sm border border-gray-100 p-6">
-        <p class="text-[11px] font-semibold tracking-[0.09em] text-gray-500">DOKUMEN PENGEMUDI</p>
+        <p class="text-[11px] font-semibold tracking-[0.09em] text-gray-500">DOKUMEN IDENTITAS PERUSAHAAN</p>
         <p class="text-[13px] text-gray-400 mt-1 mb-4">Klik untuk memperbesar dan memverifikasi</p>
 
         <div class="grid grid-cols-2 gap-4">
-            @foreach([
-                ['label' => 'Foto KTP Pengemudi', 'path' => $pengajuan->armada->ktp_supir, 'kosong' => 'Belum ada foto KTP'],
-                ['label' => 'Foto SIM Pengemudi', 'path' => $pengajuan->armada->sim_supir, 'kosong' => 'Belum ada foto SIM'],
-            ] as $dok)
+            @forelse($dokumenIdentitas as $i => $item)
+                @php $label = 'Dokumen Identitas #' . ($i + 1); $src = \App\Helpers\FormatHelper::identitasOwnerSrc($item); @endphp
                 <div>
-                    <p class="text-[13px] font-semibold text-gray-700 mb-2">{{ $dok['label'] }}</p>
-                    @if($dok['path'])
-                        {{-- object-contain --}}
-                        <div class="doc-zoom relative flex h-52 cursor-zoom-in items-center justify-center overflow-hidden rounded-lg border border-gray-200 bg-gray-50"
-                            data-src="{{ asset($dok['path']) }}" data-label="{{ $dok['label'] }}">
-                            <img src="{{ asset($dok['path']) }}" alt="{{ $dok['label'] }}" class="h-full w-full object-cover">
-                            <span class="absolute bottom-2 right-2 flex items-center gap-1.5 rounded-md bg-black/70 px-2 py-1 text-[11px] font-semibold text-white">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m-3-3h6" />
-                                </svg>
-                                Perbesar
-                            </span>
-                        </div>
-                    @else
-                        <div class="flex h-52 flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0" />
+                    <p class="text-[13px] font-semibold text-gray-700 mb-2">{{ $label }}</p>
+                    <div class="doc-zoom relative flex h-52 cursor-zoom-in items-center justify-center overflow-hidden rounded-lg border border-gray-200 bg-gray-50"
+                        data-src="{{ $src }}" data-label="{{ $label }}">
+                        <img src="{{ $src }}" alt="{{ $label }}" class="h-full w-full object-cover">
+                        <span class="absolute bottom-2 right-2 flex items-center gap-1.5 rounded-md bg-black/70 px-2 py-1 text-[11px] font-semibold text-white">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m-3-3h6" />
                             </svg>
-                            <p class="text-[13px] text-gray-400">{{ $dok['kosong'] }}</p>
-                            <p class="text-xs text-gray-300">Wajib diverifikasi sebelum disetujui</p>
-                        </div>
-                    @endif
+                            Perbesar
+                        </span>
+                    </div>
                 </div>
-            @endforeach
+            @empty
+                <div class="col-span-2 flex h-52 flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0" />
+                    </svg>
+                    <p class="text-[13px] text-gray-400">Belum ada dokumen identitas</p>
+                    <p class="text-xs text-gray-300">Wajib diverifikasi sebelum disetujui</p>
+                </div>
+            @endforelse
         </div>
     </div>
 
@@ -266,7 +264,7 @@
                                 {{ $d['no_dokumen'] ?? '-' }}
                             </td>
                             <td class="px-3.5 py-3 text-right tabular-nums text-gray-700">
-                                {{ $d['value_muatan'] ? 'Rp ' . number_format($d['value_muatan'], 0, ',', '.') : '-' }}
+                                {{ $d['value_muatan'] ? \App\Helpers\FormatHelper::rupiah($d['value_muatan']) : '-' }}
                             </td>
                             <td class="px-3.5 py-3 text-right tabular-nums text-gray-700">
                                 {{ $d['qty'] ?? '-' }}
@@ -290,7 +288,7 @@
     {{-- ==================== PERBANDINGAN VENDOR ==================== --}}
     <div class="rounded-xl bg-white shadow-sm border border-gray-100 p-6">
         <p class="text-[11px] font-semibold tracking-[0.09em] text-gray-500">PERBANDINGAN VENDOR</p>
-        <p class="text-[13px] text-gray-400 mt-1 mb-3.5">Armada lain dengan skill {{ $pengajuan->armada->id_skill }}</p>
+        <p class="text-[13px] text-gray-400 mt-1 mb-3.5">Kendaraan lain dengan skill {{ implode(', ', \App\Helpers\FormatHelper::skillNames($pengajuan->kendaraan->id_skill)) }}</p>
 
         <div class="overflow-x-auto rounded-lg border border-gray-100">
             <table class="w-full text-sm">
@@ -308,14 +306,14 @@
                     <tr class="border-b border-gray-100 bg-green-50/60">
                         <td class="px-3.5 py-3">
                             <span class="flex items-center gap-2 font-bold text-gray-900">
-                                {{ $pengajuan->armada->perusahaan->badan_usaha }} {{ $pengajuan->armada->perusahaan->nama_perusahaan }}
+                                {{ $pengajuan->kendaraan->perusahaan->badan_usaha }} {{ $pengajuan->kendaraan->perusahaan->nama_perusahaan }}
                                 <span class="rounded bg-avian-green px-1.5 py-0.5 text-[10.5px] font-bold tracking-wide text-white">PENGAJUAN INI</span>
                             </span>
                         </td>
-                        <td class="px-3.5 py-3 text-right font-bold text-gray-900 tabular-nums">Rp {{ number_format($pengajuan->harga_sewa, 0, ',', '.') }}</td>
+                        <td class="px-3.5 py-3 text-right font-bold text-gray-900 tabular-nums">{{ \App\Helpers\FormatHelper::rupiah($pengajuan->harga_sewa) }}</td>
                         <td class="px-3.5 py-3 text-right text-gray-400">&mdash;</td>
-                        <td class="px-3.5 py-3 text-right">{{ \App\Helpers\FormatHelper::ton($pengajuan->armada->muatan_maksimal) }}</td>
-                        <td class="px-3.5 py-3">{{ $pengajuan->armada->perusahaan->badan_usaha }}</td>
+                        <td class="px-3.5 py-3 text-right">{{ \App\Helpers\FormatHelper::ton($pengajuan->kendaraan->muatan_maksimal) }}</td>
+                        <td class="px-3.5 py-3">{{ $pengajuan->kendaraan->perusahaan->badan_usaha }}</td>
                     </tr>
 
                     @forelse($vendorLain ?? [] as $v)
@@ -326,7 +324,7 @@
                             <td class="px-3.5 py-3 text-gray-800">{{ $v['nama_vendor'] }}</td>
                             <td class="px-3.5 py-3 text-right tabular-nums text-gray-700">
                                 @if($v['harga_sewa'])
-                                    Rp {{ number_format($v['harga_sewa'], 0, ',', '.') }}
+                                    {{ \App\Helpers\FormatHelper::rupiah($v['harga_sewa']) }}
                                 @else
                                     <span class="italic text-gray-400">Belum ada riwayat</span>
                                 @endif
@@ -336,7 +334,7 @@
                                 @if(is_null($selisih) || $selisih == 0)
                                     &mdash;
                                 @else
-                                    {{ $selisih < 0 ? '−' : '+' }}Rp {{ number_format(abs($selisih), 0, ',', '.') }}
+                                    {{ $selisih < 0 ? '−' : '+' }}{{ \App\Helpers\FormatHelper::rupiah(abs($selisih)) }}
                                 @endif
                             </td>
                             <td class="px-3.5 py-3 text-right text-gray-700">{{ $v['muatan'] }}</td>
@@ -357,10 +355,10 @@
     {{-- ==================== RIWAYAT VENDOR ==================== --}}
     <div class="rounded-xl bg-white shadow-sm border border-gray-100 p-6">
         <p class="text-[11px] font-semibold tracking-[0.09em] text-gray-500">
-            RIWAYAT {{ strtoupper($pengajuan->armada->perusahaan->badan_usaha . ' ' . $pengajuan->armada->perusahaan->nama_perusahaan) }}
+            RIWAYAT {{ strtoupper($pengajuan->kendaraan->perusahaan->badan_usaha . ' ' . $pengajuan->kendaraan->perusahaan->nama_perusahaan) }}
         </p>
         <p class="text-[13px] text-gray-400 mt-1 mb-3.5">
-            {{ $pengajuan->armada->jenis_kendaraan }} &middot; {{ $pengajuan->armada->plat_nomor_truk }}
+            {{ $pengajuan->kendaraan->jenis_kendaraan }} &middot; {{ $pengajuan->kendaraan->plat_nomor_truk }}
         </p>
 
         <div class="overflow-x-auto rounded-lg border border-gray-100">
@@ -387,10 +385,10 @@
                                 {{ $h->submitted_at ? \Carbon\Carbon::parse($h->submitted_at)->format('d/m/Y') : '-' }}
                             </td>
                             <td class="px-3.5 py-3 text-right tabular-nums text-gray-700">
-                                {{ $h->value_muatan ? 'Rp ' . number_format($h->value_muatan, 0, ',', '.') : '-' }}
+                                {{ $h->value_muatan ? \App\Helpers\FormatHelper::rupiah($h->value_muatan) : '-' }}
                             </td>
                             <td class="px-3.5 py-3 text-right tabular-nums text-gray-700">
-                                {{ $h->harga_sewa ? 'Rp ' . number_format($h->harga_sewa, 0, ',', '.') : '-' }}
+                                {{ $h->harga_sewa ? \App\Helpers\FormatHelper::rupiah($h->harga_sewa) : '-' }}
                             </td>
                             <td class="px-3.5 py-3 text-right tabular-nums font-semibold
                                         {{ $h->rasio_sewa > $ambang ? 'text-red-600' : 'text-gray-700' }}">
@@ -414,7 +412,7 @@
                     @empty
                         <tr>
                             <td colspan="7" class="px-3.5 py-4 text-center text-[13px] text-gray-400">
-                                Belum ada riwayat pengajuan untuk armada ini.
+                                Belum ada riwayat pengajuan untuk kendaraan ini.
                             </td>
                         </tr>
                     @endforelse
@@ -450,11 +448,11 @@
         <div class="flex min-w-0 items-center gap-5">
             <div>
                 <p class="text-[11px] font-semibold tracking-wide text-gray-500">
-                    {{ strtoupper($pengajuan->armada->perusahaan->badan_usaha . ' ' . $pengajuan->armada->perusahaan->nama_perusahaan) }}
-                    &middot; {{ $pengajuan->armada->plat_nomor_truk }}
+                    {{ strtoupper($pengajuan->kendaraan->perusahaan->badan_usaha . ' ' . $pengajuan->kendaraan->perusahaan->nama_perusahaan) }}
+                    &middot; {{ $pengajuan->kendaraan->plat_nomor_truk }}
                 </p>
                 <p class="text-[15px] font-bold text-gray-900 mt-0.5">
-                    Rp {{ number_format($totalBiayaSewa, 0, ',', '.') }}
+                    {{ \App\Helpers\FormatHelper::rupiah($totalBiayaSewa) }}
                     <span class="font-normal text-gray-300">&middot;</span>
                     <span class="{{ $overAmbang ? 'text-red-600' : 'text-green-700' }}">Rasio {{ number_format($rasio, 2, ',', '.') }}%</span>
                 </p>
@@ -505,12 +503,12 @@
             <div class="flex justify-between border-b border-gray-50 px-3.5 py-2.5">
                 <span class="text-[13.5px] text-gray-500">Vendor</span>
                 <span class="text-[13.5px] font-semibold text-gray-900">
-                    {{ $pengajuan->armada->perusahaan->badan_usaha }} {{ $pengajuan->armada->perusahaan->nama_perusahaan }}
+                    {{ $pengajuan->kendaraan->perusahaan->badan_usaha }} {{ $pengajuan->kendaraan->perusahaan->nama_perusahaan }}
                 </span>
             </div>
             <div class="flex justify-between border-b border-gray-50 px-3.5 py-2.5">
                 <span class="text-[13.5px] text-gray-500">Total biaya sewa</span>
-                <span class="text-[13.5px] font-semibold text-gray-900">Rp {{ number_format($totalBiayaSewa, 0, ',', '.') }}</span>
+                <span class="text-[13.5px] font-semibold text-gray-900">{{ \App\Helpers\FormatHelper::rupiah($totalBiayaSewa) }}</span>
             </div>
             <div class="flex justify-between px-3.5 py-2.5">
                 <span class="text-[13.5px] text-gray-500">Rasio sewa</span>

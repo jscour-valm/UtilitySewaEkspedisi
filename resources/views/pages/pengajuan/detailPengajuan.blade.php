@@ -3,12 +3,16 @@
 @section('title', 'Detail Pengajuan Sewa')
 
 @php
+    $isKirimanRutin     = $pengajuan->jenis_pengajuan === 'pengiriman_rutin';
     $totalBiayaTambahan = $pengajuan->biayaTambahan?->sum('jumlah') ?? 0;
     $totalBiayaSewa     = $pengajuan->harga_sewa + $totalBiayaTambahan;
     $ambang             = (float) $ambangRasio;
     $rasio              = (float) $pengajuan->rasio_sewa;
     $overAmbang         = $rasio > $ambang;
     $rasioPct           = min($rasio / $ambang, 1) * 100;
+    // Sumber "identitas" (nama perusahaan) beda tergantung jenis_pengajuan:
+    // sewa_truk → vendor pemilik kendaraan; pengiriman_rutin → vendor ekspedisi langsung.
+    $namaPerusahaan     = $isKirimanRutin ? $pengajuan->perusahaanEkspedisi : $pengajuan->kendaraan?->perusahaan;
 @endphp
 
 @section('content')
@@ -19,7 +23,7 @@
         <div class="flex items-start justify-between gap-5 flex-wrap">
             <div class="min-w-0">
                 <h1 class="text-[22px] font-bold tracking-tight text-gray-900">
-                    {{ $pengajuan->armada->perusahaan->badan_usaha }} {{ $pengajuan->armada->perusahaan->nama_perusahaan }}
+                    {{ $namaPerusahaan?->badan_usaha }} {{ $namaPerusahaan?->nama_perusahaan }}
                 </h1>
                 <p class="text-[13px] text-gray-500 mt-1">
                     Diajukan pada {{ \Carbon\Carbon::parse($pengajuan->submitted_at)->translatedFormat('d M Y') }}
@@ -75,11 +79,11 @@
 
             <div class="flex-1 min-w-[160px] basis-44 px-6">
                 <p class="text-[11px] font-semibold tracking-[0.09em] text-gray-500">TOTAL BIAYA SEWA</p>
-                <p class="text-[22px] font-bold tracking-tight text-gray-900 mt-2">Rp {{ number_format($totalBiayaSewa, 0, ',', '.') }}</p>
+                <p class="text-[22px] font-bold tracking-tight text-gray-900 mt-2">{{ \App\Helpers\FormatHelper::rupiah($totalBiayaSewa) }}</p>
                 <p class="text-xs text-gray-400 mt-1">
                     {{ $totalBiayaTambahan > 0
-                        ? 'Termasuk Rp ' . number_format($totalBiayaTambahan, 0, ',', '.') . ' biaya tambahan'
-                        : 'Sewa armada, tanpa biaya tambahan' }}
+                        ? 'Termasuk ' . \App\Helpers\FormatHelper::rupiah($totalBiayaTambahan) . ' biaya tambahan'
+                        : 'Sewa kendaraan, tanpa biaya tambahan' }}
                 </p>
             </div>
 
@@ -87,9 +91,13 @@
 
             <div class="flex-1 min-w-[160px] basis-44 pl-6">
                 <p class="text-[11px] font-semibold tracking-[0.09em] text-gray-500">VALUE MUATAN</p>
-                <p class="text-[22px] font-bold tracking-tight text-gray-900 mt-2">Rp {{ number_format($pengajuan->value_muatan, 0, ',', '.') }}</p>
+                <p class="text-[22px] font-bold tracking-tight text-gray-900 mt-2">{{ \App\Helpers\FormatHelper::rupiah($pengajuan->value_muatan) }}</p>
                 <p class="text-xs text-gray-400 mt-1">
-                    {{ $pengajuan->armada->jenis_kendaraan }} &middot; {{ \App\Helpers\FormatHelper::ton($pengajuan->armada->muatan_maksimal) }}
+                    @if($isKirimanRutin)
+                        {{ $pengajuan->detailKirimanRutin->count() }} jenis barang
+                    @else
+                        {{ $pengajuan->kendaraan->jenis_kendaraan }} &middot; {{ \App\Helpers\FormatHelper::ton($pengajuan->kendaraan->muatan_maksimal) }}
+                    @endif
                 </p>
             </div>
         </div>
@@ -116,46 +124,59 @@
     <div class="rounded-xl bg-white shadow-sm border border-gray-100 p-6
                 grid grid-cols-[1.25fr_1px_1fr_1px_1fr] gap-x-6">
 
-        {{-- Kolom 1: Informasi Armada --}}
+        {{-- Kolom 1: Informasi Kendaraan (sewa_truk) / Informasi Vendor (pengiriman_rutin) --}}
         <div class="min-w-0">
-            <p class="text-[11px] font-semibold tracking-[0.09em] text-gray-500 mb-1">INFORMASI ARMADA</p>
+            @if($isKirimanRutin)
+                <p class="text-[11px] font-semibold tracking-[0.09em] text-gray-500 mb-1">INFORMASI VENDOR</p>
 
-            <div class="flex justify-between gap-4 py-2.5 border-b border-gray-50">
-                <span class="text-sm text-gray-500">Jenis Kendaraan</span>
-                <span class="text-sm font-semibold text-gray-900">{{ $pengajuan->armada->jenis_kendaraan }}</span>
-            </div>
-            <div class="flex justify-between gap-4 py-2.5 border-b border-gray-50">
-                <span class="text-sm text-gray-500">Plat Nomor</span>
-                <span class="text-sm font-semibold text-gray-900 tabular-nums">{{ $pengajuan->armada->plat_nomor_truk }}</span>
-            </div>
-            <div class="flex items-center justify-between gap-4 py-2.5 border-b border-gray-50">
-                <span class="text-sm text-gray-500">Skill / Area</span>
-                <span class="flex flex-wrap justify-end gap-1.5">
-                    @foreach(array_filter(array_map('trim', explode(',', $pengajuan->armada->id_skill ?? ''))) as $skill)
-                        <span class="rounded-md bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-700">{{ $skill }}</span>
-                    @endforeach
-                </span>
-            </div>
-            <div class="flex justify-between gap-4 py-2.5 border-b border-gray-50">
-                <span class="text-sm text-gray-500">Kapasitas Muatan</span>
-                <span class="text-sm font-semibold text-gray-900">{{ \App\Helpers\FormatHelper::ton($pengajuan->armada->muatan_maksimal) }}</span>
-            </div>
-            <div class="flex justify-between gap-4 py-2.5 border-b border-gray-50">
-                <span class="text-sm text-gray-500">Badan Usaha &amp; Perusahaan</span>
-                <span class="text-sm font-semibold text-gray-900 text-right">
-                    {{ $pengajuan->armada->perusahaan->badan_usaha }} {{ $pengajuan->armada->perusahaan->nama_perusahaan }}
-                </span>
-            </div>
-            <div class="flex justify-between gap-4 py-2.5 border-b border-gray-50">
-                <span class="text-sm text-gray-500">No. Telepon</span>
-                <a href="tel:{{ $pengajuan->armada->perusahaan->no_telepon }}" class="text-sm font-semibold text-green-800 hover:underline">
-                    {{ $pengajuan->armada->perusahaan->no_telepon }}
-                </a>
-            </div>
-            <div class="flex justify-between gap-4 py-2.5">
-                <span class="text-sm text-gray-500">Alamat Kantor</span>
-                <span class="text-sm font-semibold text-gray-900 text-right">{{ $pengajuan->armada->perusahaan->alamat_kantor }}</span>
-            </div>
+                <div class="flex justify-between gap-4 py-2.5 border-b border-gray-50">
+                    <span class="text-sm text-gray-500">Badan Usaha &amp; Perusahaan</span>
+                    <span class="text-sm font-semibold text-gray-900 text-right">
+                        {{ $pengajuan->perusahaanEkspedisi?->badan_usaha }} {{ $pengajuan->perusahaanEkspedisi?->nama_perusahaan }}
+                    </span>
+                </div>
+                <div class="flex justify-between gap-4 py-2.5 border-b border-gray-50">
+                    <span class="text-sm text-gray-500">No. Telepon</span>
+                    <a href="tel:{{ $pengajuan->perusahaanEkspedisi?->no_telepon }}" class="text-sm font-semibold text-green-800 hover:underline">
+                        {{ $pengajuan->perusahaanEkspedisi?->no_telepon }}
+                    </a>
+                </div>
+                <div class="flex justify-between gap-4 py-2.5">
+                    <span class="text-sm text-gray-500">Alamat Kantor</span>
+                    <span class="text-sm font-semibold text-gray-900 text-right">{{ $pengajuan->perusahaanEkspedisi?->alamat_kantor }}</span>
+                </div>
+            @else
+                <p class="text-[11px] font-semibold tracking-[0.09em] text-gray-500 mb-1">INFORMASI KENDARAAN</p>
+
+                <div class="flex justify-between gap-4 py-2.5 border-b border-gray-50">
+                    <span class="text-sm text-gray-500">Jenis Kendaraan</span>
+                    <span class="text-sm font-semibold text-gray-900">{{ $pengajuan->kendaraan->jenis_kendaraan }}</span>
+                </div>
+                <div class="flex justify-between gap-4 py-2.5 border-b border-gray-50">
+                    <span class="text-sm text-gray-500">Plat Nomor</span>
+                    <span class="text-sm font-semibold text-gray-900 tabular-nums">{{ $pengajuan->kendaraan->plat_nomor_truk }}</span>
+                </div>
+                <div class="flex justify-between gap-4 py-2.5 border-b border-gray-50">
+                    <span class="text-sm text-gray-500">Kapasitas Muatan</span>
+                    <span class="text-sm font-semibold text-gray-900">{{ \App\Helpers\FormatHelper::ton($pengajuan->kendaraan->muatan_maksimal) }}</span>
+                </div>
+                <div class="flex justify-between gap-4 py-2.5 border-b border-gray-50">
+                    <span class="text-sm text-gray-500">Badan Usaha &amp; Perusahaan</span>
+                    <span class="text-sm font-semibold text-gray-900 text-right">
+                        {{ $pengajuan->kendaraan->perusahaan->badan_usaha }} {{ $pengajuan->kendaraan->perusahaan->nama_perusahaan }}
+                    </span>
+                </div>
+                <div class="flex justify-between gap-4 py-2.5 border-b border-gray-50">
+                    <span class="text-sm text-gray-500">No. Telepon</span>
+                    <a href="tel:{{ $pengajuan->kendaraan->perusahaan->no_telepon }}" class="text-sm font-semibold text-green-800 hover:underline">
+                        {{ $pengajuan->kendaraan->perusahaan->no_telepon }}
+                    </a>
+                </div>
+                <div class="flex justify-between gap-4 py-2.5">
+                    <span class="text-sm text-gray-500">Alamat Kantor</span>
+                    <span class="text-sm font-semibold text-gray-900 text-right">{{ $pengajuan->kendaraan->perusahaan->alamat_kantor }}</span>
+                </div>
+            @endif
         </div>
 
         <div class="bg-gray-100"></div>
@@ -171,6 +192,14 @@
             <div class="flex justify-between gap-4 py-2.5 border-b border-gray-50">
                 <span class="text-sm text-gray-500">Tujuan Penyewaan</span>
                 <span class="text-sm font-semibold text-gray-900">{{ $pengajuan->tujuan_penyewaan }}</span>
+            </div>
+            <div class="flex items-center justify-between gap-4 py-2.5 border-b border-gray-50">
+                <span class="text-sm text-gray-500">Skill / Area</span>
+                <span class="flex flex-wrap justify-end gap-1.5">
+                    @foreach(\App\Helpers\FormatHelper::skillNames($pengajuan->id_skill ?? '') as $skill)
+                        <span class="rounded-md bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-700">{{ $skill }}</span>
+                    @endforeach
+                </span>
             </div>
             <div class="flex justify-between gap-4 py-2.5 border-b border-gray-50">
                 <span class="text-sm text-gray-500">Kategori Toko</span>
@@ -188,15 +217,32 @@
         <div class="min-w-0">
             <p class="text-[11px] font-semibold tracking-[0.09em] text-gray-500 mb-1">RINCIAN BIAYA</p>
 
-            <div class="flex justify-between gap-4 py-2.5 border-b border-gray-50">
-                <span class="text-sm text-gray-500">Sewa Armada</span>
-                <span class="text-sm font-semibold text-gray-900 tabular-nums">Rp {{ number_format($pengajuan->harga_sewa, 0, ',', '.') }}</span>
-            </div>
+            @if($isKirimanRutin)
+                @forelse($pengajuan->detailKirimanRutin as $detail)
+                    <div class="flex justify-between gap-4 py-2.5 border-b border-gray-50">
+                        <span class="text-sm text-gray-500">
+                            {{ $detail->jenisBarang?->nama_barang ?? '-' }}
+                            <span class="text-xs text-gray-400">&times; {{ rtrim(rtrim(number_format($detail->quantity, 2, ',', '.'), '0'), ',') }}</span>
+                        </span>
+                        <span class="text-sm font-semibold text-gray-900 tabular-nums">{{ \App\Helpers\FormatHelper::rupiah($detail->subtotal) }}</span>
+                    </div>
+                @empty
+                    <div class="flex justify-between gap-4 py-2.5 border-b border-gray-50">
+                        <span class="text-sm text-gray-500">Daftar Barang</span>
+                        <span class="text-sm text-gray-400">Tidak ada</span>
+                    </div>
+                @endforelse
+            @else
+                <div class="flex justify-between gap-4 py-2.5 border-b border-gray-50">
+                    <span class="text-sm text-gray-500">Sewa Kendaraan</span>
+                    <span class="text-sm font-semibold text-gray-900 tabular-nums">{{ \App\Helpers\FormatHelper::rupiah($pengajuan->harga_sewa) }}</span>
+                </div>
+            @endif
 
             @forelse($pengajuan->biayaTambahan ?? [] as $biaya)
                 <div class="flex justify-between gap-4 py-2.5 border-b border-gray-50">
                     <span class="text-sm text-gray-500">{{ $biaya->jenisBiaya->nama_biaya ?? '-' }}</span>
-                    <span class="text-sm font-semibold text-gray-900 tabular-nums">Rp {{ number_format($biaya->jumlah, 0, ',', '.') }}</span>
+                    <span class="text-sm font-semibold text-gray-900 tabular-nums">{{ \App\Helpers\FormatHelper::rupiah($biaya->jumlah) }}</span>
                 </div>
             @empty
                 <div class="flex justify-between gap-4 py-2.5 border-b border-gray-50">
@@ -206,8 +252,8 @@
             @endforelse
 
             <div class="flex justify-between gap-4 pt-3 pb-1">
-                <span class="text-sm font-bold text-gray-900">Total Biaya Sewa</span>
-                <span class="text-base font-bold text-gray-900 tabular-nums">Rp {{ number_format($totalBiayaSewa, 0, ',', '.') }}</span>
+                <span class="text-sm font-bold text-gray-900">{{ $isKirimanRutin ? 'Total Tarif + Biaya' : 'Total Biaya Sewa' }}</span>
+                <span class="text-base font-bold text-gray-900 tabular-nums">{{ \App\Helpers\FormatHelper::rupiah($totalBiayaSewa) }}</span>
             </div>
         </div>
     </div>
@@ -220,44 +266,53 @@
     </div>
     @endif
 
-    {{-- ==================== DOKUMEN PENGEMUDI ==================== --}}
+    {{-- ==================== DOKUMEN IDENTITAS PERUSAHAAN (Sewa Truk only) ====================
+    Catatan 9 Sept 2026: dulu card ini "DOKUMEN PENGEMUDI" (ktp_supir/sim_supir
+    per-kendaraan). Kolom itu sudah dihapus dari sesi_unit_kendaraan, datanya
+    dipindah jadi identitas_owner per-vendor (sesi_perusahaan_ekspedisi) — slot
+    foto di sini sekarang sumbernya dari situ, dilabel generik krn datanya udah
+    ga per-jenis dokumen (ga ada KTP/SIM lagi, sesuai desain baru). --}}
+    @if(!$isKirimanRutin)
+    @php
+        $dokumenIdentitas = $pengajuan->kendaraan?->perusahaan?->identitas_owner ?? [];
+    @endphp
     <div class="rounded-xl bg-white shadow-sm border border-gray-100 p-6">
-        <p class="text-[11px] font-semibold tracking-[0.09em] text-gray-500">DOKUMEN PENGEMUDI</p>
+        <p class="text-[11px] font-semibold tracking-[0.09em] text-gray-500">DOKUMEN IDENTITAS PERUSAHAAN</p>
         <p class="text-[13px] text-gray-400 mt-1 mb-4">Klik untuk memperbesar dan melihat</p>
 
         <div class="grid grid-cols-2 gap-4">
-            @foreach([
-                ['label' => 'Foto KTP Pengemudi', 'path' => $pengajuan->armada->ktp_supir, 'kosong' => 'Belum ada foto KTP'],
-                ['label' => 'Foto SIM Pengemudi', 'path' => $pengajuan->armada->sim_supir, 'kosong' => 'Belum ada foto SIM'],
-            ] as $dok)
+            @forelse($dokumenIdentitas as $i => $item)
+                @php $label = 'Dokumen Identitas #' . ($i + 1); $src = \App\Helpers\FormatHelper::identitasOwnerSrc($item); @endphp
                 <div>
-                    <p class="text-[13px] font-semibold text-gray-700 mb-2">{{ $dok['label'] }}</p>
-                    @if($dok['path'])
-                        <div class="doc-zoom relative flex h-52 cursor-zoom-in items-center justify-center overflow-hidden rounded-lg border border-gray-200 bg-gray-50"
-                            data-src="{{ asset($dok['path']) }}" data-label="{{ $dok['label'] }}">
-                            <img src="{{ asset($dok['path']) }}" alt="{{ $dok['label'] }}" class="h-full w-full object-cover">
-                            <span class="absolute bottom-2 right-2 flex items-center gap-1.5 rounded-md bg-black/70 px-2 py-1 text-[11px] font-semibold text-white">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m-3-3h6" />
-                                </svg>
-                                Perbesar
-                            </span>
-                        </div>
-                    @else
-                        <div class="flex h-52 flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0" />
+                    <p class="text-[13px] font-semibold text-gray-700 mb-2">{{ $label }}</p>
+                    <div class="doc-zoom relative flex h-52 cursor-zoom-in items-center justify-center overflow-hidden rounded-lg border border-gray-200 bg-gray-50"
+                        data-src="{{ $src }}" data-label="{{ $label }}">
+                        <img src="{{ $src }}" alt="{{ $label }}" class="h-full w-full object-cover">
+                        <span class="absolute bottom-2 right-2 flex items-center gap-1.5 rounded-md bg-black/70 px-2 py-1 text-[11px] font-semibold text-white">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m-3-3h6" />
                             </svg>
-                            <p class="text-[13px] text-gray-400">{{ $dok['kosong'] }}</p>
-                            <p class="text-xs text-gray-300">Foto yang jelas akan membantu proses verifikasi</p>
-                        </div>
-                    @endif
+                            Perbesar
+                        </span>
+                    </div>
                 </div>
-            @endforeach
+            @empty
+                <div class="col-span-2 flex h-52 flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0" />
+                    </svg>
+                    <p class="text-[13px] text-gray-400">Belum ada dokumen identitas</p>
+                    <p class="text-xs text-gray-300">Foto yang jelas akan membantu proses verifikasi</p>
+                </div>
+            @endforelse
         </div>
     </div>
+    @endif
 
-    {{-- ==================== DOKUMEN SJ/TO-ACB ==================== --}}
+    {{-- ==================== DOKUMEN SJ/TO-ACB ====================
+         Junction table reference-only (id_surat_jalan/id_to_acb cuma VARCHAR
+         ref ke view Quantum, TIDAK ada snapshot nilai/qty/berat di sini) —
+         jadi kolomnya cuma nomor dokumen + tipe, bukan detail muatan. --}}
     <div class="rounded-xl bg-white shadow-sm border border-gray-100 p-6">
         <p class="text-[11px] font-semibold tracking-[0.09em] text-gray-500">
             DOKUMEN
@@ -270,35 +325,38 @@
             @endif
         </p>
 
+        @php
+            $dokumenTerlampir = collect($pengajuan->suratJalans ?? [])
+                ->map(fn($sj) => ['nomor' => $sj->id_surat_jalan, 'tipe' => 'SJ'])
+                ->concat(
+                    collect($pengajuan->transferAntarCabang ?? [])
+                        ->map(fn($to) => ['nomor' => $to->id_to_acb, 'tipe' => 'TO-ACB'])
+                );
+        @endphp
+
         <div class="overflow-x-auto rounded-lg border border-gray-100 mt-4">
             <table class="w-full text-sm">
                 <thead>
                     <tr class="border-b border-gray-100 bg-gray-50 text-[11px] font-semibold tracking-wide text-gray-500">
                         <th class="px-3.5 py-2.5 text-left">NO DOKUMEN</th>
-                        <th class="px-3.5 py-2.5 text-right">VALUE MUATAN</th>
-                        <th class="px-3.5 py-2.5 text-right">QTY</th>
-                        <th class="px-3.5 py-2.5 text-right">TOTAL WEIGHT</th>
+                        <th class="px-3.5 py-2.5 text-left">TIPE</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @forelse($pengajuan->suratJalan ?? [] as $sj)
+                    @forelse($dokumenTerlampir as $dok)
                         <tr class="border-b border-gray-50 hover:bg-gray-50">
                             <td class="px-3.5 py-3 text-gray-800">
-                                {{ $sj->no_sj ?? '-' }}
+                                {{ $dok['nomor'] ?? '-' }}
                             </td>
-                            <td class="px-3.5 py-3 text-right tabular-nums text-gray-700">
-                                {{ $sj->nilai ? 'Rp ' . number_format($sj->nilai, 0, ',', '.') : '-' }}
-                            </td>
-                            <td class="px-3.5 py-3 text-right tabular-nums text-gray-700">
-                                {{ $sj->qty ?? '-' }}
-                            </td>
-                            <td class="px-3.5 py-3 text-right tabular-nums text-gray-700">
-                                {{ $sj->total_weight ? \App\Helpers\FormatHelper::ton($sj->total_weight) : '-' }}
+                            <td class="px-3.5 py-3 text-gray-700">
+                                <span class="inline-block px-2 py-0.5 rounded text-xs font-medium {{ $dok['tipe'] === 'SJ' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700' }}">
+                                    {{ $dok['tipe'] }}
+                                </span>
                             </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="4" class="px-3.5 py-4 text-center text-[13px] text-gray-400">
+                            <td colspan="2" class="px-3.5 py-4 text-center text-[13px] text-gray-400">
                                 Belum ada dokumen SJ/TO-ACB terlampir.
                             </td>
                         </tr>

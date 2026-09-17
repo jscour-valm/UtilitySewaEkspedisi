@@ -16,9 +16,11 @@ $sortBy = request('sort_pengajuan', 'submitted_at');
 $sortOrder = request('order_pengajuan', 'desc');
 
 $result = DbHelper::safeQuery(function () use ($limit, $sortBy, $sortOrder, $mode) {
+    // leftJoin + tanpa filter flag di tabel lookup: vendor/kendaraan yang sudah
+    // soft-deleted tidak boleh menyembunyikan pengajuan yang masih flag=1.
     $query = DB::connection('sqlsrv')->table('sesi_pengajuan_sewa')
-        ->join('sesi_unit_kendaraan', 'sesi_pengajuan_sewa.id_kendaraan', '=', 'sesi_unit_kendaraan.id_kendaraan')
-        ->join('sesi_perusahaan_ekspedisi', 'sesi_unit_kendaraan.id_perusahaan', '=', 'sesi_perusahaan_ekspedisi.id_perusahaan');
+        ->leftJoin('sesi_unit_kendaraan', 'sesi_pengajuan_sewa.id_kendaraan', '=', 'sesi_unit_kendaraan.id_kendaraan')
+        ->leftJoin('sesi_perusahaan_ekspedisi', 'sesi_unit_kendaraan.id_perusahaan', '=', 'sesi_perusahaan_ekspedisi.id_perusahaan');
 
     // Tambah join ke lntrn_users kalau mode=wm (untuk nama pengaju)
     if ($mode === 'wm') {
@@ -157,7 +159,7 @@ $isReviewer = $userRole === 'WM';
                     @if($mode === 'wm')
                         data-kagud="{{ strtolower($p['pengaju_name'] ?? '') }}"
                     @endif
-                    data-perusahaan="{{ strtolower($p['badan_usaha'] . ' ' . $p['nama']) }}"
+                    data-perusahaan="{{ strtolower(trim(($p['badan_usaha'] ?? '') . ' ' . ($p['nama'] ?? ''))) }}"
                     data-status="{{ $statusKey }}">
 
                     @if($mode === 'wm')
@@ -179,7 +181,7 @@ $isReviewer = $userRole === 'WM';
                     @endif
 
                     {{-- Nama Perusahaan --}}
-                    <td class="px-4 py-3 text-gray-800 whitespace-nowrap">{{ $p['badan_usaha'] . ' ' . $p['nama'] }}</td>
+                    <td class="px-4 py-3 text-gray-800 whitespace-nowrap">{{ trim(($p['badan_usaha'] ?? '') . ' ' . ($p['nama'] ?? '')) ?: '—' }}</td>
 
                     {{-- Harga Sewa --}}
                     <td class="px-4 py-3 text-gray-600 whitespace-nowrap">

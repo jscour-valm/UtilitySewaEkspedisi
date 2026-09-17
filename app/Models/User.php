@@ -52,6 +52,7 @@ class User extends Authenticatable
 
         $userCabang = \DB::connection('sqlsrv')->table('sesi_user_cabang')
             ->where('username', $this->username)
+            ->where('flag', true)
             ->first();
         return $userCabang?->cabang_code;
     }
@@ -101,6 +102,7 @@ class User extends Authenticatable
         $userCabang = \DB::connection('sqlsrv')->table('sesi_user_cabang')
             ->where('username', $this->username)
             ->where('cabang_code', $cabangCode)
+            ->where('flag', true)
             ->exists();
 
         return $userCabang;

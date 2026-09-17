@@ -21,17 +21,17 @@
         </div>
     </div>
 
-    {{-- Card: Daftar Armada --}}
+    {{-- Card: Daftar Kendaraan --}}
     <div class="rounded-xl bg-white shadow">
         <div class="flex items-center justify-between border-b border-gray-100 px-6 py-4">
-            <h2 class="text-sm font-semibold text-gray-700">Daftar Armada</h2>
-            <a href="{{ route('armada.idx') }}"
+            <h2 class="text-sm font-semibold text-gray-700">Daftar Kendaraan</h2>
+            <a href="{{ route('kendaraan.idx') }}"
                class="text-xs text-avian-green hover:underline">
                 Lihat semua →
             </a>
         </div>
         <div class="p-6">
-            <x-tabel-armada mode="dashboard" />
+            <x-tabel-kendaraan mode="dashboard" />
         </div>
     </div>
 </div>
@@ -63,19 +63,19 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // ===== ARMADA TABLE SEARCH =====
-    const armadaSearchInput = document.getElementById('searchArmada');
-    const armadaRows = document.querySelectorAll('.armada-row');
+    // ===== KENDARAAN TABLE SEARCH =====
+    const kendaraanSearchInput = document.getElementById('searchKendaraan');
+    const kendaraanRows = document.querySelectorAll('.kendaraan-row');
 
-    console.log('Armada Search Debug:', { armadaSearchInput, rowCount: armadaRows.length });
-    console.log('First row data attributes:', armadaRows[0]?.getAttribute('data-nama'));
+    console.log('Kendaraan Search Debug:', { kendaraanSearchInput, rowCount: kendaraanRows.length });
+    console.log('First row data attributes:', kendaraanRows[0]?.getAttribute('data-nama'));
 
-    if (armadaSearchInput && armadaRows.length > 0) {
-        function applyArmadaFilters() {
-            const searchTerm = armadaSearchInput.value.toLowerCase();
-            console.log('Armada search term:', searchTerm);
+    if (kendaraanSearchInput && kendaraanRows.length > 0) {
+        function applyKendaraanFilters() {
+            const searchTerm = kendaraanSearchInput.value.toLowerCase();
+            console.log('Kendaraan search term:', searchTerm);
 
-            armadaRows.forEach(row => {
+            kendaraanRows.forEach(row => {
                 const nama = row.getAttribute('data-nama') || '';
                 const badan = row.getAttribute('data-badan') || '';
                 const skill = row.getAttribute('data-skill') || '';
@@ -92,11 +92,11 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         // Event: Search input
-        armadaSearchInput.addEventListener('keyup', function() {
-            applyArmadaFilters();
+        kendaraanSearchInput.addEventListener('keyup', function() {
+            applyKendaraanFilters();
         });
     } else {
-        console.warn('Armada search not initialized: input or rows missing');
+        console.warn('Kendaraan search not initialized: input or rows missing');
     }
 });
 </script>
