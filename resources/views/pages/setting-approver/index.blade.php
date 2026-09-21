@@ -4,17 +4,8 @@
 
 @section('content')
 <div class="flex flex-col gap-4 pb-2">
-    @if(session('success'))
-    <div class="rounded-xl bg-avian-green-light border border-avian-green/30 text-avian-green px-4 py-3 text-sm">
-        {{ session('success') }}
-    </div>
-    @endif
-
-    @if(isset($errors) && $errors->any())
-    <div class="rounded-xl bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm">
-        {{ $errors->first() }}
-    </div>
-    @endif
+    <x-alert-success />
+    <x-alert-error />
 
     <div class="rounded-xl bg-white shadow-sm p-6">
         <h1 class="text-2xl font-bold text-gray-900 mb-1">Setting Approver</h1>

@@ -11,23 +11,9 @@ class KendaraanController extends Controller
 {
     use ManagesVendorMasterData;
 
-    public function index()
-    {
-        return view('pages.kendaraan.listKendaraan');
-    }
-
-    public function show($id)
-    {
-        $kendaraan = Kendaraan::with('perusahaan')->findOrFail($id);
-
-        // Get harga sewa terakhir dari pengajuan yang sudah approved
-        $hargaSewaTerakhir = $kendaraan->pengajuan()
-            ->where('status_pengajuan', 'approved')
-            ->orderByDesc('submitted_at')
-            ->value('harga_sewa');
-
-        return view('pages.kendaraan.detail', compact('kendaraan', 'hargaSewaTerakhir'));
-    }
+    // Halaman list & detail kendaraan sudah digantikan halaman Perusahaan
+    // (PerusahaanController) — controller ini tinggal API CRUD kendaraan dari
+    // halaman edit tarif (DCI).
 
     /**
      * Tambah kendaraan baru dari halaman Kelola Perusahaan (Master Data, DCI) —

@@ -63,78 +63,18 @@
         </a>
         @endif
 
-        {{-- Kendaraan — hanya KG (16 Sept, round 16: WM/WH/DCI dipindah ke jalur lain) --}}
-        @if($role === 'KG')
-        <a href="{{ route('kendaraan.idx') }}"
+        {{-- Perusahaan — 1 nav item buat KG/WM/WH/DCI (gantiin "Kendaraan" KG, dropdown "Kendaraan" WM/WH, dan link Sewa Truk/Kiriman Rutin di Master Data DCI) --}}
+        @if(in_array($role, ['KG', 'WM', 'WH', 'DCI']))
+        <a href="{{ route('perusahaan.index') }}"
             class="flex items-center gap-3 py-3 px-4 rounded-lg mx-2 transition text-sm
-            {{ request()->is('kendaraan*')
+            {{ request()->is('perusahaan*')
                 ? 'bg-green-800 text-white font-semibold'
                 : 'text-green-100 hover:bg-green-800/60' }}">
             <span class="{{ $iconWrapClass }}" :class="sidebarOpen ? 'w-5' : 'w-full'">
-                <i data-lucide="truck" class="w-5 h-5"></i>
+                <i data-lucide="building-2" class="w-5 h-5"></i>
             </span>
-            <span x-show="sidebarOpen" x-cloak class="truncate">Kendaraan</span>
+            <span x-show="sidebarOpen" x-cloak class="truncate">Perusahaan</span>
         </a>
-        @endif
-
-        {{--
-            Kendaraan (WM/WH) — round 16: WM/WH nggak pakai halaman /kendaraan lama
-            lagi, digantikan akses read-only ke Master Tabel Sewa Truk & Kiriman
-            Rutin (yang sebelumnya DCI-only). Pola dropdown+flyout SAMA PERSIS
-            kayak "Master Data" di bawah, cuma isinya 2 link & role-nya WM/WH.
-        --}}
-        @if(in_array($role, ['WM', 'WH']))
-        @php
-            $onKendaraanTarif = request()->is('kelola-tarif*');
-            $kendaraanTarifLinks = [
-                ['route' => 'kelola-tarif.sewa-truk', 'match' => 'kelola-tarif/sewa-truk*', 'label' => 'Sewa Truk'],
-                ['route' => 'kelola-tarif.kiriman-rutin', 'match' => 'kelola-tarif/kiriman-rutin*', 'label' => 'Kiriman Rutin'],
-            ];
-        @endphp
-        <div class="relative" x-data="{ open: {{ $onKendaraanTarif ? 'true' : 'false' }}, hovering: false, flyoutStyle: {} }"
-            @mouseenter="hovering = true; $nextTick(() => { const r = $refs.kendaraanTarifBtn.getBoundingClientRect(); flyoutStyle = { top: r.top + 'px', left: (r.right + 8) + 'px' } })"
-            @mouseleave="hovering = false">
-            <button
-                x-ref="kendaraanTarifBtn"
-                type="button"
-                @click="open = !open"
-                class="flex items-center gap-3 py-3 px-4 rounded-lg mx-2 transition text-sm"
-                :class="((open && sidebarOpen) || {{ $onKendaraanTarif ? 'true' : 'false' }}) ? 'bg-green-800 text-white font-semibold' : 'text-green-100 hover:bg-green-800/60'">
-                <span class="{{ $iconWrapClass }}" :class="sidebarOpen ? 'w-5' : 'w-full'">
-                    <i data-lucide="truck" class="w-5 h-5"></i>
-                </span>
-                <span x-show="sidebarOpen" x-cloak class="truncate flex-1 text-left">Kendaraan</span>
-                <i x-show="sidebarOpen" x-cloak data-lucide="chevron-down" class="w-4 h-4 shrink-0 transition-transform" :class="open ? 'rotate-180' : ''"></i>
-            </button>
-
-            {{-- Dropdown inline — sidebar expanded, dipicu klik (`open`) --}}
-            <div x-show="open && sidebarOpen" x-cloak class="mt-1 ml-6 pl-4 border-l border-green-700/60 space-y-1">
-                @foreach($kendaraanTarifLinks as $link)
-                <a href="{{ route($link['route']) }}"
-                    class="block py-2 px-3 mr-2 rounded-lg text-sm transition
-                    {{ request()->is($link['match'])
-                        ? 'bg-green-800 text-white font-semibold'
-                        : 'text-green-200 hover:bg-green-800/60' }}">
-                    <span class="truncate">{{ $link['label'] }}</span>
-                </a>
-                @endforeach
-            </div>
-
-            {{-- Flyout — sidebar collapsed, dipicu hover, position: fixed --}}
-            <div x-show="hovering && !sidebarOpen" x-cloak :style="flyoutStyle"
-                class="fixed w-56 rounded-lg bg-avian-green-dark shadow-lg border border-green-800 py-2 z-50">
-                <p class="px-4 py-1.5 text-xs font-semibold text-green-300 uppercase tracking-wide">Kendaraan</p>
-                @foreach($kendaraanTarifLinks as $link)
-                <a href="{{ route($link['route']) }}"
-                    class="block py-2 px-4 text-sm transition
-                    {{ request()->is($link['match'])
-                        ? 'bg-green-800 text-white font-semibold'
-                        : 'text-green-100 hover:bg-green-800/60' }}">
-                    <span class="truncate">{{ $link['label'] }}</span>
-                </a>
-                @endforeach
-            </div>
-        </div>
         @endif
 
         {{-- Pengajuan Baru — hanya KG --}}
@@ -167,18 +107,14 @@
 
         {{--
             Master Data — hanya DCI — parent expandable, child: Jenis Barang
-            Kiriman, Jenis Biaya Tambahan, Sewa Truk, Kiriman Rutin. Sewa
-            Truk & Kiriman Rutin dipindah ke sini dari menu "Kelola Tarif"
-            (dihapus) — route name & URL (kelola-tarif.*) TETAP, cuma
-            posisi link di sidebar yang pindah.
+            Kiriman, Jenis Biaya Tambahan. (Sewa Truk & Kiriman Rutin sudah
+            pindah jadi tab di halaman Perusahaan, lihat nav item di atas.)
         --}}
         @php
-            $onMasterOrTarif = request()->is('master*') || request()->is('kelola-tarif*');
+            $onMasterOrTarif = request()->is('master*');
             $masterLinks = [
                 ['route' => 'master.jenis-barang-kiriman', 'match' => 'master/jenis-barang-kiriman*', 'label' => 'Jenis Barang Kiriman'],
                 ['route' => 'master.jenis-biaya-tambahan', 'match' => 'master/jenis-biaya-tambahan*', 'label' => 'Jenis Biaya Tambahan'],
-                ['route' => 'kelola-tarif.sewa-truk', 'match' => 'kelola-tarif/sewa-truk*', 'label' => 'Sewa Truk'],
-                ['route' => 'kelola-tarif.kiriman-rutin', 'match' => 'kelola-tarif/kiriman-rutin*', 'label' => 'Kiriman Rutin'],
             ];
         @endphp
         @if($role === 'DCI')

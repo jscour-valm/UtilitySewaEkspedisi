@@ -6,8 +6,10 @@ use App\Http\Controllers\KendaraanController;
 use App\Http\Controllers\PengajuanController;
 use App\Http\Controllers\ApprovalController;
 use App\Http\Controllers\WmDashboardController;
+use App\Http\Controllers\WhDashboardController;
 use App\Http\Controllers\DciDashboardController;
 use App\Http\Controllers\DocumentLinkageController;
+use App\Http\Controllers\PerusahaanController;
 use App\Http\Controllers\TarifKirimanRutinController;
 use App\Http\Controllers\JenisBiayaController;
 use App\Http\Controllers\ApproverController;
@@ -66,34 +68,43 @@ Route::middleware(['auth', 'role:KG,WH,DCI'])->group(function () {
 
 Route::middleware(['auth', 'role:WM'])->group(function () {
     Route::get('/dashboard/wm', [WmDashboardController::class, 'index'])->name('dashboard.wm');
+});
 
-    // WM Approval routes
-    Route::get('/approval/pengajuan/{id}', [ApprovalController::class, 'showForWm'])->name('approval.show');
+Route::middleware(['auth', 'role:WH'])->group(function () {
+    Route::get('/dashboard/wh', [WhDashboardController::class, 'index'])->name('dashboard.wh');
+});
+
+// Approval routes — dishare WM (tingkat 1) & WH (tingkat 2, cuma kalau
+// kategori_approval=over_threshold). Role-branching-nya di ApprovalController,
+// bukan di sini, karena WM/WH beda rule Approval yang dicocokkan & beda
+// transisi status (lihat ApprovalController::approve/reject).
+Route::middleware(['auth', 'role:WM,WH'])->group(function () {
+    Route::get('/approval/pengajuan/{id}', [ApprovalController::class, 'show'])->name('approval.show');
     Route::post('/approval/{id}/approve', [ApprovalController::class, 'approve'])->name('approval.approve');
     Route::post('/approval/{id}/reject', [ApprovalController::class, 'reject'])->name('approval.reject');
 });
 
-Route::middleware(['auth', 'role:WH'])->group(function () {
-    Route::get('/dashboard/wh', fn() => view('pages.dashboard.wh'))->name('dashboard.wh');
+// Perusahaan — halaman terpadu (gantiin /kendaraan KG-only + 2 halaman Kelola
+// Tarif). Index & Detail Perusahaan (read-only) dibuka ke semua role yang punya
+// akses data vendor; scoping cabang buat KG/WM ada di PerusahaanController.
+Route::middleware(['auth', 'role:KG,WM,WH,DCI'])->group(function () {
+    Route::get('/perusahaan', [PerusahaanController::class, 'index'])->name('perusahaan.index');
+    Route::get('/perusahaan/{id}', [PerusahaanController::class, 'show'])->whereNumber('id')->name('perusahaan.show');
 });
 
-// Kelola Tarif — akses VIEW (GET) dibuka ke WM/WH juga (round 16: mereka jadi
-// pakai halaman ini read-only sbg pengganti /kendaraan lama yang sekarang
-// KG-only). Endpoint yang NULIS data (update/store/destroy dsb) TETAP DCI-only,
-// lihat grup role:DCI di bawah.
+// Form edit tarif — GET dibuka ke WM/WH juga (tampil read-only kalau bukan DCI,
+// lihat guard $isDci di view-nya). Endpoint yang NULIS data TETAP DCI-only, lihat
+// grup role:DCI di bawah.
 Route::middleware(['auth', 'role:WM,WH,DCI'])->group(function () {
-    Route::get('/kelola-tarif/sewa-truk', [TarifKirimanRutinController::class, 'indexSewaTruk'])->name('kelola-tarif.sewa-truk');
-    Route::get('/kelola-tarif/sewa-truk/{id}/edit', [TarifKirimanRutinController::class, 'editSewaTruk'])->name('kelola-tarif.sewa-truk.edit');
-    Route::get('/kelola-tarif/kiriman-rutin', [TarifKirimanRutinController::class, 'indexKirimanRutin'])->name('kelola-tarif.kiriman-rutin');
-    Route::get('/kelola-tarif/kiriman-rutin/{id}/edit', [TarifKirimanRutinController::class, 'editKirimanRutin'])->name('kelola-tarif.kiriman-rutin.edit');
+    Route::get('/perusahaan/sewa-truk/{id}/edit', [TarifKirimanRutinController::class, 'editSewaTruk'])->name('perusahaan.sewa-truk.edit');
+    Route::get('/perusahaan/kiriman-rutin/{id}/edit', [TarifKirimanRutinController::class, 'editKirimanRutin'])->name('perusahaan.kiriman-rutin.edit');
 });
 
 Route::middleware(['auth', 'role:DCI'])->group(function () {
     Route::get('/dashboard/dci', [DciDashboardController::class, 'index'])->name('dashboard.dci');
-    // Kelola Tarif — update TETAP DCI-only (GET index/edit-nya udah dipindah ke
-    // grup role:WM,WH,DCI di atas).
-    Route::put('/kelola-tarif/sewa-truk/{id}', [TarifKirimanRutinController::class, 'updateSewaTruk'])->name('kelola-tarif.sewa-truk.update');
-    Route::put('/kelola-tarif/kiriman-rutin/{id}', [TarifKirimanRutinController::class, 'updateKirimanRutin'])->name('kelola-tarif.kiriman-rutin.update');
+    // Update tarif TETAP DCI-only.
+    Route::put('/perusahaan/sewa-truk/{id}', [TarifKirimanRutinController::class, 'updateSewaTruk'])->name('perusahaan.sewa-truk.update');
+    Route::put('/perusahaan/kiriman-rutin/{id}', [TarifKirimanRutinController::class, 'updateKirimanRutin'])->name('perusahaan.kiriman-rutin.update');
 
     // Tarif per jenis barang individual — masih dipakai step2 KG (fetch by id_vendor_skill)
     Route::post('/api/tarif-kiriman-rutin', [TarifKirimanRutinController::class, 'store'])->name('tarif-kiriman-rutin.store');
@@ -132,13 +143,6 @@ Route::middleware(['auth', 'role:DCI'])->group(function () {
     Route::post('/setting-approver', [ApproverController::class, 'store'])->name('setting-approver.store');
     Route::post('/setting-approver/by-area', [ApproverController::class, 'storeByArea'])->name('setting-approver.store-by-area');
     Route::delete('/setting-approver/{id}', [ApproverController::class, 'destroy'])->name('setting-approver.destroy');
-});
-
-// Round 16: /kendaraan dibalikin KG-only — WM/WH pakai Kelola Tarif read-only,
-// DCI pakai Master Data/Kelola Tarif (edit penuh), keduanya lewat grup lain.
-Route::middleware(['auth', 'role:KG'])->group(function () {
-    Route::get('/kendaraan', [KendaraanController::class, 'index'])->name('kendaraan.idx');
-    Route::get('/kendaraan/{id}', [KendaraanController::class, 'show'])->name('kendaraan.show');
 });
 
 // Fallback dashboard — redirect ke halaman role masing-masing

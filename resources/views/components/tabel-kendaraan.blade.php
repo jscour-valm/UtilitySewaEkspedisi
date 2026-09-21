@@ -392,25 +392,6 @@ $error = $result['error'];
                                                 <span x-show="kendaraanTerpilih?.id !== {{ $item['id'] }}">Pilih</span>
                                                 <span x-show="kendaraanTerpilih?.id === {{ $item['id'] }}">✓ Dipilih</span>
                                             </button>
-                                        @elseif($mode === 'detail')
-                                            <div class="flex shrink-0 items-center gap-1.5">
-                                                <a href="{{ route('kendaraan.show', $item['id']) }}"
-                                                    class="rounded-lg border border-avian-green px-2 py-1 text-xs font-medium text-avian-green hover:bg-avian-green-light">
-                                                    Detail
-                                                </a>
-                                                @if(auth()->user()?->userUtility?->role === 'DCI')
-                                                <a href="{{ route('kelola-tarif.sewa-truk', ['search' => $g['nama']]) }}"
-                                                    class="rounded-lg border border-gray-300 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
-                                                    title="Kelola perusahaan ini di Kelola Tarif — Sewa Truk">
-                                                    Kelola Sewa Truk
-                                                </a>
-                                                <a href="{{ route('kelola-tarif.kiriman-rutin', ['search' => $g['nama']]) }}"
-                                                    class="rounded-lg border border-gray-300 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
-                                                    title="Kelola perusahaan ini di Kelola Tarif — Kiriman Rutin">
-                                                    Kelola Kiriman Rutin
-                                                </a>
-                                                @endif
-                                            </div>
                                         @else
                                             <a href="{{ route('pengajuan.kg', ['id' => $item['id'], 'nama' => $item['nama'], 'kendaraan' => $item['kendaraan'], 'muatan' => $item['muatan'], 'muatan_raw' => $item['muatan_raw'], 'harga' => $item['harga'], 'skill' => $item['skill']]) }}"
                                                 class="shrink-0 rounded-lg bg-avian-green px-2 py-1 text-xs font-medium text-white hover:bg-avian-green-dark">

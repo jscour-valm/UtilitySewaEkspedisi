@@ -16,75 +16,16 @@ class TarifKirimanRutinController extends Controller
     use ManagesVendorMasterData;
 
 
-    /**
-     * Halaman list "master tabel Sewa Truk" (role: DCI) — kolom ngikutin
-     * Excel sumbernya (lihat ImportTarifSewaTrukCommand). 1 baris =
-     * 1 sesi_perusahaan_skill. Nama Cabang & Kode Area di-JOIN dari
-     * sesi_master_cabang (via cabang_code) — bukan disimpan ulang.
-     * Filter whereNotNull('harga_sewa') biar baris yang cuma relevan buat
-     * Kiriman Rutin (belum pernah punya harga sewa truk) ga ikut nongol.
-     *
-     * Kolom Revisi/Tanggal Revisi/KTP-NPWP sengaja TIDAK ditampilkan lagi
-     * (keputusan Jo 16 Sept) — dianggap terwakili oleh Harga Sewa, Diupdate,
-     * dan identitas_owner (foto). Datanya tetap ada di DB, cuma nggak dipakai
-     * di UI manapun lagi (list & edit).
-     */
-    public function indexSewaTruk(Request $request)
-    {
-        $search = trim((string) $request->get('search', ''));
-
-        $query = DB::connection('sqlsrv')->table('sesi_perusahaan_skill as ps')
-            ->join('sesi_perusahaan_ekspedisi as pe', 'ps.id_perusahaan', '=', 'pe.id_perusahaan')
-            ->join('sesi_master_skill as ms', 'ps.id_skill', '=', 'ms.id_skill')
-            ->leftJoin('sesi_master_cabang as mc', function ($join) {
-                $join->on('ps.cabang_code', '=', DB::raw('mc.Code COLLATE SQL_Latin1_General_CP1_CI_AS'));
-            })
-            ->where('ps.flag', true)
-            ->whereNotNull('ps.harga_sewa');
-
-        if ($search !== '') {
-            $query->where(function ($q) use ($search) {
-                $q->where('pe.nama_perusahaan', 'like', "%{$search}%")
-                  ->orWhere('ps.cabang_code', 'like', "%{$search}%")
-                  ->orWhere('ms.nama_skill', 'like', "%{$search}%");
-            });
-        }
-
-        $rows = $query->select(
-                'ps.id_vendor_skill',
-                'pe.nama_perusahaan',
-                'pe.badan_usaha',
-                'pe.identitas_owner',
-                'ps.cabang_code',
-                'mc.Name as nama_cabang',
-                'mc.Area as kode_area',
-                'ms.nama_skill as area_kirim',
-                'ps.harga_sewa',
-                'ps.update_date_source',
-                'ps.updated_at',
-                'ps.created_at'
-            )
-            ->orderBy('pe.nama_perusahaan')
-            ->orderBy('ps.cabang_code')
-            ->paginate(25)
-            ->withQueryString();
-
-        // identitas_owner: query builder mentah (bukan Eloquent) jadi nggak
-        // otomatis kena cast 'array' kayak di model PerusahaanEkspedisi —
-        // decode manual di sini. Diupdate: pakai Update Date asli dari Excel
-        // kalau ada (update_date_source), fallback ke updated_at kalau nggak.
-        $rows->getCollection()->transform(function ($row) {
-            $row->identitas_owner = json_decode($row->identitas_owner ?? '[]', true) ?: [];
-            $row->diupdate = $row->update_date_source ?? $row->updated_at;
-            return $row;
-        });
-
-        return view('pages.tarif-sewa-truk.index', compact('rows', 'search'));
-    }
+    // Halaman list Sewa Truk / Kiriman Rutin sekarang ada di PerusahaanController
+    // (tab=sewa-truk / tab=kiriman-rutin). Controller ini tinggal form edit/update
+    // tarif + endpoint pendukungnya. Catatan lama yang masih berlaku: kolom
+    // Revisi/Tanggal Revisi/KTP-NPWP sengaja TIDAK ditampilkan di UI (keputusan Jo
+    // 16 Sept) — datanya tetap ada di DB.
 
     public function editSewaTruk($id)
     {
         $vendorSkill = PerusahaanSkill::with('perusahaan')->findOrFail($id);
+        abort_unless(auth()->user()->canAccessCabang($vendorSkill->cabang_code), 403, 'Anda tidak punya akses ke cabang ini');
         ['kendaraanList' => $kendaraanList, 'skillList' => $skillList] = $this->vendorKendaraanData($vendorSkill);
         $cabangList = $this->cabangOptions();
         $tarifSkillList = $this->skillOptionsForCabang($vendorSkill->cabang_code);
@@ -92,8 +33,8 @@ class TarifKirimanRutinController extends Controller
 
         $namaPerusahaan = $vendorSkill->perusahaan->nama_perusahaan ?? null;
         $breadcrumb = [
-            'back_url' => route('kelola-tarif.sewa-truk'),
-            'back_label' => 'Master Tabel Sewa Truk',
+            'back_url' => route('perusahaan.show', $vendorSkill->id_perusahaan),
+            'back_label' => 'Detail Perusahaan',
             'title' => ($namaPerusahaan && $namaPerusahaan !== '-') ? $namaPerusahaan : 'Edit Tarif Sewa Truk',
         ];
 
@@ -135,7 +76,7 @@ class TarifKirimanRutinController extends Controller
                 'id_skill'    => $idSkill,
             ]);
 
-            return redirect()->route('kelola-tarif.sewa-truk')->with('success', 'Data Sewa Truk berhasil diperbarui.');
+            return redirect()->route('perusahaan.show', $vendorSkill->id_perusahaan)->with('success', 'Data Sewa Truk berhasil diperbarui.');
         } catch (\Exception $e) {
             return back()->withErrors(['error' => 'Gagal menyimpan: ' . $e->getMessage()])->withInput();
         }
@@ -207,80 +148,10 @@ class TarifKirimanRutinController extends Controller
         return null;
     }
 
-    /**
-     * Halaman list "master tabel Kiriman Rutin" (role: DCI) — bentuk wide/
-     * pivot ngikutin Excel sumbernya (1 kolom per jenis barang, lihat
-     * ImportTarifKirimanRutinWideCommand). 1 baris = 1 sesi_perusahaan_skill
-     * yang punya minimal 1 tarif kiriman rutin (whereExists) — beda dari
-     * Sewa Truk, CSV ini ga punya kolom Badan Usaha/KTP-NPWP/Revisi.
-     */
-    public function indexKirimanRutin(Request $request)
-    {
-        $search = trim((string) $request->get('search', ''));
-
-        $jenisBarangList = JenisBarangKiriman::where('flag', true)->orderBy('nama_barang')->get(['id_jenis_barang', 'nama_barang']);
-
-        $query = DB::connection('sqlsrv')->table('sesi_perusahaan_skill as ps')
-            ->join('sesi_perusahaan_ekspedisi as pe', 'ps.id_perusahaan', '=', 'pe.id_perusahaan')
-            ->join('sesi_master_skill as ms', 'ps.id_skill', '=', 'ms.id_skill')
-            ->leftJoin('sesi_master_cabang as mc', function ($join) {
-                $join->on('ps.cabang_code', '=', DB::raw('mc.Code COLLATE SQL_Latin1_General_CP1_CI_AS'));
-            })
-            ->where('ps.flag', true)
-            ->whereExists(function ($q) {
-                $q->select(DB::raw(1))
-                  ->from('sesi_tarif_kiriman_rutin as t')
-                  ->whereColumn('t.id_vendor_skill', 'ps.id_vendor_skill')
-                  ->where('t.flag', true);
-            });
-
-        if ($search !== '') {
-            $query->where(function ($q) use ($search) {
-                $q->where('pe.nama_perusahaan', 'like', "%{$search}%")
-                  ->orWhere('ps.cabang_code', 'like', "%{$search}%")
-                  ->orWhere('ms.nama_skill', 'like', "%{$search}%");
-            });
-        }
-
-        $rows = $query->select(
-                'ps.id_vendor_skill',
-                'pe.nama_perusahaan',
-                'ps.cabang_code',
-                'mc.Name as nama_cabang',
-                'mc.Area as kode_area',
-                'ms.nama_skill as area_kirim',
-                'ps.updated_at',
-                'ps.created_at'
-            )
-            ->orderBy('pe.nama_perusahaan')
-            ->orderBy('ps.cabang_code')
-            ->paginate(25)
-            ->withQueryString();
-
-        // Ambil semua tarif utk vendor-skill di halaman ini sekaligus (hindari N+1),
-        // lalu index by id_vendor_skill supaya gampang di-pivot di view.
-        $vendorSkillIds = collect($rows->items())->pluck('id_vendor_skill');
-        $tarifByVendorSkill = $vendorSkillIds->isEmpty() ? collect() : DB::connection('sqlsrv')
-            ->table('sesi_tarif_kiriman_rutin')
-            ->whereIn('id_vendor_skill', $vendorSkillIds)
-            ->where('flag', true)
-            ->get()
-            ->groupBy('id_vendor_skill');
-
-        $rows->getCollection()->transform(function ($row) use ($tarifByVendorSkill) {
-            $row->harga = [];
-            foreach ($tarifByVendorSkill->get($row->id_vendor_skill, collect()) as $t) {
-                $row->harga[$t->id_jenis_barang] = (float) $t->biaya_per_unit;
-            }
-            return $row;
-        });
-
-        return view('pages.tarif-kiriman-rutin.index', compact('rows', 'search', 'jenisBarangList'));
-    }
-
     public function editKirimanRutin($id)
     {
         $vendorSkill = PerusahaanSkill::with('perusahaan')->findOrFail($id);
+        abort_unless(auth()->user()->canAccessCabang($vendorSkill->cabang_code), 403, 'Anda tidak punya akses ke cabang ini');
         $jenisBarangList = JenisBarangKiriman::where('flag', true)->orderBy('nama_barang')->get();
         $tarifExisting = TarifKirimanRutin::where('id_vendor_skill', $id)->where('flag', true)->get()->keyBy('id_jenis_barang');
         ['kendaraanList' => $kendaraanList, 'skillList' => $skillList] = $this->vendorKendaraanData($vendorSkill);
@@ -290,8 +161,8 @@ class TarifKirimanRutinController extends Controller
 
         $namaPerusahaan = $vendorSkill->perusahaan->nama_perusahaan ?? null;
         $breadcrumb = [
-            'back_url' => route('kelola-tarif.kiriman-rutin'),
-            'back_label' => 'Master Tabel Kiriman Rutin',
+            'back_url' => route('perusahaan.show', $vendorSkill->id_perusahaan),
+            'back_label' => 'Detail Perusahaan',
             'title' => ($namaPerusahaan && $namaPerusahaan !== '-') ? $namaPerusahaan : 'Edit Tarif Kiriman Rutin',
         ];
 
@@ -368,7 +239,7 @@ class TarifKirimanRutinController extends Controller
 
             DB::connection('sqlsrv')->commit();
 
-            return redirect()->route('kelola-tarif.kiriman-rutin')->with('success', 'Tarif Kiriman Rutin berhasil diperbarui.');
+            return redirect()->route('perusahaan.show', $vendorSkill->id_perusahaan)->with('success', 'Tarif Kiriman Rutin berhasil diperbarui.');
         } catch (\Exception $e) {
             DB::connection('sqlsrv')->rollBack();
             return back()->withErrors(['error' => 'Gagal menyimpan: ' . $e->getMessage()])->withInput();
