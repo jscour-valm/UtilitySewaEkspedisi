@@ -1,5 +1,5 @@
 {{-- Step 1 — mini-stepper sama untuk kedua jenis (Sewa Truk & Kiriman Rutin).
-     Yang beda cuma isi tabel/panel di tiap sub-step, bukan layout-nya. --}}
+    Yang beda cuma isi tabel/panel di tiap sub-step, bukan layout-nya. --}}
 <div class="space-y-5">
     {{-- Mini-stepper untuk sub-step (3 bubble clickable) --}}
     <div class="mb-4 flex items-center gap-3 text-xs">
@@ -147,7 +147,7 @@
                     <template x-for="(preview, i) in kendaraanBaru.identitas_owner_previews" :key="i">
                         <div class="relative">
                             <img :src="preview" class="h-20 w-20 rounded-lg border border-gray-200 object-cover cursor-pointer hover:opacity-80"
-                                @click="previewImageUrl = preview">
+                                @click="openLightbox(kendaraanBaru.identitas_owner_previews, i)">
                             <button
                                 type="button"
                                 @click="kendaraanBaru.identitas_owner_files.splice(i, 1); kendaraanBaru.identitas_owner_previews.splice(i, 1); $refs.identitasOwnerInput.value = ''"
@@ -156,22 +156,6 @@
                             </button>
                         </div>
                     </template>
-                </div>
-            </div>
-
-            {{-- Image preview lightbox modal --}}
-            <div x-show="previewImageUrl"
-                @click.self="previewImageUrl = null"
-                @keydown.escape="previewImageUrl = null"
-                class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70 p-4">
-                <div class="relative max-w-2xl max-h-[80vh] bg-white rounded-lg overflow-auto">
-                    <button
-                        type="button"
-                        @click="previewImageUrl = null"
-                        class="absolute top-3 right-3 bg-gray-200 rounded-full w-8 h-8 flex items-center justify-center shadow-lg hover:bg-gray-100 z-10">
-                        ✕
-                    </button>
-                    <img :src="previewImageUrl" class="w-full h-auto">
                 </div>
             </div>
 
@@ -195,45 +179,91 @@
 
     {{-- SUB-STEP 2: Pilih/Buat Kendaraan (hanya tampil setelah perusahaan dipilih) --}}
     <div x-show="subStepKendaraan === 2" class="space-y-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
-        {{-- Data Vendor: 1 instance aja buat kedua jenis (jangan di dalam masing-masing
-             cabang x-show di bawah - x-ref di dalamnya bisa dobel kalau dirender 2x). --}}
-        <x-form-vendor-edit />
-
-        {{-- Kiriman Rutin: panel ringan (tarif barang diisi di step 2 / Data Pengajuan) --}}
+        {{-- Kiriman Rutin: pilih 1 area kirim milik vendor, atau tambah area lain --}}
         <div x-show="pengajuan.jenis_pengajuan === 'pengiriman_rutin'" class="space-y-3">
             <div class="flex items-center justify-between">
                 <h4 class="font-semibold text-gray-800">Langkah 2: Area &amp; Tarif Vendor</h4>
                 <button type="button" @click="subStepKendaraan = 1"
                     class="text-xs text-gray-500 hover:text-gray-700 underline">← Ganti Vendor</button>
             </div>
-            <p class="text-sm text-gray-600">Vendor: <strong x-text="perusahaanTerpilih?.nama_perusahaan"></strong></p>
-
+            <p class="text-sm text-gray-600">
+                Vendor: <strong x-text="perusahaanTerpilih?.nama_perusahaan"></strong>
+            </p>
             <p class="text-sm text-gray-500">
-                Jenis barang &amp; tarif kiriman diisi di langkah berikutnya (Data Pengajuan).
-                Barang yang belum punya tarif terdaftar bisa diisi harganya secara manual di sana.
+                Pilih 1 area kirim untuk pengajuan ini. Jenis barang &amp; qty diisi di langkah Data Pengajuan;
+                barang yang belum punya tarif bisa diisi harganya secara manual di sana.
             </p>
 
-            {{-- Breakdown tarif barang yang udah terdaftar buat rate-card vendor ini (area cabang user) --}}
-            <div x-show="rateCardVendorSkillIds.length && tarifKirimanRutinList.length > 0" class="rounded-lg border border-avian-green/30 bg-avian-green-light p-3">
-                <p class="mb-2 text-xs font-medium text-avian-green">
-                    <span x-text="tarifKirimanRutinList.length"></span> tarif barang terdaftar untuk area cabang Anda
-                </p>
-                <div class="space-y-1 text-sm">
-                    <template x-for="t in tarifKirimanRutinList" :key="t.id_tarif">
-                        <div class="flex items-center justify-between">
-                            <span class="text-gray-700" x-text="t.nama_barang"></span>
-                            <span class="font-medium text-gray-800" x-text="'Rp ' + Number(t.biaya_per_unit).toLocaleString('id-ID')"></span>
-                        </div>
+            {{-- Area milik vendor di cabang user --}}
+            <div x-show="rateCardAreas.length > 0" class="space-y-2">
+                <p class="text-sm font-medium text-gray-700">Area Kirim Vendor <span class="text-red-500">*</span></p>
+                <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    <template x-for="area in rateCardAreasSorted" :key="area.id_vendor_skill">
+                        <label class="block cursor-pointer rounded-lg border bg-white p-3 transition"
+                            :class="areaRutinKey === 'id:' + area.id_skill ? 'border-avian-green ring-1 ring-avian-green' : 'border-gray-200'">
+                            <span class="flex items-center gap-2">
+                                <input type="radio" name="area_rutin" :value="area.id_skill"
+                                    :checked="areaRutinKey === 'id:' + area.id_skill"
+                                    @change="pilihAreaRutin(String(area.id_skill))"
+                                    class="border-gray-300 text-avian-green focus:ring-avian-green">
+                                <span class="text-sm font-medium text-gray-800" x-text="area.nama_skill"></span>
+                            </span>
+                            <span class="mt-2 block space-y-1 pl-6 text-sm" x-show="tarifUntukArea(area.id_vendor_skill).length > 0">
+                                <template x-for="t in tarifUntukArea(area.id_vendor_skill)" :key="t.id_tarif">
+                                    <span class="flex items-center justify-between">
+                                        <span class="text-gray-600" x-text="t.nama_barang"></span>
+                                        <span class="font-medium text-gray-800" x-text="'Rp ' + Number(t.biaya_per_unit).toLocaleString('id-ID')"></span>
+                                    </span>
+                                </template>
+                            </span>
+                            <span class="mt-2 block pl-6 text-xs text-gray-400" x-show="loadingTarif && tarifUntukArea(area.id_vendor_skill).length === 0">Memuat tarif…</span>
+                            <span class="mt-2 block pl-6 text-xs text-gray-400" x-show="!loadingTarif && tarifUntukArea(area.id_vendor_skill).length === 0">Belum ada tarif barang untuk area ini.</span>
+                        </label>
                     </template>
                 </div>
             </div>
-            <p x-show="rateCardVendorSkillIds.length && tarifKirimanRutinList.length === 0" class="text-sm text-gray-400">
-                Belum ada tarif barang terdaftar untuk vendor ini di area cabang Anda.
+            <p x-show="perusahaanTerpilih && rateCardAreas.length === 0" class="text-sm text-gray-500">
+                Vendor ini belum punya area di cabang Anda. Tambahkan area kirim di bawah.
             </p>
 
+            {{-- Tambah area: area cabang yang belum dimiliki vendor, atau area baru --}}
+            <div class="space-y-3 rounded-lg border border-dashed border-gray-300 bg-white p-3">
+                <p class="text-sm font-medium text-gray-700">Tambah Area Kirim</p>
+                <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div>
+                        <label class="mb-1 block text-xs text-gray-500">Area cabang yang belum dimiliki vendor</label>
+                        <select @change="if ($event.target.value) pilihAreaRutin($event.target.value)"
+                            :value="String(pengajuan.id_skill[0] ?? '')"
+                            class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-avian-green focus:outline-none">
+                            <option value="">-- Pilih area --</option>
+                            <template x-for="s in areaCabangBukanVendor" :key="s.id_skill">
+                                <option :value="String(s.id_skill)" x-text="s.nama_skill" :selected="areaRutinKey === 'id:' + s.id_skill"></option>
+                            </template>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="mb-1 block text-xs text-gray-500">Area baru (belum terdaftar di cabang)</label>
+                        <div class="flex gap-2">
+                            <input type="text" x-model="areaBaruInput" placeholder="Contoh: ACKOT CDE"
+                                @keydown.enter.prevent="pilihAreaRutinBaru(areaBaruInput)"
+                                class="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-avian-green focus:outline-none">
+                            <button type="button" @click="pilihAreaRutinBaru(areaBaruInput)" :disabled="!areaBaruInput.trim()"
+                                class="rounded-lg border border-avian-green px-3 py-2 text-xs font-medium text-avian-green hover:bg-avian-green-light disabled:cursor-not-allowed disabled:opacity-50">
+                                Pakai
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <p x-show="areaRutinKey" class="text-xs text-gray-600">
+                    Area dipilih: <span class="font-semibold text-avian-green" x-text="namaAreaRutin"></span>
+                    <span x-show="areaRutinKey && areaRutinKey.startsWith('baru:')" class="text-blue-500">(area baru)</span>
+                </p>
+            </div>
+
             <div class="flex justify-end">
-                <button type="button" @click="subStepKendaraan = 3" :disabled="!perusahaanTerpilih"
-                    :class="perusahaanTerpilih ? 'bg-avian-green text-white hover:bg-avian-green-dark' : 'bg-gray-100 text-gray-400 cursor-not-allowed'"
+                <button type="button" @click="subStepKendaraan = 3"
+                    :disabled="!perusahaanTerpilih || !areaRutinKey"
+                    :class="(perusahaanTerpilih && areaRutinKey) ? 'bg-avian-green text-white hover:bg-avian-green-dark' : 'bg-gray-100 text-gray-400 cursor-not-allowed'"
                     class="rounded-lg px-4 py-2 text-sm font-medium transition">Lanjut →</button>
             </div>
         </div>
@@ -250,171 +280,187 @@
                 </button>
             </div>
 
-            <p class="text-sm text-gray-600">Perusahaan: <strong x-text="perusahaanTerpilih?.nama_perusahaan"></strong></p>
+            <p class="text-sm text-gray-600">
+                Perusahaan: <strong x-text="perusahaanTerpilih?.nama_perusahaan"></strong>
+            </p>
 
             {{-- Daftar kendaraan existing milik perusahaan ini --}}
             <div x-show="kendaraanByPerusahaan.length > 0">
-            <p class="mb-2 text-sm font-medium text-gray-700">Kendaraan Terdaftar</p>
-            <div class="overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
-                <template x-for="a in kendaraanByPerusahaan" :key="a.id">
-                    <div class="flex items-center justify-between border-b border-gray-100 px-4 py-3 last:border-0 cursor-pointer hover:bg-gray-50"
-                         :class="kendaraanTerpilih?.id === a.id ? 'bg-avian-green-light' : ''"
-                         @click="kendaraanTerpilih = (kendaraanTerpilih?.id === a.id ? null : a); showFormKendaraanBaru = false">
-                        <div class="text-sm">
-                            <span class="font-medium text-gray-800" x-text="a.kendaraan || '(Tanpa nama)'"></span>
-                            <span class="text-gray-400 mx-1">·</span>
-                            <span class="text-gray-500" x-text="a.plat_nomor_truk || 'Tanpa plat'"></span>
-                            <span class="text-gray-400 mx-1">·</span>
-                            <span class="text-gray-500" x-text="a.muatan"></span>
+                <p class="mb-2 text-sm font-medium text-gray-700">Kendaraan Terdaftar</p>
+                <div class="overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
+                    <template x-for="a in kendaraanByPerusahaan" :key="a.id">
+                        <div class="flex items-center justify-between border-b border-gray-100 px-4 py-3 last:border-0 cursor-pointer hover:bg-gray-50"
+                            :class="kendaraanTerpilih?.id === a.id ? 'bg-avian-green-light' : ''"
+                            @click="kendaraanTerpilih = (kendaraanTerpilih?.id === a.id ? null : a); showFormKendaraanBaru = false">
+                            <div class="text-sm">
+                                <span class="font-medium text-gray-800" x-text="a.kendaraan || '(Tanpa nama)'"></span>
+                                <span class="text-gray-400 mx-1">·</span>
+                                <span class="text-gray-500" x-text="a.plat_nomor_truk || 'Tanpa plat'"></span>
+                                <span class="text-gray-400 mx-1">·</span>
+                                <span class="text-gray-500" x-text="a.muatan"></span>
+                            </div>
+                            <span x-show="kendaraanTerpilih?.id === a.id" class="text-xs font-medium text-avian-green">✓ Dipilih</span>
                         </div>
-                        <span x-show="kendaraanTerpilih?.id === a.id" class="text-xs font-medium text-avian-green">✓ Dipilih</span>
-                    </div>
-                </template>
-            </div>
-        </div>
-        <p x-show="!loadingKendaraanByPerusahaan && kendaraanByPerusahaan.length === 0" class="text-sm text-gray-400">
-            Perusahaan ini belum punya kendaraan terdaftar.
-        </p>
-
-        {{-- Toggle form tambah kendaraan baru --}}
-        <button type="button" @click="showFormKendaraanBaru = !showFormKendaraanBaru; if (showFormKendaraanBaru) kendaraanTerpilih = null"
-            class="text-xs font-medium text-avian-green hover:underline"
-            x-text="showFormKendaraanBaru ? '− Sembunyikan form tambah kendaraan' : '+ Tambah Kendaraan Baru'"></button>
-
-        {{-- Form kendaraan baru --}}
-        <div x-show="showFormKendaraanBaru" class="space-y-4 rounded-lg bg-gray-50 p-4">
-            {{-- Jenis Kendaraan & Plat Nomor & Muatan Maksimal --}}
-            <div class="grid grid-cols-3 gap-4">
-                <div>
-                    <x-form-label>Jenis Kendaraan</x-form-label>
-                    <input type="text" x-model="kendaraanBaru.jenis_kendaraan" placeholder="Cth: Truk Box"
-                        class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-avian-green focus:outline-none">
-                </div>
-                <div>
-                    <x-form-label>Plat Nomor</x-form-label>
-                    <input type="text" x-model="kendaraanBaru.plat_nomor_truk" placeholder="Cth: B 1234 XYZ"
-                        class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-avian-green focus:outline-none">
-                </div>
-                <div>
-                    <x-form-label required>Muatan Maksimal (Ton)</x-form-label>
-                    <input type="number" x-model="kendaraanBaru.muatan_maksimal" step="0.01" min="0.01"
-                        @wheel="$event.target.blur()"
-                        class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-avian-green focus:outline-none">
+                    </template>
                 </div>
             </div>
 
-            {{-- Skill Selection (Multi-select) --}}
-            <div>
-                <x-form-label required>Area/Skill Layanan</x-form-label>
+            <p x-show="!loadingKendaraanByPerusahaan && kendaraanByPerusahaan.length === 0" class="text-sm text-gray-400">
+                Perusahaan ini belum punya kendaraan terdaftar.
+            </p>
 
-                <div class="grid grid-cols-2 gap-4">
-
-                    {{-- Kiri: Checklist --}}
-                    <div class="rounded-lg border border-gray-300 bg-gray-50 px-3 py-2">
-                        <template x-if="skillList.length === 0">
-                            <p class="text-xs text-gray-400 py-1">Memuat daftar area...</p>
-                        </template>
-                        <template x-for="s in skillList" :key="s.id_skill">
-                            <label class="flex items-center gap-2 cursor-pointer py-1 hover:bg-gray-50 px-1 rounded">
-                                <input
-                                    type="checkbox"
-                                    :value="s.id_skill"
-                                    x-model="kendaraanBaru.id_skill"
-                                    class="rounded border-gray-300 text-avian-green focus:ring-avian-green">
-                                <span class="text-sm text-gray-700" x-text="s.nama_skill"></span>
-                            </label>
-                        </template>
+            {{-- Toggle form tambah kendaraan baru --}}
+            <button type="button" @click="showFormKendaraanBaru = !showFormKendaraanBaru; if (showFormKendaraanBaru) kendaraanTerpilih = null"
+                class="text-xs font-medium text-avian-green hover:underline"
+                x-text="showFormKendaraanBaru ? '− Sembunyikan form tambah kendaraan' : '+ Tambah Kendaraan Baru'">
+            </button>
+        
+            {{-- Form kendaraan baru --}}
+            <div x-show="showFormKendaraanBaru" class="space-y-4 rounded-lg bg-gray-50 p-4">
+                {{-- Jenis Kendaraan & Plat Nomor & Muatan Maksimal --}}
+                <div class="grid grid-cols-3 gap-4">
+                    <div>
+                        <x-form-label required>Jenis Kendaraan</x-form-label>
+                        <select x-model="kendaraanBaru.id_jenis_kendaraan"
+                            @change="onJenisKendaraanChange(kendaraanBaru, $event.target.value)"
+                            class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-avian-green focus:outline-none">
+                            <option value="">-- Pilih jenis kendaraan --</option>
+                            <template x-for="j in jenisKendaraanList" :key="j.id_jenis_kendaraan">
+                                <option :value="j.id_jenis_kendaraan" x-text="j.nama_jenis"></option>
+                            </template>
+                        </select>
                     </div>
+                    <div>
+                        <x-form-label>Plat Nomor</x-form-label>
+                        <input type="text" x-model="kendaraanBaru.plat_nomor_truk" placeholder="Cth: B 1234 XYZ"
+                            class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-avian-green focus:outline-none">
+                    </div>
+                    <div>
+                        <x-form-label required>Muatan Maksimal (Ton)</x-form-label>
+                        {{-- Readonly: ke-lock otomatis dari master begitu Jenis Kendaraan dipilih
+                        (onJenisKendaraanChange di atas), biar KaGud nggak bisa salah isi manual
+                        (review mentor item 4). --}}
+                        <input type="number" x-model="kendaraanBaru.muatan_maksimal" step="0.01" min="0.01" readonly
+                            @wheel="$event.target.blur()"
+                            class="w-full rounded-lg border border-gray-300 bg-gray-100 px-3 py-2 text-sm text-gray-600 focus:border-avian-green focus:outline-none">
+                    </div>
+                </div>
 
-                    {{-- Kanan: Summary + Add New --}}
-                    <div class="flex flex-col gap-3">
-                        <div class="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
-                            <p class="mb-2 text-xs font-medium text-gray-500">Area Dipilih</p>
-                            <div class="flex flex-wrap gap-1.5">
-                                <template x-if="kendaraanBaru.id_skill.length === 0 && kendaraanBaru.skillBaru.filter(s => s.trim() !== '').length === 0">
-                                    <p class="text-xs text-gray-400">Belum ada area dipilih.</p>
-                                </template>
-                                <template x-for="s in kendaraanBaru.id_skill" :key="s">
-                                    <span class="inline-flex items-center gap-1 rounded-full bg-avian-green-light px-2.5 py-0.5 text-xs font-medium text-avian-green">
-                                        <span x-text="skillList.find(sk => String(sk.id_skill) === String(s))?.nama_skill ?? s"></span>
-                                        <button
-                                            type="button"
-                                            @click="kendaraanBaru.id_skill = kendaraanBaru.id_skill.filter(x => x !== s)"
-                                            class="hover:text-avian-green-dark leading-none">×</button>
-                                    </span>
-                                </template>
-                                <template x-for="(s, i) in kendaraanBaru.skillBaru.filter(s => s.trim() !== '')" :key="'baru-'+i">
-                                    <span class="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-600">
-                                        <span x-text="s"></span>
-                                        <span class="text-blue-400 text-[10px]">baru</span>
-                                    </span>
-                                </template>
-                            </div>
+                {{-- Skill Selection (Multi-select) --}}
+                <div>
+                    <x-form-label required>Area/Skill Layanan</x-form-label>
+
+                    <div class="grid grid-cols-2 gap-4">
+
+                        {{-- Kiri: Checklist --}}
+                        <div class="rounded-lg border border-gray-300 bg-gray-50 px-3 py-2">
+                            <template x-if="loadingSkillList && skillList.length === 0">
+                                <p class="text-xs text-gray-400 py-1">Memuat daftar area...</p>
+                            </template>
+                            <template x-if="!loadingSkillList && skillList.length === 0">
+                                <p class="text-xs text-gray-400 py-1">Belum ada area terdaftar untuk cabang ini.</p>
+                            </template>
+                            <template x-for="s in skillList" :key="s.id_skill">
+                                <label class="flex items-center gap-2 cursor-pointer py-1 hover:bg-gray-50 px-1 rounded">
+                                    <input
+                                        type="checkbox"
+                                        :value="s.id_skill"
+                                        x-model="kendaraanBaru.id_skill"
+                                        class="rounded border-gray-300 text-avian-green focus:ring-avian-green">
+                                    <span class="text-sm text-gray-700" x-text="s.nama_skill"></span>
+                                </label>
+                            </template>
                         </div>
 
-                        {{-- Tambah Area Baru --}}
-                        <div>
-                            <div class="mb-2 flex items-center justify-between">
-                                <span class="text-xs font-medium text-gray-600">Tambah Area Baru</span>
-                                <button
-                                    type="button"
-                                    @click="kendaraanBaru.skillBaru.push('')"
-                                    class="rounded-lg border border-avian-green px-3 py-1 text-xs font-medium text-avian-green hover:bg-avian-green-light transition">
-                                    + Tambah
-                                </button>
+                        {{-- Kanan: Summary + Add New --}}
+                        <div class="flex flex-col gap-3">
+                            <div class="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+                                <p class="mb-2 text-xs font-medium text-gray-500">Area Dipilih</p>
+                                <div class="flex flex-wrap gap-1.5">
+                                    <template x-if="kendaraanBaru.id_skill.length === 0 && kendaraanBaru.skillBaru.filter(s => s.trim() !== '').length === 0">
+                                        <p class="text-xs text-gray-400">Belum ada area dipilih.</p>
+                                    </template>
+                                    <template x-for="s in kendaraanBaru.id_skill" :key="s">
+                                        <span class="inline-flex items-center gap-1 rounded-full bg-avian-green-light px-2.5 py-0.5 text-xs font-medium text-avian-green">
+                                            <span x-text="skillList.find(sk => String(sk.id_skill) === String(s))?.nama_skill ?? s"></span>
+                                            <button
+                                                type="button"
+                                                @click="kendaraanBaru.id_skill = kendaraanBaru.id_skill.filter(x => x !== s)"
+                                                class="hover:text-avian-green-dark leading-none">×</button>
+                                        </span>
+                                    </template>
+                                    <template x-for="(s, i) in kendaraanBaru.skillBaru.filter(s => s.trim() !== '')" :key="'baru-'+i">
+                                        <span class="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-600">
+                                            <span x-text="s"></span>
+                                            <span class="text-blue-400 text-[10px]">baru</span>
+                                        </span>
+                                    </template>
+                                </div>
                             </div>
-                            <div class="space-y-2">
-                                <template x-for="(s, i) in kendaraanBaru.skillBaru" :key="i">
-                                    <div class="flex items-center gap-2">
-                                        <input
-                                            type="text"
-                                            x-model="kendaraanBaru.skillBaru[i]"
-                                            placeholder="Contoh: ACKOT CDE"
-                                            class="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-avian-green focus:outline-none">
-                                        <button
-                                            type="button"
-                                            @click="kendaraanBaru.skillBaru.splice(i, 1)"
-                                            class="rounded-lg border border-red-200 px-2 py-2 text-red-400 hover:bg-red-50 transition">
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                            </svg>
-                                        </button>
-                                    </div>
-                                </template>
-                                <p x-show="kendaraanBaru.skillBaru.length === 0" class="text-xs text-gray-400">
-                                    Belum ada area baru ditambahkan.
-                                </p>
+
+                            {{-- Tambah Area Baru --}}
+                            <div>
+                                <div class="mb-2 flex items-center justify-between">
+                                    <span class="text-xs font-medium text-gray-600">Tambah Area Baru</span>
+                                    <button
+                                        type="button"
+                                        @click="kendaraanBaru.skillBaru.push('')"
+                                        class="rounded-lg border border-avian-green px-3 py-1 text-xs font-medium text-avian-green hover:bg-avian-green-light transition">
+                                        + Tambah
+                                    </button>
+                                </div>
+                                <div class="space-y-2">
+                                    <template x-for="(s, i) in kendaraanBaru.skillBaru" :key="i">
+                                        <div class="flex items-center gap-2">
+                                            <input
+                                                type="text"
+                                                x-model="kendaraanBaru.skillBaru[i]"
+                                                placeholder="Contoh: ACKOT CDE"
+                                                class="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-avian-green focus:outline-none">
+                                            <button
+                                                type="button"
+                                                @click="kendaraanBaru.skillBaru.splice(i, 1)"
+                                                class="rounded-lg border border-red-200 px-2 py-2 text-red-400 hover:bg-red-50 transition">
+                                                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    </template>
+                                    <p x-show="kendaraanBaru.skillBaru.length === 0" class="text-xs text-gray-400">
+                                        Belum ada area baru ditambahkan.
+                                    </p>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
+
+                {{-- Tombol simpan kendaraan baru --}}
+                <div class="flex justify-end">
+                    <button
+                        type="button"
+                        @click="saveKendaraan()"
+                        :disabled="savingKendaraan"
+                        class="rounded-lg bg-avian-green px-4 py-2 text-sm font-medium text-white hover:bg-avian-green-dark disabled:opacity-50 disabled:cursor-not-allowed">
+                        <span x-text="savingKendaraan ? 'Menyimpan...' : 'Simpan & Pilih Kendaraan'"></span>
+                    </button>
+                </div>
             </div>
 
-            {{-- Tombol simpan kendaraan baru --}}
-            <div class="flex justify-end">
+            {{-- Tombol navigasi bawah --}}
+            <div class="flex justify-end gap-3">
                 <button
                     type="button"
-                    @click="saveKendaraan()"
-                    :disabled="savingKendaraan"
-                    class="rounded-lg bg-avian-green px-4 py-2 text-sm font-medium text-white hover:bg-avian-green-dark disabled:opacity-50 disabled:cursor-not-allowed">
-                    <span x-text="savingKendaraan ? 'Menyimpan...' : 'Simpan & Pilih Kendaraan'"></span>
+                    @click="subStepKendaraan = 3"
+                    :disabled="!kendaraanTerpilih"
+                    :class="kendaraanTerpilih
+                        ? 'bg-avian-green text-white hover:bg-avian-green-dark'
+                        : 'bg-gray-100 text-gray-400 cursor-not-allowed'"
+                    class="rounded-lg px-4 py-2 text-sm font-medium transition">
+                    Lanjut →
                 </button>
             </div>
-        </div>
-
-        {{-- Tombol navigasi bawah --}}
-        <div class="flex justify-end gap-3">
-            <button
-                type="button"
-                @click="subStepKendaraan = 3"
-                :disabled="!kendaraanTerpilih"
-                :class="kendaraanTerpilih
-                    ? 'bg-avian-green text-white hover:bg-avian-green-dark'
-                    : 'bg-gray-100 text-gray-400 cursor-not-allowed'"
-                class="rounded-lg px-4 py-2 text-sm font-medium transition">
-                Lanjut →
-            </button>
-        </div>
         </div>{{-- END Sewa Truk sub-step 2 --}}
     </div>
 
@@ -445,30 +491,46 @@
                     </div>
                 </template>
                 <template x-if="pengajuan.jenis_pengajuan === 'pengiriman_rutin'">
-                    <div class="space-y-2">
+                    <div class="space-y-3">
                         <div>
-                            <span class="text-gray-500">Badan Usaha:</span>
-                            <span class="font-semibold text-gray-800" x-text="vendorEdit.badan_usaha || '—'"></span>
+                            <p class="mb-1 text-xs font-medium uppercase tracking-wide text-gray-400">Identitas Perusahaan</p>
+                            <p><span class="text-gray-500">Badan Usaha:</span> <span class="font-semibold text-gray-800" x-text="perusahaanTerpilih?.badan_usaha || '—'"></span></p>
+                            <p><span class="text-gray-500">Telepon:</span> <span class="font-semibold text-gray-800" x-text="perusahaanTerpilih?.no_telepon || '—'"></span></p>
+                            <p><span class="text-gray-500">Alamat:</span> <span class="font-semibold text-gray-800" x-text="perusahaanTerpilih?.alamat_kantor || '—'"></span></p>
                         </div>
-                        <div>
-                            <span class="text-gray-500">Alamat:</span>
-                            <span class="font-semibold text-gray-800" x-text="vendorEdit.alamat_kantor || '—'"></span>
-                        </div>
-                        <div x-show="tarifKirimanRutinList.length > 0">
-                            <span class="text-gray-500">Tarif terdaftar:</span>
-                            <span class="font-semibold text-gray-800" x-text="tarifKirimanRutinList.length + ' jenis barang'"></span>
-                            <div class="mt-1 space-y-1 rounded-lg border border-gray-200 bg-white p-2 text-xs">
-                                <template x-for="t in tarifKirimanRutinList" :key="t.id_tarif">
-                                    <div class="flex items-center justify-between">
-                                        <span class="text-gray-600" x-text="t.nama_barang"></span>
-                                        <span class="font-medium text-gray-700" x-text="'Rp ' + Number(t.biaya_per_unit).toLocaleString('id-ID')"></span>
+                        <div x-show="kendaraanByPerusahaan.length > 0">
+                            <p class="mb-1 text-xs font-medium uppercase tracking-wide text-gray-400">Kendaraan Terdaftar</p>
+                            <div class="overflow-hidden rounded-lg border border-gray-200 bg-white">
+                                <template x-for="a in kendaraanByPerusahaan" :key="a.id">
+                                    <div class="border-b border-gray-100 px-3 py-2 text-xs last:border-0">
+                                        <span class="font-medium text-gray-800" x-text="a.kendaraan || '(Tanpa nama)'"></span>
+                                        <span class="text-gray-400 mx-1">·</span>
+                                        <span class="text-gray-500" x-text="a.plat_nomor_truk || 'Tanpa plat'"></span>
+                                        <span class="text-gray-400 mx-1">·</span>
+                                        <span class="text-gray-500" x-text="a.muatan"></span>
                                     </div>
                                 </template>
                             </div>
                         </div>
-                        <p x-show="tarifKirimanRutinList.length === 0" class="text-xs text-gray-400">
-                            Belum ada tarif barang terdaftar untuk vendor ini.
-                        </p>
+                        <div>
+                            <p class="mb-1 text-xs font-medium uppercase tracking-wide text-gray-400">Area Kirim &amp; Tarif</p>
+                            <div class="rounded-lg border border-gray-200 bg-white p-2 text-xs" x-show="areaRutinKey">
+                                <p class="mb-1 text-sm font-medium text-gray-800">
+                                    <span x-text="namaAreaRutin"></span>
+                                    <span x-show="areaRutinKey && areaRutinKey.startsWith('baru:')" class="text-[10px] text-blue-500">area baru</span>
+                                </p>
+                                <template x-for="t in tarifAreaTerpilih" :key="t.id_tarif">
+                                    <div class="flex items-center justify-between pl-2">
+                                        <span class="text-gray-600" x-text="t.nama_barang"></span>
+                                        <span class="font-medium text-gray-700" x-text="'Rp ' + Number(t.biaya_per_unit).toLocaleString('id-ID')"></span>
+                                    </div>
+                                </template>
+                                <p class="pl-2 text-gray-400" x-show="!loadingTarif && tarifAreaTerpilih.length === 0">
+                                    Belum ada tarif terdaftar untuk area ini; harga diisi manual di Data Pengajuan.
+                                </p>
+                            </div>
+                            <p x-show="!areaRutinKey" class="text-xs text-gray-400">Belum ada area kirim dipilih.</p>
+                        </div>
                     </div>
                 </template>
             </div>

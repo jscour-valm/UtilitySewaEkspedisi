@@ -4,23 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Models\Approval;
 use App\Models\User;
+use App\Services\UserCabangResolver;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
-/**
- * Halaman "Setting Approver" (role: DCI) — kelola manual WM mana yang bisa
- * approve cabang mana lewat sesi_user_cabang, tabel yang BENERAN dipakai
- * buat cek otorisasi (User::canAccessCabang(), dipanggil dari
- * ApprovalController::approve()/reject()). Data default-nya sudah di-sync
- * otomatis dari view eksternal IT (lihat UserCabangSeeder) — halaman ini
- * buat kasus khusus (cabang baru/belum ke-cover sync, cabang tanpa WM).
- *
- * sesi_approval (approver resmi per cabang buat pencatatan/log) TIDAK dipakai
- * buat cek otorisasi, jadi nambah baris di sesi_user_cabang lewat sini SUDAH
- * CUKUP bikin WM itu bisa approve — tidak perlu ubah ApprovalController.
- * Tetap auto-upsert 1 baris sesi_approval (kalau belum ada rule utk cabang
- * itu) biar log approval ke depannya bisa ke-attach id_approval_rule.
- */
 class ApproverController extends Controller
 {
     public function index(Request $request)
@@ -34,7 +21,7 @@ class ApproverController extends Controller
         if ($search !== '') {
             $query->where(function ($q) use ($search) {
                 $q->where('Code', 'like', "%{$search}%")
-                  ->orWhere('Name', 'like', "%{$search}%");
+                    ->orWhere('Name', 'like', "%{$search}%");
             });
         }
 
@@ -47,28 +34,41 @@ class ApproverController extends Controller
             ->paginate(25)
             ->withQueryString();
 
-        $codes = collect($cabangs->items())->pluck('Code');
-
-        // Semua WM aktif per cabang di halaman ini sekaligus (hindari N+1),
-        // join manual ke lntrn_users (via username) buat dapetin nama.
-        $wmByCabang = DB::connection('sqlsrv')->table('sesi_user_cabang as uc')
-            ->join('lntrn_users as u', 'u.username', '=', 'uc.username')
-            ->whereIn('uc.cabang_code', $codes)
-            ->where('uc.role', 'WM')
-            ->where('uc.flag', true)
-            ->orderBy('u.name')
-            ->get(['uc.id_user_cabang', 'uc.cabang_code', 'u.id as user_id', 'u.name'])
-            ->groupBy('cabang_code');
-
-        $cabangs->getCollection()->transform(function ($c) use ($wmByCabang) {
-            $c->wmList = $wmByCabang->get($c->Code, collect());
-            return $c;
-        });
-
         // Dropdown pilihan WM (dipakai form tambah approver, per-cabang & per-area)
         $wmUsers = User::whereHas('userUtility', fn ($q) => $q->where('role', 'WM'))
             ->orderBy('name')
             ->get(['id', 'name', 'username']);
+        $wmUserByUsername = $wmUsers->keyBy('username');
+
+        $overrideWmByCabang = UserCabangResolver::overrideWmMapByCabang();
+        $liveWmByCabang = UserCabangResolver::liveWmMapByCabang();
+
+        $cabangs->getCollection()->transform(function ($c) use ($overrideWmByCabang, $liveWmByCabang, $wmUserByUsername) {
+            $override = $overrideWmByCabang->get($c->Code, collect())->map(function ($wm) {
+                $wm->source = 'override';
+
+                return $wm;
+            });
+
+            $liveUsernames = $liveWmByCabang->get($c->Code, collect())->pluck('username')->unique();
+            $sudahAdaUserId = $override->pluck('user_id')->all();
+            $live = $liveUsernames
+                ->map(fn ($username) => $wmUserByUsername->get($username))
+                ->filter()
+                ->reject(fn ($u) => in_array($u->id, $sudahAdaUserId, true)) // hindari duplikat kalau kebetulan ada di override juga
+                ->map(fn ($u) => (object) [
+                    'id_approval_rule' => null,
+                    'cabang_code' => $c->Code,
+                    'user_id' => $u->id,
+                    'name' => $u->name,
+                    'username' => $u->username,
+                    'source' => 'live',
+                ]);
+
+            $c->wmList = $override->merge($live)->sortBy('name')->values();
+
+            return $c;
+        });
 
         // Daftar Area unik (dipakai dropdown filter list & dropdown bulk-assign per area)
         $areaList = DB::connection('sqlsrv')->table('sesi_master_cabang')
@@ -89,7 +89,7 @@ class ApproverController extends Controller
         ]);
 
         $wm = $this->findWm($request->user_id);
-        if (!$wm) {
+        if (! $wm) {
             return back()->withErrors(['error' => 'User yang dipilih bukan WM.'])->withInput();
         }
 
@@ -98,13 +98,6 @@ class ApproverController extends Controller
         return back()->with('success', "WM {$wm->name} berhasil di-assign ke cabang {$request->cabang_code}.");
     }
 
-    /**
-     * Bulk-assign 1 WM ke SEMUA cabang dalam 1 Area sekaligus — mempercepat
-     * kasus 1 WM emang megang 1 area penuh, tanpa perlu klik satu-satu per
-     * cabang. Pakai helper assignWmToCabang() yang sama kayak store(), jadi
-     * behavior-nya (reaktivasi/insert sesi_user_cabang + auto-upsert
-     * sesi_approval per cabang) identik dengan assign manual per cabang.
-     */
     public function storeByArea(Request $request)
     {
         $request->validate([
@@ -113,7 +106,7 @@ class ApproverController extends Controller
         ]);
 
         $wm = $this->findWm($request->user_id);
-        if (!$wm) {
+        if (! $wm) {
             return back()->withErrors(['error' => 'User yang dipilih bukan WM.'])->withInput();
         }
 
@@ -138,55 +131,27 @@ class ApproverController extends Controller
         return User::whereHas('userUtility', fn ($q) => $q->where('role', 'WM'))->find($userId);
     }
 
-    /**
-     * Assign 1 WM ke 1 cabang: reaktivasi/insert baris sesi_user_cabang (tabel
-     * yang BENERAN dipakai buat cek otorisasi approve), lalu auto-upsert
-     * approval rule resmi di sesi_approval — TIDAK menimpa kalau rule buat
-     * cabang itu udah ada (biar approver resmi yang udah ke-set nggak keganti
-     * diam-diam).
-     */
     private function assignWmToCabang(User $wm, string $cabangCode): void
     {
-        $existing = DB::connection('sqlsrv')->table('sesi_user_cabang')
-            ->where('username', $wm->username)
-            ->where('cabang_code', $cabangCode)
-            ->first();
-
-        if ($existing) {
-            DB::connection('sqlsrv')->table('sesi_user_cabang')
-                ->where('id_user_cabang', $existing->id_user_cabang)
-                ->update(['role' => 'WM', 'flag' => true, 'updated_at' => now()]);
-        } else {
-            DB::connection('sqlsrv')->table('sesi_user_cabang')->insert([
-                'username' => $wm->username,
-                'cabang_code' => $cabangCode,
-                'area' => null,
-                'role' => 'WM',
-                'flag' => true,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-        }
-
-        Approval::withInactive()->firstOrCreate(
+        Approval::withInactive()->updateOrCreate(
             ['id_cabang' => $cabangCode, 'role_berwenang' => 'WM', 'tingkat' => 1],
             ['id_approver' => $wm->id, 'flag' => true]
         );
+
+        UserCabangResolver::clearCache();
     }
 
     public function destroy($id)
     {
-        $row = DB::connection('sqlsrv')->table('sesi_user_cabang')
-            ->where('id_user_cabang', $id)
-            ->first();
+        $rule = Approval::withInactive()->find($id);
 
-        if (!$row) {
+        if (! $rule || $rule->role_berwenang !== 'WM') {
             return back()->withErrors(['error' => 'Data tidak ditemukan.']);
         }
 
-        DB::connection('sqlsrv')->table('sesi_user_cabang')
-            ->where('id_user_cabang', $id)
-            ->update(['flag' => false, 'updated_at' => now()]);
+        $rule->update(['flag' => false]);
+
+        UserCabangResolver::clearCache();
 
         return back()->with('success', 'Approver berhasil dihapus dari cabang ini.');
     }

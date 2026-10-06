@@ -42,15 +42,16 @@
                 'KG'  => 'dashboard.kg',
                 'WM'  => 'dashboard.wm',
                 'WH'  => 'dashboard.wh',
+                'WC'  => 'dashboard.wc',
                 'DCI' => 'dashboard.dci',
+                'KA'  => 'dashboard.ka',
                 default => 'dashboard',
             };
-            $onDashboard = request()->is('dashboard/*');
+            $onDashboard = request()->is('dashboard/*', 'kaadmin/*');
             $iconWrapClass = "flex items-center justify-center shrink-0 h-5";
         @endphp
 
-        {{-- Dashboard — semua role kecuali KA --}}
-        @if($role !== 'KA')
+        {{-- Dashboard — semua role --}}
         <a href="{{ route($dashboardRoute) }}"
             class="flex items-center gap-3 py-3 px-4 rounded-lg mx-2 transition text-sm
             {{ $onDashboard
@@ -61,7 +62,6 @@
             </span>
             <span x-show="sidebarOpen" x-cloak class="truncate">Dashboard</span>
         </a>
-        @endif
 
         {{-- Perusahaan — 1 nav item buat KG/WM/WH/DCI (gantiin "Kendaraan" KG, dropdown "Kendaraan" WM/WH, dan link Sewa Truk/Kiriman Rutin di Master Data DCI) --}}
         @if(in_array($role, ['KG', 'WM', 'WH', 'DCI']))
@@ -112,12 +112,18 @@
         --}}
         @php
             $onMasterOrTarif = request()->is('master*');
-            $masterLinks = [
+            // Jenis Barang Kiriman & Jenis Biaya Tambahan tetap khusus DCI (nggak berubah).
+            // Jenis Kendaraan beda — boleh dikelola DCI/WH/WM juga (review mentor item 4),
+            // jadi ditambahkan buat ketiga role itu, bukan cuma DCI.
+            $masterLinks = $role === 'DCI' ? [
                 ['route' => 'master.jenis-barang-kiriman', 'match' => 'master/jenis-barang-kiriman*', 'label' => 'Jenis Barang Kiriman'],
                 ['route' => 'master.jenis-biaya-tambahan', 'match' => 'master/jenis-biaya-tambahan*', 'label' => 'Jenis Biaya Tambahan'],
-            ];
+            ] : [];
+            if (in_array($role, ['DCI', 'WH', 'WM'], true)) {
+                $masterLinks[] = ['route' => 'master.jenis-kendaraan', 'match' => 'master/jenis-kendaraan*', 'label' => 'Jenis Kendaraan'];
+            }
         @endphp
-        @if($role === 'DCI')
+        @if(in_array($role, ['DCI', 'WH', 'WM'], true))
         {{--
             relative + @mouseenter/@mouseleave: pas sidebar collapsed, hover ke
             icon munculin flyout melayang ala referensi Taurus — beda dari mode
@@ -179,8 +185,11 @@
                 @endforeach
             </div>
         </div>
+        @endif
 
-        {{-- Setting Approver — hanya DCI --}}
+        {{-- Setting Approver — hanya DCI (TIDAK dibuka ke WH/WM, beda dari Master Data
+        di atas — link ini nggak boleh ikut ke-broaden bareng, rutenya masih role:DCI). --}}
+        @if($role === 'DCI')
         <a href="{{ route('setting-approver.index') }}"
             class="flex items-center gap-3 py-3 px-4 rounded-lg mx-2 transition text-sm
             {{ request()->is('setting-approver*')

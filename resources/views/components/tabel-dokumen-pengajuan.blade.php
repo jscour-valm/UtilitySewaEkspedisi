@@ -59,7 +59,12 @@
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
-                    <template x-if="dokumenList.length === 0">
+                    <template x-if="loadingDokumen && dokumenList.length === 0">
+                        <tr>
+                            <td colspan="6" class="py-12 text-center text-sm text-gray-400">Memuat…</td>
+                        </tr>
+                    </template>
+                    <template x-if="!loadingDokumen && dokumenList.length === 0">
                         <tr>
                             <td colspan="6" class="py-12 text-center text-sm text-gray-400">
                                 Tidak ada dokumen tersedia untuk tujuan ini.
@@ -130,7 +135,12 @@
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
-                    <template x-if="dokumenList.length === 0">
+                    <template x-if="loadingDokumen && dokumenList.length === 0">
+                        <tr>
+                            <td colspan="6" class="py-12 text-center text-sm text-gray-400">Memuat…</td>
+                        </tr>
+                    </template>
+                    <template x-if="!loadingDokumen && dokumenList.length === 0">
                         <tr>
                             <td colspan="6" class="py-12 text-center text-sm text-gray-400">
                                 Tidak ada dokumen tersedia untuk tujuan ini.

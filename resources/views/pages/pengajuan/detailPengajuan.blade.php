@@ -29,53 +29,43 @@
                     Diajukan pada {{ \Carbon\Carbon::parse($pengajuan->submitted_at)->translatedFormat('d M Y') }}
                 </p>
             </div>
-            <x-status-badge-large :status="strtolower($pengajuan->status_pengajuan)" />
+            <x-status-badge-large :status="strtolower($pengajuan->status_pengajuan)"
+                :pendingLabel="$approverBerikutnya ? \App\Http\Controllers\ApprovalController::labelMenunggu($approverBerikutnya) : 'Menunggu Validasi WM'" />
         </div>
 
-        {{-- Alur persetujuan: pill --}}
-        @if($pengajuan->kategori_approval === 'over_threshold')
-            <div class="flex items-center gap-2.5 mt-3.5 flex-wrap">
-                <span class="text-[11px] font-semibold tracking-[0.09em] text-gray-500">ALUR</span>
-                <div class="flex items-center gap-2.5">
-                    <div class="flex items-center gap-2 rounded-full bg-amber-50 border border-amber-200 py-1 pl-1.5 pr-3">
-                        <span class="flex h-[19px] w-[19px] items-center justify-center rounded-full bg-amber-500 text-[11px] font-bold text-white">1</span>
-                        <span class="text-[12.5px] font-semibold text-amber-800">WM &middot; Menunggu</span>
-                    </div>
-                    <span class="h-0.5 w-5 bg-gray-200"></span>
-                    <div class="flex items-center gap-2 rounded-full border border-gray-200 py-1 pl-1.5 pr-3">
-                        <span class="flex h-[19px] w-[19px] items-center justify-center rounded-full border border-dashed border-gray-300 text-[11px] font-bold text-gray-400">2</span>
-                        <span class="text-[12.5px] text-gray-400">WH &middot; menunggu</span>
-                    </div>
-                </div>
-            </div>
-        @endif
+        {{-- Alur persetujuan: pill (1–3 langkah sesuai alur_approval) --}}
+        <x-alur-approval-pill :alur="$alurApproval" :sudah="$peranSudahApprove" :berikutnya="$approverBerikutnya"
+            :status="$pengajuan->status_pengajuan" :actingRole="auth()->user()->userUtility?->role" />
 
-        {{-- Verdict strip: rasio vs ambang, total, value muatan --}}
+        {{-- Verdict strip: rasio vs ambang (sewa_truk saja — kiriman rutin gak pakai
+             rasio sbg trigger over_threshold), total, value muatan --}}
         <div class="flex items-stretch flex-wrap mt-5 border-t border-gray-100 pt-4">
-            <div class="flex-1 min-w-[220px] basis-60 pr-6">
-                <p class="text-[11px] font-semibold tracking-[0.09em] text-gray-500">RASIO SEWA</p>
-                <div class="flex items-baseline gap-2.5 mt-1.5">
-                    <span class="text-[34px] font-bold tracking-tight {{ $overAmbang ? 'text-red-600' : 'text-green-700' }}">
-                        {{ number_format($rasio, 2, ',', '.') }}%
-                    </span>
-                    <span class="text-[13px] font-semibold {{ $overAmbang ? 'text-red-600' : 'text-green-700' }}">
-                        {{ $overAmbang ? 'di atas ambang' : 'di bawah ambang' }}
-                    </span>
+            @unless($isKirimanRutin)
+                <div class="flex-1 min-w-[220px] basis-60 pr-6">
+                    <p class="text-[11px] font-semibold tracking-[0.09em] text-gray-500">RASIO SEWA</p>
+                    <div class="flex items-baseline gap-2.5 mt-1.5">
+                        <span class="text-[34px] font-bold tracking-tight {{ $overAmbang ? 'text-red-600' : 'text-green-700' }}">
+                            {{ number_format($rasio, 2, ',', '.') }}%
+                        </span>
+                        <span class="text-[13px] font-semibold {{ $overAmbang ? 'text-red-600' : 'text-green-700' }}">
+                            {{ $overAmbang ? 'di atas ambang' : 'di bawah ambang' }}
+                        </span>
+                    </div>
+                    <p class="text-xs text-gray-400 mt-0.5">
+                        Sewa &divide; Value Muatan &middot; ambang {{ number_format($ambang, 2, ',', '.') }}%
+                    </p>
+                    <div class="relative h-1.5 rounded-full bg-gray-100 mt-3">
+                        <div class="absolute inset-y-0 left-0 rounded-full {{ $overAmbang ? 'bg-red-500' : 'bg-green-600' }}"
+                            style="width: {{ $rasioPct }}%"></div>
+                        <div class="absolute -top-1.5 -bottom-1.5 right-0 w-0.5 bg-red-400"></div>
+                    </div>
+                    <div class="flex justify-between text-[11px] text-gray-400 mt-1.5">
+                        <span>0%</span><span>{{ number_format($ambang, 2, ',', '.') }}%</span>
+                    </div>
                 </div>
-                <p class="text-xs text-gray-400 mt-0.5">
-                    Sewa &divide; Value Muatan &middot; ambang {{ number_format($ambang, 2, ',', '.') }}%
-                </p>
-                <div class="relative h-1.5 rounded-full bg-gray-100 mt-3">
-                    <div class="absolute inset-y-0 left-0 rounded-full {{ $overAmbang ? 'bg-red-500' : 'bg-green-600' }}"
-                        style="width: {{ $rasioPct }}%"></div>
-                    <div class="absolute -top-1.5 -bottom-1.5 right-0 w-0.5 bg-red-400"></div>
-                </div>
-                <div class="flex justify-between text-[11px] text-gray-400 mt-1.5">
-                    <span>0%</span><span>{{ number_format($ambang, 2, ',', '.') }}%</span>
-                </div>
-            </div>
 
-            <div class="w-px bg-gray-100"></div>
+                <div class="w-px bg-gray-100"></div>
+            @endunless
 
             <div class="flex-1 min-w-[160px] basis-44 px-6">
                 <p class="text-[11px] font-semibold tracking-[0.09em] text-gray-500">TOTAL BIAYA SEWA</p>
@@ -96,7 +86,7 @@
                     @if($isKirimanRutin)
                         {{ $pengajuan->detailKirimanRutin->count() }} jenis barang
                     @else
-                        {{ $pengajuan->kendaraan->jenis_kendaraan }} &middot; {{ \App\Helpers\FormatHelper::ton($pengajuan->kendaraan->muatan_maksimal) }}
+                        {{ $pengajuan->kendaraan->jenis_kendaraan ?: '—' }} &middot; {{ \App\Helpers\FormatHelper::ton($pengajuan->kendaraan->muatan_maksimal) }}
                     @endif
                 </p>
             </div>
@@ -104,17 +94,21 @@
     </div>
 
     {{-- ==================== KATEGORI APPROVAL ALERT ==================== --}}
-    @if($pengajuan->kategori_approval === 'over_threshold')
+    @if(count($alurApproval) > 1)
         <x-alert-info title="Perlu Persetujuan Berlapis">
             @php
                 $reasons = [];
-                if($pengajuan->rasio_sewa > $ambangRasio) {
-                    $reasons[] = "Rasio Sewa " . number_format($pengajuan->rasio_sewa, 2, ',', '.') . "% melebihi threshold " . number_format($ambangRasio, 2, ',', '.') . "%";
+                if (in_array('WC', $alurApproval, true)) {
+                    $reasons[] = 'Tujuan penyewaan PAC (perlu approval WC)';
                 }
-                if($pengajuan->tujuan_penyewaan === 'PAC') {
-                    $reasons[] = "Tujuan penyewaan PAC";
+                if (in_array('WH', $alurApproval, true)) {
+                    // WH ikut kalau sewa truk rasio > ambang, atau ada area baru
+                    // (lihat PengajuanController::hitungAlurApproval()).
+                    $reasons[] = (!$isKirimanRutin && $pengajuan->rasio_sewa > $ambangRasio)
+                        ? "Rasio Sewa " . number_format($pengajuan->rasio_sewa, 2, ',', '.') . "% melebihi threshold " . number_format($ambangRasio, 2, ',', '.') . "% (perlu approval WH)"
+                        : 'Ada area kirim baru (perlu approval WH)';
                 }
-                $message = "Alasan: " . implode(", ", $reasons) . " — pengajuan ini akan diteruskan ke WH setelah disetujui WM.";
+                $message = "Alasan: " . implode("; ", $reasons) . " — alur: " . implode(' → ', $alurApproval) . ".";
             @endphp
             <p class="text-sm text-orange-800">{{ $message }}</p>
         </x-alert-info>
@@ -154,7 +148,7 @@
                 </div>
                 <div class="flex justify-between gap-4 py-2.5 border-b border-gray-50">
                     <span class="text-sm text-gray-500">Plat Nomor</span>
-                    <span class="text-sm font-semibold text-gray-900 tabular-nums">{{ $pengajuan->kendaraan->plat_nomor_truk }}</span>
+                    <span class="text-sm font-semibold text-gray-900 tabular-nums">{{ $pengajuan->kendaraan->plat_nomor_truk ?: '—' }}</span>
                 </div>
                 <div class="flex justify-between gap-4 py-2.5 border-b border-gray-50">
                     <span class="text-sm text-gray-500">Kapasitas Muatan</span>
@@ -205,10 +199,12 @@
                 <span class="text-sm text-gray-500">Kategori Toko</span>
                 <span class="text-sm font-semibold text-gray-900">{{ $pengajuan->kategori_toko }}</span>
             </div>
-            <div class="flex justify-between gap-4 py-2.5">
-                <span class="text-sm text-gray-500">Cabang</span>
-                <span class="text-sm font-semibold text-gray-900">{{ $pengajuan->id_cabang }}</span>
-            </div>
+            @if($pengajuan->tujuan_penyewaan === 'PAC')
+                <div class="flex justify-between gap-4 py-2.5">
+                    <span class="text-sm text-gray-500">Cabang Tujuan</span>
+                    <span class="text-sm font-semibold text-gray-900">{{ $pengajuan->id_cabang_tujuan ? $pengajuan->cabangTujuan->nama_cabang : '-' }}</span>
+                </div>
+            @endif
         </div>
 
         <div class="bg-gray-100"></div>
@@ -266,15 +262,11 @@
     </div>
     @endif
 
-    {{-- ==================== DOKUMEN IDENTITAS PERUSAHAAN (Sewa Truk only) ====================
-    Catatan 9 Sept 2026: dulu card ini "DOKUMEN PENGEMUDI" (ktp_supir/sim_supir
-    per-kendaraan). Kolom itu sudah dihapus dari sesi_unit_kendaraan, datanya
-    dipindah jadi identitas_owner per-vendor (sesi_perusahaan_ekspedisi) — slot
-    foto di sini sekarang sumbernya dari situ, dilabel generik krn datanya udah
-    ga per-jenis dokumen (ga ada KTP/SIM lagi, sesuai desain baru). --}}
+    {{-- ==================== DOKUMEN IDENTITAS PERUSAHAAN (Sewa Truk only) ==================== --}}
     @if(!$isKirimanRutin)
     @php
         $dokumenIdentitas = $pengajuan->kendaraan?->perusahaan?->identitas_owner ?? [];
+        $docSrcs = collect($dokumenIdentitas)->map(fn ($item) => \App\Helpers\FormatHelper::identitasOwnerSrc($item))->values();
     @endphp
     <div class="rounded-xl bg-white shadow-sm border border-gray-100 p-6">
         <p class="text-[11px] font-semibold tracking-[0.09em] text-gray-500">DOKUMEN IDENTITAS PERUSAHAAN</p>
@@ -285,8 +277,8 @@
                 @php $label = 'Dokumen Identitas #' . ($i + 1); $src = \App\Helpers\FormatHelper::identitasOwnerSrc($item); @endphp
                 <div>
                     <p class="text-[13px] font-semibold text-gray-700 mb-2">{{ $label }}</p>
-                    <div class="doc-zoom relative flex h-52 cursor-zoom-in items-center justify-center overflow-hidden rounded-lg border border-gray-200 bg-gray-50"
-                        data-src="{{ $src }}" data-label="{{ $label }}">
+                    <div @click="openLightbox(@js($docSrcs), {{ $i }})"
+                        class="relative flex h-52 cursor-zoom-in items-center justify-center overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
                         <img src="{{ $src }}" alt="{{ $label }}" class="h-full w-full object-cover">
                         <span class="absolute bottom-2 right-2 flex items-center gap-1.5 rounded-md bg-black/70 px-2 py-1 text-[11px] font-semibold text-white">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -309,10 +301,7 @@
     </div>
     @endif
 
-    {{-- ==================== DOKUMEN SJ/TO-ACB ====================
-         Junction table reference-only (id_surat_jalan/id_to_acb cuma VARCHAR
-         ref ke view Quantum, TIDAK ada snapshot nilai/qty/berat di sini) —
-         jadi kolomnya cuma nomor dokumen + tipe, bukan detail muatan. --}}
+    {{-- ==================== DOKUMEN SJ/TO-ACB ==================== --}}
     <div class="rounded-xl bg-white shadow-sm border border-gray-100 p-6">
         <p class="text-[11px] font-semibold tracking-[0.09em] text-gray-500">
             DOKUMEN
@@ -397,9 +386,10 @@
                             'rejected' => 'bg-red-400 border-red-400',
                             default    => 'bg-white border-gray-300',
                         };
+                        $peranLog = $entry['peran'] ?? null;
                         $logLabel = match($logStatus) {
-                            'approved' => 'Disetujui',
-                            'rejected' => 'Ditolak',
+                            'approved' => $peranLog === 'WM' ? 'Divalidasi WM' : trim('Disetujui ' . $peranLog),
+                            'rejected' => trim('Ditolak ' . $peranLog),
                             default    => 'Menunggu',
                         };
                         $approverName = (isset($entry['approver']) && $entry['approver']) ? $entry['approver']->name : 'Unknown';
@@ -429,7 +419,7 @@
                 </svg>
             </div>
             <p class="text-sm text-gray-500">Belum ada aktivitas persetujuan</p>
-            <p class="text-xs text-gray-400 mt-1">Riwayat akan muncul setelah WM mulai memproses pengajuan ini</p>
+            <p class="text-xs text-gray-400 mt-1">Riwayat akan muncul setelah WM memvalidasi pengajuan ini</p>
         </div>
         @endif
     </div>
@@ -437,7 +427,7 @@
 </div>
 
 {{-- Floating Edit Button --}}
-@if(auth()->id() == $pengajuan->submitted_by && in_array(strtolower($pengajuan->status_pengajuan), ['pending', 'rejected']))
+@if(auth()->id() == $pengajuan->submitted_by && $pengajuan->bisaDieditPengaju())
 <div class="fixed bottom-6 right-6">
     <a href="{{ route('pengajuan.edit', $pengajuan->id_pengajuan_sewa) }}"
         class="group relative flex h-14 w-14 items-center justify-center rounded-full bg-avian-green text-white shadow-lg hover:shadow-xl transition-all hover:scale-105"
@@ -451,53 +441,5 @@
     </a>
 </div>
 @endif
-
-{{-- ==================== LIGHTBOX DOKUMEN ==================== --}}
-<div id="doc-lightbox" class="fixed inset-0 z-[60] hidden cursor-zoom-out items-center justify-center bg-black/80 p-10">
-    {{-- Tombol X --}}
-    <button id="lightbox-close"
-        class="absolute top-4 right-4 flex h-9 w-9 items-center justify-center rounded-full bg-white/15 text-white transition hover:bg-white/30 cursor-pointer z-10"
-        onclick="event.stopPropagation()">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-        </svg>
-    </button>
-    <img id="doc-lightbox-img" src="" alt="" class="max-h-full max-w-full rounded-lg object-contain">
-</div>
-
-<script>
-(function () {
-    // ---------- lightbox dokumen ----------
-    document.querySelectorAll('.doc-zoom').forEach(box =>
-        box.addEventListener('click', () => {
-            const lightbox = document.getElementById('doc-lightbox');
-            const img = document.getElementById('doc-lightbox-img');
-            img.src = box.dataset.src;
-            img.alt = box.dataset.label;
-            lightbox.classList.remove('hidden');
-            lightbox.classList.add('flex');
-        })
-    );
-
-    const lightbox = document.getElementById('doc-lightbox');
-    lightbox.addEventListener('click', () => {
-        lightbox.classList.add('hidden');
-        lightbox.classList.remove('flex');
-    });
-
-    document.getElementById('lightbox-close').addEventListener('click', () => {
-        lightbox.classList.add('hidden');
-        lightbox.classList.remove('flex');
-    });
-
-    // Tutup lightbox saat tekan Escape
-    document.addEventListener('keydown', e => {
-        if (e.key === 'Escape') {
-            lightbox.classList.add('hidden');
-            lightbox.classList.remove('flex');
-        }
-    });
-})();
-</script>
 
 @endsection

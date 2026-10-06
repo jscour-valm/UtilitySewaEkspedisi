@@ -2,24 +2,12 @@
 
 namespace App\Http\Controllers\Concerns;
 
+use App\Helpers\FormatHelper;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 
-/**
- * Helper bersama buat controller yang mengelola data master vendor
- * (perusahaan/kendaraan) — dipindah dari PengajuanController (16 Sept, biar
- * bisa dipakai ulang sama KendaraanController::store()/update() tanpa
- * duplikasi) TANPA mengubah behavior aslinya.
- */
 trait ManagesVendorMasterData
 {
-    /**
-     * Resolve nama skill (existing atau baru, dari checkbox/free-text) jadi
-     * id_skill numeric — insert ke sesi_master_skill + sesi_cabang_skill
-     * kalau belum ada (fitur "daftar skill baru on-the-fly" yang sudah lama
-     * ada; 9 Sept: id_skill dibalik jadi numeric, jadi yang disimpan/dipakai
-     * sekarang id-nya, bukan nama mentah).
-     */
     private function resolveSkillId(string $namaSkill, string $cabangId): ?int
     {
         $namaSkill = strtoupper(trim($namaSkill));
@@ -31,10 +19,10 @@ trait ManagesVendorMasterData
             ->where('nama_skill', $namaSkill)
             ->value('id_skill');
 
-        if (!$idSkill) {
+        if (! $idSkill) {
             $idSkill = DB::connection('sqlsrv')->table('sesi_master_skill')->insertGetId([
                 'nama_skill' => $namaSkill,
-                'flag'       => true,
+                'flag' => true,
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
@@ -45,28 +33,22 @@ trait ManagesVendorMasterData
             ->where('id_skill', $idSkill)
             ->exists();
 
-        if (!$cabangSkillExists) {
+        if (! $cabangSkillExists) {
             DB::connection('sqlsrv')->table('sesi_cabang_skill')->insert([
                 'cabang_code' => $cabangId,
-                'id_skill'    => $idSkill,
-                'flag'        => true,
-                'created_at'  => now(),
-                'updated_at'  => now(),
+                'id_skill' => $idSkill,
+                'flag' => true,
+                'created_at' => now(),
+                'updated_at' => now(),
             ]);
         }
 
         return $idSkill;
     }
 
-    /**
-     * Kebalikan dari resolveSkillId(): ubah string id_skill comma-separated
-     * (numeric) jadi nama_skill comma-separated buat ditampilkan (badge dsb).
-     * Token yang BUKAN angka (leftover lama sblm konversi 9 Sept yg ga match
-     * master manapun, misal "DKAH"/"-") ditampilkan apa adanya.
-     */
     private function resolveSkillNames(?string $idSkillCsv): string
     {
-        return implode(',', \App\Helpers\FormatHelper::skillNames($idSkillCsv));
+        return implode(',', FormatHelper::skillNames($idSkillCsv));
     }
 
     /**
@@ -94,14 +76,10 @@ trait ManagesVendorMasterData
             $file->move(public_path('images'), $filename);
             $paths[] = "/images/{$filename}";
         }
+
         return $paths;
     }
 
-    /**
-     * Hapus file identitas owner lama (format path baru saja - "/images/xxx.ext") sebelum
-     * ganti dgn yang baru, biar gak numpuk file yatim. Data lama base64/path-legacy dibiarkan
-     * (bukan file kita, gak ada yang perlu dihapus).
-     */
     private function deleteIdentitasOwnerFiles(?array $paths): void
     {
         foreach ($paths ?? [] as $p) {

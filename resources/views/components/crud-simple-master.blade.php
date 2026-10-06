@@ -113,7 +113,7 @@
                             </button>
                             <button
                                 type="button"
-                                @click="if(confirm('Hapus {{ $itemNoun }} ini?')) deleteItem({{ $item->{$idField} }})"
+                                @click="confirmDialog('Hapus {{ $itemNoun }} ini?', {danger: true}).then(ok => ok && deleteItem({{ $item->{$idField} }}))"
                                 class="text-xs font-medium text-red-600 hover:text-red-700 transition">
                                 Hapus
                             </button>
@@ -173,11 +173,11 @@ function crudSimpleMaster({ idField, nameField, apiBase }) {
                 if (json.success) {
                     location.reload();
                 } else {
-                    alert('Error: ' + (json.message || 'Gagal menyimpan'));
+                    notify('Error: ' + (json.message || 'Gagal menyimpan'), 'error');
                 }
             } catch (e) {
                 console.error('Gagal simpan data:', e);
-                alert('Gagal menyimpan data');
+                notify('Gagal menyimpan data', 'error');
             } finally {
                 this.isSaving = false;
             }
@@ -197,11 +197,11 @@ function crudSimpleMaster({ idField, nameField, apiBase }) {
                 if (json.success) {
                     location.reload();
                 } else {
-                    alert('Error: ' + (json.message || 'Gagal menghapus'));
+                    notify('Error: ' + (json.message || 'Gagal menghapus'), 'error');
                 }
             } catch (e) {
                 console.error('Gagal hapus data:', e);
-                alert('Gagal menghapus data');
+                notify('Gagal menghapus data', 'error');
             }
         },
     }

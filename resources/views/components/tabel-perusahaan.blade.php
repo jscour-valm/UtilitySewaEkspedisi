@@ -1,21 +1,20 @@
 <div>
-    {{-- Search Box --}}
     <input
         type="text"
-        @input="searchPerusahaan = $event.target.value"
+        @input.debounce.300ms="searchPerusahaan = $event.target.value; fetchPerusahaanList()"
         :value="searchPerusahaan"
-        placeholder="Cari nama perusahaan, badan usaha, telepon..."
+        placeholder="Cari nama perusahaan, badan usaha, cabang, atau area..."
         class="mb-4 w-full rounded-lg border border-gray-300 px-4 py-2 text-sm
         focus:border-avian-green focus:outline-none">
 
-    {{-- Tabel Perusahaan untuk pilih --}}
     <div class="overflow-hidden rounded-xl border border-gray-200">
     <table class="w-full text-sm">
         <colgroup>
-            <col class="w-[24%]">
+            <col class="w-[26%]">
             <col class="w-[13%]">
+            <col class="w-[19%]">
             <col class="w-[17%]">
-            <col class="w-[30%]">
+            <col class="w-[9%]">
             <col class="w-[16%]">
         </colgroup>
 
@@ -23,21 +22,19 @@
             <tr class="border-b border-gray-300 bg-gray-50 text-xs font-medium uppercase tracking-wide text-gray-500">
                 <th class="px-4 py-3 text-left">Nama Perusahaan</th>
                 <th class="px-4 py-3 text-left">Badan Usaha</th>
-                <th class="px-4 py-3 text-left">No. Telepon</th>
-                <th class="px-4 py-3 text-left">Alamat Kantor</th>
+                <th class="px-4 py-3 text-left">Area Kirim</th>
+                <th class="px-4 py-3 text-left">Tarif</th>
+                <th class="px-4 py-3 text-left">Kendaraan</th>
                 <th class="px-4 py-3 text-right">Aksi</th>
             </tr>
         </thead>
 
         <tbody class="divide-y divide-gray-200">
-            <template x-for="p in perusahaanList.filter(p => {
-                const searchableText = (p.nama_perusahaan + ' ' + p.badan_usaha + ' ' + p.no_telepon + ' ' + (p.alamat_kantor || '')).toLowerCase()
-                return searchableText.includes(searchPerusahaan.toLowerCase())
-            })" :key="p.id_perusahaan">
+            <template x-for="p in perusahaanList" :key="p.id_perusahaan">
             <tr
                 class="cursor-pointer transition hover:bg-gray-50"
                 :class="(kendaraanBaru.perusahaan_id === p.id_perusahaan || perusahaanTerpilih?.id_perusahaan === p.id_perusahaan) ? 'bg-avian-green-light' : 'hover:bg-gray-50'"
-                @click="kendaraanBaru.perusahaan_id = (kendaraanBaru.perusahaan_id == p.id_perusahaan) ? null : p.id_perusahaan; if (kendaraanBaru.perusahaan_id === null) { perusahaanTerpilih = null; kendaraanTerpilih = null; } else { if (perusahaanTerpilih?.id_perusahaan != p.id_perusahaan) kendaraanTerpilih = null; perusahaanTerpilih = p; }">
+                @click="pilihPerusahaan(p)">
                 <td class="relative group px-4 py-3 font-medium text-gray-800">
                     <span x-text="p.nama_perusahaan || '—'"></span>
                     <template x-if="pengajuan.jenis_pengajuan === 'pengiriman_rutin' && p.tarif_breakdown?.length > 0">
@@ -56,12 +53,19 @@
                     </template>
                 </td>
                 <td class="px-4 py-3 text-gray-600" x-text="p.badan_usaha || '—'"></td>
-                <td class="px-4 py-3 text-gray-600" x-text="p.no_telepon || '—'"></td>
-                <td class="px-4 py-3 text-gray-600 truncate" :title="p.alamat_kantor" x-text="p.alamat_kantor || '—'"></td>
+                <x-cakupan-popover mode="alpine" jsVar="p" :only-area="true" />
+                <td class="px-4 py-3">
+                    <div class="flex flex-wrap gap-1">
+                        <span x-show="p.has_sewa" class="rounded-full bg-avian-green-light px-2 py-0.5 text-[11px] font-medium text-avian-green">Sewa Truk</span>
+                        <span x-show="p.has_kiriman" class="rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-600">Kiriman Rutin</span>
+                        <span x-show="!p.has_sewa && !p.has_kiriman" class="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-500">Belum ada tarif</span>
+                    </div>
+                </td>
+                <td class="px-4 py-3 text-gray-600" x-text="p.kendaraan_count ?? 0"></td>
                 <td class="px-4 py-3 text-right">
                     <button
                         type="button"
-                        @click.stop="kendaraanBaru.perusahaan_id = (kendaraanBaru.perusahaan_id == p.id_perusahaan) ? null : p.id_perusahaan; if (kendaraanBaru.perusahaan_id === null) { perusahaanTerpilih = null; kendaraanTerpilih = null; } else { if (perusahaanTerpilih?.id_perusahaan != p.id_perusahaan) kendaraanTerpilih = null; perusahaanTerpilih = p; }"
+                        @click.stop="pilihPerusahaan(p)"
                         :class="(kendaraanBaru.perusahaan_id === p.id_perusahaan || perusahaanTerpilih?.id_perusahaan === p.id_perusahaan)
                             ? 'bg-avian-green text-white'
                             : 'border border-avian-green text-avian-green hover:bg-avian-green-light'"
@@ -72,16 +76,17 @@
                 </td>
             </tr>
             </template>
-            <tr x-show="perusahaanList.filter(p => {
-                const searchableText = (p.nama_perusahaan + ' ' + p.badan_usaha + ' ' + p.no_telepon + ' ' + (p.alamat_kantor || '')).toLowerCase()
-                return searchableText.includes(searchPerusahaan.toLowerCase())
-            }).length === 0">
-                <td colspan="5" class="py-12 text-center text-sm text-gray-400">
-                    Tidak ada perusahaan yang tersedia. <br>
-                    <span class="text-xs">Perusahaan akan muncul setelah ditambahkan.</span>
+            <tr x-show="loadingPerusahaan && perusahaanList.length === 0">
+                <td colspan="6" class="py-12 text-center text-sm text-gray-400">Memuat…</td>
+            </tr>
+            <tr x-show="!loadingPerusahaan && perusahaanList.length === 0">
+                <td colspan="6" class="py-12 text-center text-sm text-gray-400">
+                    Tidak ada perusahaan yang cocok. <br>
+                    <span class="text-xs">Coba kata kunci lain, atau tambah perusahaan baru.</span>
                 </td>
             </tr>
         </tbody>
     </table>
     </div>
+    <p class="mt-2 text-[11px] text-gray-400">Menampilkan maksimal 5 data paling cocok. Persempit pencarian kalau perusahaan yang dicari belum kelihatan.</p>
 </div>

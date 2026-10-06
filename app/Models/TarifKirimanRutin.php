@@ -12,10 +12,14 @@ class TarifKirimanRutin extends Model
     use HasFlag;
 
     protected $connection = 'sqlsrv';
+
     protected $table = 'sesi_tarif_kiriman_rutin';
+
     protected $primaryKey = 'id_tarif';
-    protected $fillable = ['id_vendor_skill', 'id_jenis_barang', 'biaya_per_unit', 'flag'];
-    protected $casts = ['biaya_per_unit' => 'decimal:2'];
+
+    protected $fillable = ['id_vendor_skill', 'id_jenis_barang', 'biaya_per_unit', 'flag', 'harga_sebelumnya'];
+
+    protected $casts = ['biaya_per_unit' => 'decimal:2', 'harga_sebelumnya' => 'decimal:2'];
 
     /**
      * Vendor+skill/area+cabang (sesi_perusahaan_skill) tempat tarif ini

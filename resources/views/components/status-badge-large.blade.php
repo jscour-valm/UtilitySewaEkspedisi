@@ -2,14 +2,15 @@
   Large Status Badge Component
   Used in: Detail view header
 
-  @props(['status'])
+  @props(['status', 'pendingLabel' => 'Menunggu Persetujuan WM'])
   @example
     <x-status-badge-large status="pending" />
+    <x-status-badge-large status="pending" pendingLabel="Menunggu Persetujuan WH" />
     <x-status-badge-large status="approved" />
     <x-status-badge-large status="rejected" />
 --}}
 
-@props(['status'])
+@props(['status', 'pendingLabel' => 'Menunggu Persetujuan WM'])
 
 @php
   $statusConfig = match($status ?? 'pending') {
@@ -18,7 +19,7 @@
       'border' => 'border-amber-200',
       'text' => 'text-amber-900',
       'dot' => 'bg-amber-400',
-      'label' => 'Menunggu Persetujuan WM',
+      'label' => $pendingLabel,
     ],
     'approved' => [
       'bg' => 'bg-green-50',

@@ -13,30 +13,28 @@ class CabangSkillSeeder extends Seeder
 
         // Ambil valid cabang_code sebagai whitelist
         $validCabang = DB::connection('sqlsrv')
-            ->table('sesi_user_cabang')
-            ->whereNotNull('cabang_code')
+            ->table('sesi_master_cabang')
+            ->whereNotNull('Code')
             ->distinct()
-            ->pluck('cabang_code')
-            ->map(fn($c) => strtoupper(trim($c)))
+            ->pluck('Code')
+            ->map(fn ($c) => strtoupper(trim($c)))
             ->flip()
             ->toArray();
 
-        $this->command->info('Valid cabang ditemukan: ' . count($validCabang));
+        $this->command->info('Valid cabang ditemukan: '.count($validCabang));
 
-        // Lookup nama_skill -> id_skill numeric (id_skill sekarang bigint auto-increment,
-        // bukan lagi nama sbg PK — jadi perlu di-pluck keyed by nama_skill)
         $masterSkill = DB::connection('sqlsrv')
             ->table('sesi_master_skill')
             ->where('flag', true)
             ->pluck('id_skill', 'nama_skill')
             ->toArray();
 
-        $this->command->info('Master skill ditemukan: ' . count($masterSkill));
+        $this->command->info('Master skill ditemukan: '.count($masterSkill));
 
         DB::connection('sqlsrv')->table('sesi_cabang_skill')->delete();
 
-        $seen    = [];
-        $total   = 0;
+        $seen = [];
+        $total = 0;
         $skipped = 0;
 
         try {
@@ -56,13 +54,15 @@ class CabangSkillSeeder extends Seeder
                         $dashPos = strpos($row->county, '-');
                         if ($dashPos === false) {
                             $skipped++;
+
                             continue;
                         }
 
                         $cabangCode = strtoupper(trim(substr($row->county, 0, $dashPos)));
 
-                        if (!isset($validCabang[$cabangCode])) {
+                        if (! isset($validCabang[$cabangCode])) {
                             $skipped++;
+
                             continue;
                         }
 
@@ -79,12 +79,13 @@ class CabangSkillSeeder extends Seeder
                             $skillNama = strtoupper(trim(preg_replace('/\s+/', ' ', $token)));
                             $skillNama = preg_replace('/^[^A-Z0-9]+|[^A-Z0-9]+$/', '', $skillNama); // strip karakter kotor (mis. "?") di awal/akhir — bug ?ACBAR dari source korup
 
-                            if ($skillNama === '' || !isset($masterSkill[$skillNama])) {
+                            if ($skillNama === '' || ! isset($masterSkill[$skillNama])) {
                                 $skipped++;
+
                                 continue;
                             }
 
-                            $key = $cabangCode . '|' . $skillNama;
+                            $key = $cabangCode.'|'.$skillNama;
                             if (isset($seen[$key])) {
                                 continue;
                             }
@@ -92,15 +93,15 @@ class CabangSkillSeeder extends Seeder
 
                             $inserts[] = [
                                 'cabang_code' => $cabangCode,
-                                'id_skill'    => $masterSkill[$skillNama],
-                                'flag'        => true,
-                                'created_at'  => now(),
-                                'updated_at'  => now(),
+                                'id_skill' => $masterSkill[$skillNama],
+                                'flag' => true,
+                                'created_at' => now(),
+                                'updated_at' => now(),
                             ];
                         }
                     }
 
-                    if (!empty($inserts)) {
+                    if (! empty($inserts)) {
                         foreach (array_chunk($inserts, 400) as $chunk) {
                             DB::connection('sqlsrv')->table('sesi_cabang_skill')->insert($chunk);
                         }
@@ -112,8 +113,8 @@ class CabangSkillSeeder extends Seeder
 
             $this->command->info("✓ Selesai! Total inserted: {$total}, skipped: {$skipped}");
         } catch (\Exception $e) {
-            $this->command->warn("⚠ Q_CustomerLocusAtribute tidak ditemukan (external table dari production)");
-            $this->command->info("ℹ Jika di production, data ini akan di-seed dari Quantum API");
+            $this->command->warn('⚠ Q_CustomerLocusAtribute tidak ditemukan (external table dari production)');
+            $this->command->info('ℹ Jika di production, data ini akan di-seed dari Quantum API');
         }
     }
 }

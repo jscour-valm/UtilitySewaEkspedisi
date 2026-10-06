@@ -6,7 +6,7 @@
 <div class="space-y-4">
     {{-- Summary Cards — read-only, klik buat filter tabel di bawah --}}
     <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-        <div class="stat-filter-card cursor-pointer rounded-xl bg-white shadow-sm transition ring-2 ring-transparent
+        <div class="stat-filter-card grid cursor-pointer rounded-xl transition ring-2 ring-transparent
             hover:ring-avian-green/40 focus-visible:ring-avian-green"
             data-status-filter="all" role="button" tabindex="0">
             <x-stat-card
@@ -17,7 +17,7 @@
             />
         </div>
 
-        <div class="stat-filter-card cursor-pointer rounded-xl bg-white shadow-sm transition ring-2 ring-transparent
+        <div class="stat-filter-card grid cursor-pointer rounded-xl transition ring-2 ring-transparent
             hover:ring-avian-green/40 focus-visible:ring-avian-green"
             data-status-filter="pending" role="button" tabindex="0">
             <x-stat-card
@@ -28,7 +28,7 @@
             />
         </div>
 
-        <div class="stat-filter-card cursor-pointer rounded-xl bg-white shadow-sm transition ring-2 ring-transparent
+        <div class="stat-filter-card grid cursor-pointer rounded-xl transition ring-2 ring-transparent
             hover:ring-avian-green/40 focus-visible:ring-avian-green"
             data-status-filter="approved" role="button" tabindex="0">
             <x-stat-card
@@ -39,7 +39,7 @@
             />
         </div>
 
-        <div class="stat-filter-card cursor-pointer rounded-xl bg-white shadow-sm transition ring-2 ring-transparent
+        <div class="stat-filter-card grid cursor-pointer rounded-xl transition ring-2 ring-transparent
             hover:ring-avian-green/40 focus-visible:ring-avian-green"
             data-status-filter="rejected" role="button" tabindex="0">
             <x-stat-card
@@ -50,16 +50,16 @@
             />
         </div>
 
-        {{-- Bukan filter status_pengajuan — kartu ini cuma informasional (kategori_approval),
-             jadi TIDAK dibungkus .stat-filter-card / data-status-filter. TIDAK dibungkus div
-             tambahan juga — <x-stat-card> sudah punya wrapper (bg-white rounded-xl shadow-sm)
-             sendiri, dobel-bungkus bikin keliatan "tumpuk 2" (card di dalam card). --}}
-        <x-stat-card
-            label="Over Threshold"
-            :count="$countOverThreshold"
-            subtitle="Rasio sewa / PAC di atas ambang"
-            color="orange"
-        />
+        <div class="stat-filter-card grid cursor-pointer rounded-xl transition ring-2 ring-transparent
+            hover:ring-avian-green/40 focus-visible:ring-avian-green"
+            data-kategori-filter="over_threshold" role="button" tabindex="0">
+            <x-stat-card
+                label="Over Threshold"
+                :count="$countOverThreshold"
+                subtitle="Rasio sewa / PAC di atas ambang"
+                color="orange"
+            />
+        </div>
     </div>
 
     {{-- Pengajuan Table Section --}}
@@ -72,9 +72,6 @@
         </div>
 
         <div class="p-6">
-            {{-- mode="dashboard" (default) — view-only, link Action jadi "Detail"
-                 (bukan "Review", itu khusus mode="wm"). Query di dalam komponen
-                 otomatis lintas cabang krn DCI isGlobalAccess(). --}}
             <x-tabel-pengajuan mode="dashboard" :limit="0" />
         </div>
     </div>
@@ -88,6 +85,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const statFilterCards = document.querySelectorAll('.stat-filter-card');
 
     let activeStatusFilter = 'all';
+    let activeKategoriFilter = null; // null = nggak difilter kategori; 'over_threshold' = aktif
 
     function applyFilters() {
         const searchTerm = searchInput.value.toLowerCase();
@@ -95,11 +93,13 @@ document.addEventListener('DOMContentLoaded', function() {
         rows.forEach(row => {
             const perusahaan = row.getAttribute('data-perusahaan') || '';
             const status = row.getAttribute('data-status') || '';
+            const kategori = row.getAttribute('data-kategori') || '';
 
             const matchesSearch = perusahaan.includes(searchTerm);
             const matchesStatus = (activeStatusFilter === 'all') || (status === activeStatusFilter);
+            const matchesKategori = !activeKategoriFilter || (kategori === activeKategoriFilter);
 
-            row.style.display = (matchesSearch && matchesStatus) ? '' : 'none';
+            row.style.display = (matchesSearch && matchesStatus && matchesKategori) ? '' : 'none';
         });
     }
 
@@ -107,8 +107,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
     statFilterCards.forEach(card => {
         card.addEventListener('click', function() {
-            const filterValue = this.getAttribute('data-status-filter');
-            activeStatusFilter = (activeStatusFilter === filterValue) ? 'all' : filterValue;
+            const statusVal = this.getAttribute('data-status-filter');
+            const kategoriVal = this.getAttribute('data-kategori-filter');
+            if (statusVal !== null) {
+                activeStatusFilter = (activeStatusFilter === statusVal) ? 'all' : statusVal;
+            } else if (kategoriVal !== null) {
+                activeKategoriFilter = (activeKategoriFilter === kategoriVal) ? null : kategoriVal;
+            }
             updateCardHighlight();
             applyFilters();
         });
@@ -123,14 +128,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function updateCardHighlight() {
         statFilterCards.forEach(card => {
-            const filterValue = card.getAttribute('data-status-filter');
-            if (filterValue === activeStatusFilter && activeStatusFilter !== 'all') {
-                card.classList.add('ring-avian-green', 'ring-2');
-                card.classList.remove('ring-transparent');
-            } else {
-                card.classList.remove('ring-avian-green');
-                card.classList.add('ring-transparent', 'ring-2');
-            }
+            const statusVal = card.getAttribute('data-status-filter');
+            const kategoriVal = card.getAttribute('data-kategori-filter');
+            const isActive = (statusVal !== null && statusVal === activeStatusFilter && activeStatusFilter !== 'all')
+                || (kategoriVal !== null && kategoriVal === activeKategoriFilter);
+            card.classList.toggle('ring-avian-green', isActive);
+            card.classList.toggle('ring-transparent', !isActive);
         });
     }
 

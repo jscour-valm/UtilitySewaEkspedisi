@@ -11,14 +11,19 @@ class ApprovalLog extends Model
     use HasFlag;
 
     protected $connection = 'sqlsrv';
+
     protected $table = 'sesi_approval_log';
+
     protected $primaryKey = 'id_approval_log';
+
     public $timestamps = true;
 
     protected $fillable = [
         'id_pengajuan_sewa',
         'id_approval_rule',
         'id_approver',
+        'role_approver',
+        'tingkat',
         'status',
         'decided_at',
         'alasan_penolakan',
@@ -43,5 +48,11 @@ class ApprovalLog extends Model
     public function approver(): BelongsTo
     {
         return $this->belongsTo(User::class, 'id_approver', 'id');
+    }
+
+    /** Peran approver di log ini. Log lama (sebelum kolom role_approver ada) diturunkan dari rule-nya. */
+    public function getPeranAttribute(): ?string
+    {
+        return $this->role_approver ?? $this->approval?->role_berwenang;
     }
 }

@@ -73,6 +73,10 @@
     </div>
 
     {{-- ==================== KENDARAAN ==================== --}}
+    {{-- Section disembunyikan total kalau kosong (bukan cuma nunjukin "Belum ada...") —
+    konsisten sama pola yang udah dipakai di section "Area Terdaftar, Belum Ada Tarif"
+    di bawah, biar Detail Perusahaan nggak makan tempat percuma buat data yang nggak ada. --}}
+    @if(count($kendaraan) > 0)
     <div class="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
         <div class="mb-3 flex items-center justify-between">
             <p class="{{ $sectionLabel }}">KENDARAAN</p>
@@ -93,7 +97,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @forelse($kendaraan as $k)
+                    @foreach($kendaraan as $k)
                         <tr class="border-b border-gray-50 hover:bg-gray-50">
                             <td class="px-3.5 py-2.5 text-gray-600">{{ $k['cabang'] }}</td>
                             <td class="px-3.5 py-2.5 font-medium text-gray-800">{{ $k['jenis'] ?: '—' }}</td>
@@ -113,17 +117,15 @@
                                 </td>
                             @endif
                         </tr>
-                    @empty
-                        <tr>
-                            <td colspan="{{ $isKg ? 6 : 5 }}" class="px-3.5 py-4 text-center text-[13px] text-gray-400">Belum ada kendaraan terdaftar.</td>
-                        </tr>
-                    @endforelse
+                    @endforeach
                 </tbody>
             </table>
         </div>
     </div>
+    @endif
 
     {{-- ==================== TARIF SEWA TRUK ==================== --}}
+    @if($tarifSewa->isNotEmpty())
     <div class="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
         <div class="mb-3 flex items-center justify-between">
             <p class="{{ $sectionLabel }}">TARIF SEWA TRUK</p>
@@ -137,36 +139,39 @@
                         <th class="px-3.5 py-2.5 text-left">AREA KIRIM</th>
                         <th class="px-3.5 py-2.5 text-right">HARGA SEWA</th>
                         <th class="px-3.5 py-2.5 text-left">DIUPDATE</th>
-                        @if($isDci)
+                        @if($isKg || $isDci)
                             <th class="px-3.5 py-2.5 text-right">AKSI</th>
                         @endif
                     </tr>
                 </thead>
                 <tbody>
-                    @forelse($tarifSewa as $t)
+                    @foreach($tarifSewa as $t)
                         @php $diupdate = $t->update_date_source ?? $t->updated_at; @endphp
                         <tr class="border-b border-gray-50 hover:bg-gray-50">
                             <td class="px-3.5 py-2.5 text-gray-600">{{ $t->cabang_code }} &mdash; {{ $t->nama_cabang ?? '—' }}</td>
                             <td class="px-3.5 py-2.5 font-medium text-gray-800">{{ $t->nama_skill }}</td>
                             <td class="px-3.5 py-2.5 text-right font-semibold tabular-nums text-gray-900">{{ \App\Helpers\FormatHelper::rupiah($t->harga_sewa) }}</td>
                             <td class="px-3.5 py-2.5 text-gray-500">{{ $diupdate ? \Carbon\Carbon::parse($diupdate)->translatedFormat('d M Y') : '—' }}</td>
-                            @if($isDci)
-                                <td class="px-3.5 py-2.5 text-right">
-                                    <a href="{{ route('perusahaan.sewa-truk.edit', $t->id_vendor_skill) }}" class="{{ $editBtn }}">Edit</a>
+                            @if($isKg || $isDci)
+                                <td class="px-3.5 py-2.5 text-right whitespace-nowrap">
+                                    @if($isDci)
+                                        <a href="{{ route('perusahaan.sewa-truk.edit', $t->id_vendor_skill) }}" class="{{ $editBtn }}">Edit</a>
+                                    @endif
+                                    @if($t->pengajuan_url)
+                                        <a href="{{ $t->pengajuan_url }}" class="whitespace-nowrap rounded-lg bg-avian-green px-2.5 py-1 text-xs font-medium text-white hover:bg-avian-green-dark">Buat Pengajuan</a>
+                                    @endif
                                 </td>
                             @endif
                         </tr>
-                    @empty
-                        <tr>
-                            <td colspan="{{ $isDci ? 5 : 4 }}" class="px-3.5 py-4 text-center text-[13px] text-gray-400">Belum ada tarif sewa truk.</td>
-                        </tr>
-                    @endforelse
+                    @endforeach
                 </tbody>
             </table>
         </div>
     </div>
+    @endif
 
     {{-- ==================== TARIF KIRIMAN RUTIN ==================== --}}
+    @if($tarifKiriman->isNotEmpty())
     <div class="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
         <div class="mb-3 flex items-center justify-between">
             <p class="{{ $sectionLabel }}">TARIF KIRIMAN RUTIN</p>
@@ -181,13 +186,13 @@
                         @foreach($jenisBarangCols as $jb)
                             <th class="px-3.5 py-2.5 text-right whitespace-nowrap uppercase" title="{{ $jb->nama_barang }}">{{ $jb->nama_barang }}</th>
                         @endforeach
-                        @if($isDci)
+                        @if($isKg || $isDci)
                             <th class="px-3.5 py-2.5 text-right">AKSI</th>
                         @endif
                     </tr>
                 </thead>
                 <tbody>
-                    @forelse($tarifKiriman as $t)
+                    @foreach($tarifKiriman as $t)
                         <tr class="border-b border-gray-50 hover:bg-gray-50">
                             <td class="px-3.5 py-2.5 whitespace-nowrap text-gray-600">{{ $t->cabang_code }} &mdash; {{ $t->nama_cabang ?? '—' }}</td>
                             <td class="px-3.5 py-2.5 whitespace-nowrap font-medium text-gray-800">{{ $t->nama_skill }}</td>
@@ -196,21 +201,23 @@
                                     {{ isset($hargaByVs[$t->id_vendor_skill][$jb->id_jenis_barang]) ? number_format($hargaByVs[$t->id_vendor_skill][$jb->id_jenis_barang], 0, ',', '.') : '—' }}
                                 </td>
                             @endforeach
-                            @if($isDci)
-                                <td class="px-3.5 py-2.5 text-right">
-                                    <a href="{{ route('perusahaan.kiriman-rutin.edit', $t->id_vendor_skill) }}" class="{{ $editBtn }}">Edit</a>
+                            @if($isKg || $isDci)
+                                <td class="px-3.5 py-2.5 text-right whitespace-nowrap">
+                                    @if($isDci)
+                                        <a href="{{ route('perusahaan.kiriman-rutin.edit', $t->id_vendor_skill) }}" class="{{ $editBtn }}">Edit</a>
+                                    @endif
+                                    @if($t->pengajuan_url)
+                                        <a href="{{ $t->pengajuan_url }}" class="whitespace-nowrap rounded-lg bg-avian-green px-2.5 py-1 text-xs font-medium text-white hover:bg-avian-green-dark">Buat Pengajuan</a>
+                                    @endif
                                 </td>
                             @endif
                         </tr>
-                    @empty
-                        <tr>
-                            <td colspan="{{ 2 + max($jenisBarangCols->count(), 1) + ($isDci ? 1 : 0) }}" class="px-3.5 py-4 text-center text-[13px] text-gray-400">Belum ada tarif kiriman rutin.</td>
-                        </tr>
-                    @endforelse
+                    @endforeach
                 </tbody>
             </table>
         </div>
     </div>
+    @endif
 
     {{-- ==================== AREA TERDAFTAR, BELUM ADA TARIF ==================== --}}
     @if($belumAdaTarif->isNotEmpty())

@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\PengajuanSewa;
-use Illuminate\Http\Request;
 
 class WmDashboardController extends Controller
 {
@@ -20,10 +19,11 @@ class WmDashboardController extends Controller
             'kendaraan',
             'kendaraan.perusahaan',
             'submittedBy',
+            'approvalLogs.approval',
         ]);
 
         // WM sees pengajuan from ALL cabangs dalam areanya
-        if (!empty($userCabangs)) {
+        if (! empty($userCabangs)) {
             $query->whereIn('id_cabang', $userCabangs);
         } else {
             // Fallback: if no cabangs found, return empty
@@ -33,12 +33,13 @@ class WmDashboardController extends Controller
         $allPengajuan = $query->orderBy('submitted_at', 'desc')->get();
 
         // Count by status
-        $countPending = $allPengajuan->filter(fn($p) => strtolower($p->status_pengajuan) === 'pending')->count();
-        $countApproved = $allPengajuan->filter(fn($p) => strtolower($p->status_pengajuan) === 'approved')->count();
-        $countRejected = $allPengajuan->filter(fn($p) => strtolower($p->status_pengajuan) === 'rejected')->count();
+        // Pending = giliran WM memvalidasi (yang sudah divalidasi & menunggu WC/WH tidak dihitung)
+        $countPending = $allPengajuan->filter(fn ($p) => $p->approverBerikutnya() === 'WM')->count();
+        $countApproved = $allPengajuan->filter(fn ($p) => strtolower($p->status_pengajuan) === 'approved')->count();
+        $countRejected = $allPengajuan->filter(fn ($p) => strtolower($p->status_pengajuan) === 'rejected')->count();
 
         // Format for table display
-        $pengajuanData = $allPengajuan->map(fn($p) => [
+        $pengajuanData = $allPengajuan->map(fn ($p) => [
             'id' => $p->id_pengajuan_sewa,
             'kagud' => $p->submittedBy?->name ?? 'Unknown',
             'cabang' => $p->id_cabang,

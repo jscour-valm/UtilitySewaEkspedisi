@@ -23,20 +23,25 @@ class PerusahaanSkill extends Model
     use HasFlag;
 
     protected $connection = 'sqlsrv';
+
     protected $table = 'sesi_perusahaan_skill';
+
     protected $primaryKey = 'id_vendor_skill';
+
     public $timestamps = true;
 
     protected $fillable = [
         'id_perusahaan', 'id_skill', 'cabang_code', 'harga_sewa', 'flag',
         'revisi', 'tanggal_revisi', 'update_date_source',
+        'harga_sewa_sebelumnya',
     ];
 
     protected $casts = [
-        'harga_sewa'          => 'decimal:2',
-        'flag'                => 'boolean',
-        'tanggal_revisi'      => 'date',
-        'update_date_source'  => 'date',
+        'harga_sewa' => 'decimal:2',
+        'flag' => 'boolean',
+        'tanggal_revisi' => 'date',
+        'update_date_source' => 'date',
+        'harga_sewa_sebelumnya' => 'decimal:2',
     ];
 
     public function perusahaan(): BelongsTo
@@ -67,9 +72,10 @@ class PerusahaanSkill extends Model
      */
     public function getNamaCabangAttribute(): ?string
     {
-        if (!$this->cabang_code) {
+        if (! $this->cabang_code) {
             return null;
         }
+
         return DB::connection('sqlsrv')
             ->table('sesi_master_cabang')
             ->where('Code', $this->cabang_code)
@@ -78,9 +84,10 @@ class PerusahaanSkill extends Model
 
     public function getKodeAreaAttribute(): ?string
     {
-        if (!$this->cabang_code) {
+        if (! $this->cabang_code) {
             return null;
         }
+
         return DB::connection('sqlsrv')
             ->table('sesi_master_cabang')
             ->where('Code', $this->cabang_code)

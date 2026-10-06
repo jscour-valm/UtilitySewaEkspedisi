@@ -12,8 +12,11 @@ class Kendaraan extends Model
     use HasFlag;
 
     protected $connection = 'sqlsrv';
+
     protected $table = 'sesi_unit_kendaraan';
+
     protected $primaryKey = 'id_kendaraan';
+
     public $timestamps = false;
 
     protected $fillable = [
@@ -21,6 +24,7 @@ class Kendaraan extends Model
         'id_cabang',
         'id_skill',
         'jenis_kendaraan',
+        'id_jenis_kendaraan',
         'plat_nomor_truk',
         'muatan_maksimal',
         'harga_sewa',
@@ -43,5 +47,10 @@ class Kendaraan extends Model
     public function pengajuan(): HasMany
     {
         return $this->hasMany(PengajuanSewa::class, 'id_kendaraan', 'id_kendaraan');
+    }
+
+    public function jenisKendaraan(): BelongsTo
+    {
+        return $this->belongsTo(MasterJenisKendaraan::class, 'id_jenis_kendaraan', 'id_jenis_kendaraan');
     }
 }

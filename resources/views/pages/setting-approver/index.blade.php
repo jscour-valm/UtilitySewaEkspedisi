@@ -17,7 +17,7 @@
         <div class="rounded-lg border border-avian-green/30 bg-avian-green-light px-4 py-4 mb-4">
             <h2 class="text-sm font-semibold text-avian-green-dark mb-3">Assign per Area</h2>
             <form method="POST" action="{{ route('setting-approver.store-by-area') }}" class="flex flex-col sm:flex-row items-end gap-3"
-                onsubmit="return confirm('Assign WM ini ke SEMUA cabang di area yang dipilih?')">
+                onsubmit="event.preventDefault(); confirmDialog('Assign WM ini ke SEMUA cabang di area yang dipilih?').then(ok => ok && this.submit()); return false">
                 @csrf
                 <div class="flex-1 w-full">
                     <label class="mb-1 block text-xs font-medium text-gray-600">Area</label>
@@ -81,7 +81,10 @@
                             @else
                             <div class="flex flex-wrap gap-1.5">
                                 @foreach($c->wmList as $wm)
-                                <span class="inline-flex rounded-full bg-avian-green-light text-avian-green px-2.5 py-0.5 text-xs font-medium">{{ $wm->name }}</span>
+                                <span title="{{ $wm->source === 'live' ? 'Otomatis dari sistem IT (rolling area)' : 'Manual (Setting Approver)' }}"
+                                    class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium {{ $wm->source === 'live' ? 'bg-blue-50 text-blue-700' : 'bg-avian-green-light text-avian-green' }}">
+                                    {{ $wm->name }}
+                                </span>
                                 @endforeach
                             </div>
                             @endif
@@ -100,12 +103,16 @@
                                     @foreach($c->wmList as $wm)
                                     <div class="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-3 py-2">
                                         <span class="text-sm text-gray-700">{{ $wm->name }} <span class="text-gray-400">({{ $wm->username ?? '' }})</span></span>
-                                        <form method="POST" action="{{ route('setting-approver.destroy', $wm->id_user_cabang) }}"
-                                            onsubmit="return confirm('Hapus {{ $wm->name }} dari cabang {{ $c->Code }}?')">
+                                        @if($wm->source === 'live')
+                                        <span class="text-xs text-gray-400" title="Mapping otomatis dari sistem IT (view rolling area) — bukan baris manual, jadi gak bisa dihapus dari sini. Kalau WM ini seharusnya gak megang cabang ini lagi, itu perlu diperbaiki di sisi IT (rolling area), bukan di sini.">Otomatis dari sistem</span>
+                                        @else
+                                        <form method="POST" action="{{ route('setting-approver.destroy', $wm->id_approval_rule) }}"
+                                            onsubmit="event.preventDefault(); confirmDialog('Hapus {{ $wm->name }} dari cabang {{ $c->Code }}?', {danger: true}).then(ok => ok && this.submit()); return false">
                                             @csrf
                                             @method('DELETE')
                                             <button type="submit" class="text-xs font-medium text-red-600 hover:text-red-700 transition">Hapus</button>
                                         </form>
+                                        @endif
                                     </div>
                                     @endforeach
                                 </div>
@@ -140,7 +147,6 @@
                 @endforelse
             </table>
         </div>
-
         <x-pagination-links :paginator="$cabangs" />
     </div>
 </div>

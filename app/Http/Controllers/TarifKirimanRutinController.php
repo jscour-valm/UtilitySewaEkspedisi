@@ -2,19 +2,20 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\TarifKirimanRutin;
-use App\Models\JenisBarangKiriman;
-use App\Models\PerusahaanEkspedisi;
-use App\Models\PerusahaanSkill;
-use App\Models\Kendaraan;
+use App\Http\Controllers\Concerns\LogsRiwayatHarga;
 use App\Http\Controllers\Concerns\ManagesVendorMasterData;
+use App\Models\JenisBarangKiriman;
+use App\Models\Kendaraan;
+use App\Models\MasterJenisKendaraan;
+use App\Models\PerusahaanSkill;
+use App\Models\TarifKirimanRutin;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class TarifKirimanRutinController extends Controller
 {
+    use LogsRiwayatHarga;
     use ManagesVendorMasterData;
-
 
     // Halaman list Sewa Truk / Kiriman Rutin sekarang ada di PerusahaanController
     // (tab=sewa-truk / tab=kiriman-rutin). Controller ini tinggal form edit/update
@@ -26,7 +27,7 @@ class TarifKirimanRutinController extends Controller
     {
         $vendorSkill = PerusahaanSkill::with('perusahaan')->findOrFail($id);
         abort_unless(auth()->user()->canAccessCabang($vendorSkill->cabang_code), 403, 'Anda tidak punya akses ke cabang ini');
-        ['kendaraanList' => $kendaraanList, 'skillList' => $skillList] = $this->vendorKendaraanData($vendorSkill);
+        ['kendaraanList' => $kendaraanList, 'skillList' => $skillList, 'jenisKendaraanList' => $jenisKendaraanList] = $this->vendorKendaraanData($vendorSkill);
         $cabangList = $this->cabangOptions();
         $tarifSkillList = $this->skillOptionsForCabang($vendorSkill->cabang_code);
         $isSkillInScope = $tarifSkillList->contains('id_skill', $vendorSkill->id_skill);
@@ -38,16 +39,16 @@ class TarifKirimanRutinController extends Controller
             'title' => ($namaPerusahaan && $namaPerusahaan !== '-') ? $namaPerusahaan : 'Edit Tarif Sewa Truk',
         ];
 
-        return view('pages.tarif-sewa-truk.edit', compact('vendorSkill', 'kendaraanList', 'skillList', 'cabangList', 'tarifSkillList', 'isSkillInScope', 'breadcrumb'));
+        return view('pages.tarif-sewa-truk.edit', compact('vendorSkill', 'kendaraanList', 'skillList', 'jenisKendaraanList', 'cabangList', 'tarifSkillList', 'isSkillInScope', 'breadcrumb'));
     }
 
     public function updateSewaTruk(Request $request, $id)
     {
         $request->validate([
-            'harga_sewa'  => 'nullable|numeric|min:0',
+            'harga_sewa' => 'nullable|numeric|min:0',
             'cabang_code' => 'required|string|max:10|exists:sqlsrv.dbo.sesi_master_cabang,Code',
-            'id_skill'    => 'nullable|integer|exists:sqlsrv.dbo.sesi_master_skill,id_skill',
-            'skill_baru'  => 'nullable|string|max:255',
+            'id_skill' => 'nullable|integer|exists:sqlsrv.dbo.sesi_master_skill,id_skill',
+            'skill_baru' => 'nullable|string|max:255',
         ]);
 
         $vendorSkill = PerusahaanSkill::findOrFail($id);
@@ -61,7 +62,7 @@ class TarifKirimanRutinController extends Controller
             ? $this->resolveSkillId($request->skill_baru, $request->cabang_code)
             : $request->id_skill;
 
-        if (!$idSkill) {
+        if (! $idSkill) {
             return back()->withErrors(['error' => 'Pilih atau tambahkan Skill/Area Kirim.'])->withInput();
         }
 
@@ -70,15 +71,17 @@ class TarifKirimanRutinController extends Controller
         }
 
         try {
+            $hargaLama = $vendorSkill->harga_sewa;
             $vendorSkill->update([
-                'harga_sewa'  => $request->harga_sewa,
+                'harga_sewa' => $request->harga_sewa,
                 'cabang_code' => $request->cabang_code,
-                'id_skill'    => $idSkill,
+                'id_skill' => $idSkill,
             ]);
+            $this->catatRiwayatHargaSewaTruk($vendorSkill->id_vendor_skill, $hargaLama, $request->harga_sewa);
 
             return redirect()->route('perusahaan.show', $vendorSkill->id_perusahaan)->with('success', 'Data Sewa Truk berhasil diperbarui.');
         } catch (\Exception $e) {
-            return back()->withErrors(['error' => 'Gagal menyimpan: ' . $e->getMessage()])->withInput();
+            return back()->withErrors(['error' => 'Gagal menyimpan: '.$e->getMessage()])->withInput();
         }
     }
 
@@ -103,7 +106,7 @@ class TarifKirimanRutinController extends Controller
      */
     private function skillOptionsForCabang(?string $cabangCode)
     {
-        if (!$cabangCode) {
+        if (! $cabangCode) {
             return collect();
         }
 
@@ -154,7 +157,7 @@ class TarifKirimanRutinController extends Controller
         abort_unless(auth()->user()->canAccessCabang($vendorSkill->cabang_code), 403, 'Anda tidak punya akses ke cabang ini');
         $jenisBarangList = JenisBarangKiriman::where('flag', true)->orderBy('nama_barang')->get();
         $tarifExisting = TarifKirimanRutin::where('id_vendor_skill', $id)->where('flag', true)->get()->keyBy('id_jenis_barang');
-        ['kendaraanList' => $kendaraanList, 'skillList' => $skillList] = $this->vendorKendaraanData($vendorSkill);
+        ['kendaraanList' => $kendaraanList, 'skillList' => $skillList, 'jenisKendaraanList' => $jenisKendaraanList] = $this->vendorKendaraanData($vendorSkill);
         $cabangList = $this->cabangOptions();
         $tarifSkillList = $this->skillOptionsForCabang($vendorSkill->cabang_code);
         $isSkillInScope = $tarifSkillList->contains('id_skill', $vendorSkill->id_skill);
@@ -166,7 +169,7 @@ class TarifKirimanRutinController extends Controller
             'title' => ($namaPerusahaan && $namaPerusahaan !== '-') ? $namaPerusahaan : 'Edit Tarif Kiriman Rutin',
         ];
 
-        return view('pages.tarif-kiriman-rutin.edit', compact('vendorSkill', 'jenisBarangList', 'tarifExisting', 'kendaraanList', 'skillList', 'cabangList', 'tarifSkillList', 'isSkillInScope', 'breadcrumb'));
+        return view('pages.tarif-kiriman-rutin.edit', compact('vendorSkill', 'jenisBarangList', 'tarifExisting', 'kendaraanList', 'skillList', 'jenisKendaraanList', 'cabangList', 'tarifSkillList', 'isSkillInScope', 'breadcrumb'));
     }
 
     /**
@@ -181,6 +184,7 @@ class TarifKirimanRutinController extends Controller
         $kendaraanList = Kendaraan::where('id_perusahaan', $vendorSkill->id_perusahaan)
             ->where('id_cabang', $vendorSkill->cabang_code)
             ->where('flag', true)
+            ->with('jenisKendaraan')
             ->orderByDesc('updated_at')
             ->get();
 
@@ -189,17 +193,21 @@ class TarifKirimanRutinController extends Controller
             ->orderBy('nama_skill')
             ->get(['id_skill', 'nama_skill']);
 
-        return compact('kendaraanList', 'skillList');
+        $jenisKendaraanList = MasterJenisKendaraan::where('flag', true)
+            ->orderBy('nama_jenis')
+            ->get(['id_jenis_kendaraan', 'nama_jenis', 'muatan_maksimal_ton']);
+
+        return compact('kendaraanList', 'skillList', 'jenisKendaraanList');
     }
 
     public function updateKirimanRutin(Request $request, $id)
     {
         $request->validate([
-            'harga'       => 'nullable|array',
-            'harga.*'     => 'nullable|numeric|min:0',
+            'harga' => 'nullable|array',
+            'harga.*' => 'nullable|numeric|min:0',
             'cabang_code' => 'required|string|max:10|exists:sqlsrv.dbo.sesi_master_cabang,Code',
-            'id_skill'    => 'nullable|integer|exists:sqlsrv.dbo.sesi_master_skill,id_skill',
-            'skill_baru'  => 'nullable|string|max:255',
+            'id_skill' => 'nullable|integer|exists:sqlsrv.dbo.sesi_master_skill,id_skill',
+            'skill_baru' => 'nullable|string|max:255',
         ]);
 
         $vendorSkill = PerusahaanSkill::findOrFail($id);
@@ -208,7 +216,7 @@ class TarifKirimanRutinController extends Controller
             ? $this->resolveSkillId($request->skill_baru, $request->cabang_code)
             : $request->id_skill;
 
-        if (!$idSkill) {
+        if (! $idSkill) {
             return back()->withErrors(['error' => 'Pilih atau tambahkan Skill/Area Kirim.'])->withInput();
         }
 
@@ -227,14 +235,25 @@ class TarifKirimanRutinController extends Controller
                     TarifKirimanRutin::where('id_vendor_skill', $id)
                         ->where('id_jenis_barang', $idJenisBarang)
                         ->update(['flag' => false]);
+
                     continue;
                 }
 
                 // withInactive(): reaktivasi kalau sebelumnya pernah dihapus lalu diisi lagi
-                TarifKirimanRutin::withInactive()->updateOrCreate(
+                $existing = TarifKirimanRutin::withInactive()
+                    ->where('id_vendor_skill', $id)
+                    ->where('id_jenis_barang', $idJenisBarang)
+                    ->first();
+                $biayaLama = $existing?->biaya_per_unit;
+
+                $tarif = TarifKirimanRutin::withInactive()->updateOrCreate(
                     ['id_vendor_skill' => $id, 'id_jenis_barang' => $idJenisBarang],
                     ['biaya_per_unit' => $biaya, 'flag' => true]
                 );
+
+                if ($existing) {
+                    $this->catatRiwayatTarifKirimanRutin($tarif->id_tarif, $biayaLama, $biaya);
+                }
             }
 
             DB::connection('sqlsrv')->commit();
@@ -242,7 +261,8 @@ class TarifKirimanRutinController extends Controller
             return redirect()->route('perusahaan.show', $vendorSkill->id_perusahaan)->with('success', 'Tarif Kiriman Rutin berhasil diperbarui.');
         } catch (\Exception $e) {
             DB::connection('sqlsrv')->rollBack();
-            return back()->withErrors(['error' => 'Gagal menyimpan: ' . $e->getMessage()])->withInput();
+
+            return back()->withErrors(['error' => 'Gagal menyimpan: '.$e->getMessage()])->withInput();
         }
     }
 
@@ -285,7 +305,7 @@ class TarifKirimanRutinController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Gagal fetch tarif: ' . $e->getMessage(),
+                'message' => 'Gagal fetch tarif: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -322,7 +342,7 @@ class TarifKirimanRutinController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Gagal fetch rate card: ' . $e->getMessage(),
+                'message' => 'Gagal fetch rate card: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -349,7 +369,7 @@ class TarifKirimanRutinController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Gagal fetch master skill: ' . $e->getMessage(),
+                'message' => 'Gagal fetch master skill: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -401,7 +421,7 @@ class TarifKirimanRutinController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Gagal membuat rate card: ' . $e->getMessage(),
+                'message' => 'Gagal membuat rate card: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -437,7 +457,7 @@ class TarifKirimanRutinController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Gagal fetch jenis barang: ' . $e->getMessage(),
+                'message' => 'Gagal fetch jenis barang: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -485,9 +505,10 @@ class TarifKirimanRutinController extends Controller
             ], 201);
         } catch (\Exception $e) {
             DB::connection('sqlsrv')->rollBack();
+
             return response()->json([
                 'success' => false,
-                'message' => 'Gagal menyimpan tarif: ' . $e->getMessage(),
+                'message' => 'Gagal menyimpan tarif: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -508,7 +529,7 @@ class TarifKirimanRutinController extends Controller
             $tarif = TarifKirimanRutin::findOrFail($id);
 
             // Guard: hanya bisa update yang aktif (flag=true)
-            if (!$tarif->flag) {
+            if (! $tarif->flag) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Tarif ini sudah dihapus/nonaktif',
@@ -531,10 +552,12 @@ class TarifKirimanRutinController extends Controller
                 }
             }
 
+            $biayaLama = $tarif->biaya_per_unit;
             $tarif->update([
                 'id_jenis_barang' => $request->id_jenis_barang,
                 'biaya_per_unit' => $request->biaya_per_unit,
             ]);
+            $this->catatRiwayatTarifKirimanRutin($tarif->id_tarif, $biayaLama, $request->biaya_per_unit);
 
             DB::connection('sqlsrv')->commit();
 
@@ -545,9 +568,10 @@ class TarifKirimanRutinController extends Controller
             ]);
         } catch (\Exception $e) {
             DB::connection('sqlsrv')->rollBack();
+
             return response()->json([
                 'success' => false,
-                'message' => 'Gagal memperbarui tarif: ' . $e->getMessage(),
+                'message' => 'Gagal memperbarui tarif: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -563,7 +587,7 @@ class TarifKirimanRutinController extends Controller
             $tarif = TarifKirimanRutin::findOrFail($id);
 
             // Guard: hanya bisa delete yang aktif (flag=true)
-            if (!$tarif->flag) {
+            if (! $tarif->flag) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Tarif ini sudah dihapus sebelumnya',
@@ -580,9 +604,10 @@ class TarifKirimanRutinController extends Controller
             ]);
         } catch (\Exception $e) {
             DB::connection('sqlsrv')->rollBack();
+
             return response()->json([
                 'success' => false,
-                'message' => 'Gagal menghapus tarif: ' . $e->getMessage(),
+                'message' => 'Gagal menghapus tarif: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -616,9 +641,10 @@ class TarifKirimanRutinController extends Controller
             ], 201);
         } catch (\Exception $e) {
             DB::connection('sqlsrv')->rollBack();
+
             return response()->json([
                 'success' => false,
-                'message' => 'Gagal menyimpan jenis barang: ' . $e->getMessage(),
+                'message' => 'Gagal menyimpan jenis barang: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -630,7 +656,7 @@ class TarifKirimanRutinController extends Controller
     public function updateBarang(Request $request, $id)
     {
         $request->validate([
-            'nama_barang' => 'required|string|max:150|unique:sqlsrv.dbo.sesi_jenis_barang_kiriman,nama_barang,' . $id . ',id_jenis_barang',
+            'nama_barang' => 'required|string|max:150|unique:sqlsrv.dbo.sesi_jenis_barang_kiriman,nama_barang,'.$id.',id_jenis_barang',
         ]);
 
         try {
@@ -639,7 +665,7 @@ class TarifKirimanRutinController extends Controller
             $barang = JenisBarangKiriman::findOrFail($id);
 
             // Guard: hanya bisa edit yang aktif
-            if (!$barang->flag) {
+            if (! $barang->flag) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Jenis barang ini sudah dihapus/nonaktif',
@@ -657,9 +683,10 @@ class TarifKirimanRutinController extends Controller
             ]);
         } catch (\Exception $e) {
             DB::connection('sqlsrv')->rollBack();
+
             return response()->json([
                 'success' => false,
-                'message' => 'Gagal memperbarui jenis barang: ' . $e->getMessage(),
+                'message' => 'Gagal memperbarui jenis barang: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -678,7 +705,7 @@ class TarifKirimanRutinController extends Controller
             $barang = JenisBarangKiriman::findOrFail($id);
 
             // Guard: hanya bisa delete yang aktif
-            if (!$barang->flag) {
+            if (! $barang->flag) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Jenis barang ini sudah dihapus sebelumnya',
@@ -701,9 +728,10 @@ class TarifKirimanRutinController extends Controller
             ]);
         } catch (\Exception $e) {
             DB::connection('sqlsrv')->rollBack();
+
             return response()->json([
                 'success' => false,
-                'message' => 'Gagal menghapus jenis barang: ' . $e->getMessage(),
+                'message' => 'Gagal menghapus jenis barang: '.$e->getMessage(),
             ], 500);
         }
     }

@@ -115,4 +115,11 @@ return [
         'name' => env('MAIL_FROM_NAME', env('APP_NAME', 'Laravel')),
     ],
 
+    /*
+    | MODE TES: semua email notifikasi dikirim ke alamat ini (penerima asli hanya dicatat
+    | di log). Lihat NotifikasiPengajuanService::kirim(). Kosongkan & aktifkan blok PRODUKSI
+    | di sana saat deploy.
+    */
+    'test_to' => env('MAIL_TEST_TO'),
+
 ];

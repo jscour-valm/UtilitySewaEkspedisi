@@ -1,11 +1,12 @@
 <?php
 
 namespace App\Http\Controllers;
-use Illuminate\Support\Facades\DB;
-use App\Models\Kendaraan;
-use App\Http\Controllers\Concerns\ManagesVendorMasterData;
 
+use App\Http\Controllers\Concerns\ManagesVendorMasterData;
+use App\Models\Kendaraan;
+use App\Models\MasterJenisKendaraan;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class KendaraanController extends Controller
 {
@@ -25,13 +26,14 @@ class KendaraanController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'id_perusahaan'   => 'required|integer|exists:sqlsrv.dbo.sesi_perusahaan_ekspedisi,id_perusahaan',
-            'id_cabang'       => 'required|string|max:10|exists:sqlsrv.dbo.sesi_master_cabang,Code',
-            'id_skill'        => 'nullable|array',
-            'id_skill.*'      => 'integer|exists:sqlsrv.dbo.sesi_master_skill,id_skill',
-            'skill_baru'      => 'nullable|array',
-            'skill_baru.*'    => 'nullable|string|max:100',
+            'id_perusahaan' => 'required|integer|exists:sqlsrv.dbo.sesi_perusahaan_ekspedisi,id_perusahaan',
+            'id_cabang' => 'required|string|max:10|exists:sqlsrv.dbo.sesi_master_cabang,Code',
+            'id_skill' => 'nullable|array',
+            'id_skill.*' => 'integer|exists:sqlsrv.dbo.sesi_master_skill,id_skill',
+            'skill_baru' => 'nullable|array',
+            'skill_baru.*' => 'nullable|string|max:100',
             'jenis_kendaraan' => 'nullable|string|max:100',
+            'id_jenis_kendaraan' => 'nullable|integer|exists:sqlsrv.dbo.sesi_master_jenis_kendaraan,id_jenis_kendaraan',
             'plat_nomor_truk' => 'nullable|string|max:20|unique:sqlsrv.dbo.sesi_unit_kendaraan,plat_nomor_truk',
             'muatan_maksimal' => 'required|numeric|min:0.01',
         ]);
@@ -57,14 +59,19 @@ class KendaraanController extends Controller
             }
             $skillString = $skillIds->unique()->values()->implode(',');
 
+            $jenisKendaraan = $request->id_jenis_kendaraan
+                ? MasterJenisKendaraan::find($request->id_jenis_kendaraan)
+                : null;
+
             $kendaraan = Kendaraan::create([
-                'id_perusahaan'   => $request->id_perusahaan,
-                'id_cabang'       => $idCabang,
-                'id_skill'        => $skillString,
-                'jenis_kendaraan' => $request->jenis_kendaraan ?: null,
+                'id_perusahaan' => $request->id_perusahaan,
+                'id_cabang' => $idCabang,
+                'id_skill' => $skillString,
+                'jenis_kendaraan' => $jenisKendaraan?->nama_jenis ?? ($request->jenis_kendaraan ?: null),
+                'id_jenis_kendaraan' => $jenisKendaraan?->id_jenis_kendaraan,
                 'plat_nomor_truk' => $request->plat_nomor_truk ? strtoupper($request->plat_nomor_truk) : null,
                 'muatan_maksimal' => $request->muatan_maksimal,
-                'flag'            => true,
+                'flag' => true,
             ]);
 
             DB::connection('sqlsrv')->commit();
@@ -76,9 +83,10 @@ class KendaraanController extends Controller
             ], 201);
         } catch (\Throwable $e) {
             DB::connection('sqlsrv')->rollBack();
+
             return response()->json([
                 'success' => false,
-                'message' => 'Gagal menyimpan kendaraan: ' . $e->getMessage(),
+                'message' => 'Gagal menyimpan kendaraan: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -94,12 +102,13 @@ class KendaraanController extends Controller
         $kendaraan = Kendaraan::where('flag', true)->findOrFail($id);
 
         $request->validate([
-            'id_skill'        => 'nullable|array',
-            'id_skill.*'      => 'integer|exists:sqlsrv.dbo.sesi_master_skill,id_skill',
-            'skill_baru'      => 'nullable|array',
-            'skill_baru.*'    => 'nullable|string|max:100',
+            'id_skill' => 'nullable|array',
+            'id_skill.*' => 'integer|exists:sqlsrv.dbo.sesi_master_skill,id_skill',
+            'skill_baru' => 'nullable|array',
+            'skill_baru.*' => 'nullable|string|max:100',
             'jenis_kendaraan' => 'nullable|string|max:100',
-            'plat_nomor_truk' => 'nullable|string|max:20|unique:sqlsrv.dbo.sesi_unit_kendaraan,plat_nomor_truk,' . $kendaraan->id_kendaraan . ',id_kendaraan',
+            'id_jenis_kendaraan' => 'nullable|integer|exists:sqlsrv.dbo.sesi_master_jenis_kendaraan,id_jenis_kendaraan',
+            'plat_nomor_truk' => 'nullable|string|max:20|unique:sqlsrv.dbo.sesi_unit_kendaraan,plat_nomor_truk,'.$kendaraan->id_kendaraan.',id_kendaraan',
             'muatan_maksimal' => 'required|numeric|min:0.01',
         ]);
 
@@ -117,11 +126,16 @@ class KendaraanController extends Controller
             // dikosongkan) — cuma update kalau memang dikirim (checkbox/skill_baru ada).
             $skillString = $skillIds->isEmpty() ? $kendaraan->id_skill : $skillIds->unique()->values()->implode(',');
 
+            $jenisKendaraan = $request->id_jenis_kendaraan
+                ? MasterJenisKendaraan::find($request->id_jenis_kendaraan)
+                : null;
+
             $kendaraan->update([
-                'jenis_kendaraan' => $request->jenis_kendaraan ?: null,
+                'jenis_kendaraan' => $jenisKendaraan?->nama_jenis ?? ($request->jenis_kendaraan ?: null),
+                'id_jenis_kendaraan' => $request->filled('id_jenis_kendaraan') ? $jenisKendaraan?->id_jenis_kendaraan : $kendaraan->id_jenis_kendaraan,
                 'plat_nomor_truk' => $request->plat_nomor_truk ? strtoupper($request->plat_nomor_truk) : null,
                 'muatan_maksimal' => $request->muatan_maksimal,
-                'id_skill'        => $skillString,
+                'id_skill' => $skillString,
             ]);
 
             DB::connection('sqlsrv')->commit();
@@ -133,9 +147,10 @@ class KendaraanController extends Controller
             ]);
         } catch (\Throwable $e) {
             DB::connection('sqlsrv')->rollBack();
+
             return response()->json([
                 'success' => false,
-                'message' => 'Gagal memperbarui kendaraan: ' . $e->getMessage(),
+                'message' => 'Gagal memperbarui kendaraan: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -158,7 +173,7 @@ class KendaraanController extends Controller
         } catch (\Throwable $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Gagal menghapus kendaraan: ' . $e->getMessage(),
+                'message' => 'Gagal menghapus kendaraan: '.$e->getMessage(),
             ], 500);
         }
     }

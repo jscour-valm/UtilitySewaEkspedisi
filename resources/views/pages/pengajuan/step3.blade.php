@@ -41,6 +41,13 @@
                         <span class="font-medium text-gray-700" x-text="muatanMaksimalKg ? muatanMaksimalKg.toLocaleString('id-ID') : '—'"></span>
                         <span class="text-gray-500"> kg</span>
                     </p>
+                    <p class="text-gray-500">
+                        <span class="text-[11px]">(kalkulasi dlm ton)</span>
+                        <span class="font-medium text-gray-600" x-text="formatTon(totalBeratDipilih)"></span>
+                        <span> / </span>
+                        <span class="font-medium text-gray-600" x-text="muatanMaksimalKg ? formatTon(muatanMaksimalKg) : '—'"></span>
+                        <span> ton</span>
+                    </p>
                     <p :class="beratMelebihi ? 'text-red-600 font-medium' : 'text-gray-600'"
                         x-text="beratMelebihi
                             ? 'Melebihi kapasitas'
@@ -77,7 +84,7 @@
             </div>
             <div class="border-t border-avian-green/20 pt-2 mt-2 flex items-center justify-between text-avian-green/70 text-xs">
                 <span>Total Berat</span>
-                <span x-text="totalBeratDipilih.toLocaleString('id-ID') + ' kg'"></span>
+                <span x-text="totalBeratDipilih.toLocaleString('id-ID') + ' kg (' + formatTon(totalBeratDipilih) + ' ton)'"></span>
             </div>
         </div>
     </div>
@@ -90,17 +97,19 @@
             <p class="font-semibold mb-1">Berat muatan melebihi kapasitas kendaraan!</p>
             <p>
                 Total berat dokumen terpilih:
-                <span class="font-medium" x-text="totalBeratDipilih.toLocaleString('id-ID') + ' kg'"></span>
+                <span class="font-medium" x-text="totalBeratDipilih.toLocaleString('id-ID') + ' kg (' + formatTon(totalBeratDipilih) + ' ton)'"></span>
             </p>
             <p>
                 Kapasitas kendaraan:
-                <span class="font-medium" x-text="muatanMaksimalKg ? muatanMaksimalKg.toLocaleString('id-ID') + ' kg' : '—'"></span>
+                <span class="font-medium" x-text="muatanMaksimalKg ? muatanMaksimalKg.toLocaleString('id-ID') + ' kg (' + formatTon(muatanMaksimalKg) + ' ton)' : '—'"></span>
             </p>
             <p class="mt-1">Kurangi dokumen yang dipilih atau ganti kendaraan dengan kapasitas lebih besar.</p>
         </div>
     </div>
 
-    <div class="mt-3 border-t border-gray-200 pt-3">
+    {{-- Rasio sewa cuma dipakai (dan jadi trigger over_threshold) utk Sewa Truk —
+         Kiriman Rutin gak pakai rasio, lihat PengajuanController::hitungAlurApproval(). --}}
+    <div class="mt-3 border-t border-gray-200 pt-3" x-show="pengajuan.jenis_pengajuan !== 'pengiriman_rutin'">
         <div class="flex items-center justify-between flex-wrap gap-2">
             <div>
                 <p class="text-xs text-gray-400">Estimasi Rasio Sewa</p>
@@ -108,25 +117,18 @@
                     x-text="(rasioSewaEstimasi !== null ? rasioSewaEstimasi.toFixed(2) + '%' : '—') + ' / 2,5%'">
                 </p>
             </div>
-            <template x-if="pengajuan.tujuan_penyewaan === 'PAC'">
-                <span class="inline-block px-3 py-1 rounded-lg bg-orange-100 text-orange-700 text-xs font-semibold">
-                    ⚠️ OVER THRESHOLD — Tujuan PAC
-                </span>
-            </template>
-            <template x-if="pengajuan.tujuan_penyewaan !== 'PAC'">
-                <span
-                    x-show="rasioSewaEstimasi !== null && rasioSewaEstimasi <= 2.5"
-                    class="inline-block px-3 py-1 rounded-lg bg-blue-100 text-blue-700 text-xs font-semibold">
-                    ✓ NORMAL
-                </span>
-            </template>
-            <template x-if="pengajuan.tujuan_penyewaan !== 'PAC'">
-                <span
-                    x-show="rasioSewaEstimasi !== null && rasioSewaEstimasi > 2.5"
-                    class="inline-block px-3 py-1 rounded-lg bg-orange-100 text-orange-700 text-xs font-semibold">
-                    ⚠️ OVER THRESHOLD — Rasio > 2.5%
-                </span>
-            </template>
+            <span class="inline-block px-3 py-1 rounded-lg text-xs font-semibold"
+                :class="alurApprovalEstimasi.length > 1 ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'"
+                x-text="'Alur: ' + alurApprovalEstimasi.join(' → ')"></span>
+        </div>
+    </div>
+
+    {{-- Kiriman Rutin: tanpa rasio, alur tetap ditampilkan (PAC → WC, area baru → WH) --}}
+    <div class="mt-3 border-t border-gray-200 pt-3" x-show="pengajuan.jenis_pengajuan === 'pengiriman_rutin'">
+        <div class="flex items-center justify-end">
+            <span class="inline-block px-3 py-1 rounded-lg text-xs font-semibold"
+                :class="alurApprovalEstimasi.length > 1 ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'"
+                x-text="'Alur: ' + alurApprovalEstimasi.join(' → ')"></span>
         </div>
     </div>
 

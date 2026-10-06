@@ -7,14 +7,15 @@
 <script>window.__editPengajuan = @json($editPengajuan);</script>
 @endif
 <script>window.__userCabang = @json(auth()->user()->getCabangId());</script>
+<script>window.__userId = @json(auth()->id());</script>
 <div
     class="flex flex-col gap-4 pb-2"
     x-data="pengajuanSewa">
 
     {{-- Clear Draft Button & Info Banner --}}
-    <div x-show="!editId && localStorage.getItem('pengajuan_draft')" class="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-xs text-amber-800">
+    <div x-show="!editId && adaDraft" class="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-xs text-amber-800">
         <p class="mb-1"><span class="font-medium">Draft otomatis tersimpan.</span> File KTP/SIM perlu diupload ulang jika Anda menambah kendaraan baru.</p>
-        <button type="button" @click="if(confirm('Hapus draft yang tersimpan?')) clearDraft()"
+        <button type="button" @click="confirmDialog('Hapus draft yang tersimpan?', {danger: true}).then(ok => ok && clearDraft())"
             class="text-amber-700 hover:text-amber-900 font-medium underline">
             Hapus Draft
         </button>

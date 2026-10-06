@@ -12,7 +12,7 @@
         @method('PUT')
     </form>
 
-    <x-form-vendor-kendaraan-edit :vendorSkill="$vendorSkill" :kendaraanList="$kendaraanList" :skillList="$skillList" :cabangList="$cabangList" />
+    <x-form-vendor-kendaraan-edit :vendorSkill="$vendorSkill" :kendaraanList="$kendaraanList" :skillList="$skillList" :cabangList="$cabangList" :jenisKendaraanList="$jenisKendaraanList" />
 
     <div class="rounded-xl bg-white shadow-sm p-6"
         x-data="skillPicker({

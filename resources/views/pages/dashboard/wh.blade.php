@@ -11,9 +11,9 @@
         :countApproved="$countApproved"
         :countRejected="$countRejected"
         :searchAttrs="['data-cabang', 'data-perusahaan']"
-        pendingOverrideAttr="data-wh-ready"
-        totalSubtitle="Semua kategori over_threshold"
-        pendingSubtitle="Menunggu keputusan Anda"
+        pendingOverrideAttr="data-giliran-saya"
+        totalSubtitle="Pengajuan yang perlu approval WH"
+        pendingSubtitle="Menunggu approval Anda"
     />
 
     {{-- Pengajuan Table Section --}}
@@ -21,7 +21,7 @@
 
         <div class="border-b border-gray-100 px-6 py-4">
             <h2 class="text-sm font-semibold text-gray-700">
-                Pengajuan Sewa &middot; Tier 2 (Over Threshold)
+                Pengajuan Sewa &middot; Approval WH
             </h2>
         </div>
 

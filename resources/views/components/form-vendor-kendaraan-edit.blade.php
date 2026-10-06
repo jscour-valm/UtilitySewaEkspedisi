@@ -1,11 +1,11 @@
 {{--
     Seksi "Profil Perusahaan" & "Kendaraan" — ditambahkan ke halaman edit
     Sewa Truk & Kiriman Rutin (16 Sept, keputusan Jo: digabung ke halaman yang
-    sudah ada, bukan halaman Master Data terpisah). Beda dari
-    form-vendor-edit.blade.php (dipakai di wizard Pengajuan Sewa, scope
-    x-data="pengajuanSewa" + PATCH ditunda sampai submit pengajuan) — partial
-    ini x-data LOKAL sendiri dan langsung commit ke DB tiap submit (lihat
-    PengajuanController::updateVendor() & KendaraanController::store()/update()).
+    sudah ada, bukan halaman Master Data terpisah). Edit data vendor via wizard
+    Pengajuan Sewa (form terpisah di situ) sudah dihapus (1 Okt 2026, keputusan
+    Jo: KaGud bukan tempatnya koreksi data master) — partial ini satu-satunya
+    jalur edit sekarang, x-data LOKAL sendiri, langsung commit ke DB tiap submit
+    (lihat PengajuanController::updateVendor() & KendaraanController::store()/update()).
 
     Props:
     - vendorSkill: PerusahaanSkill (with('perusahaan'))
@@ -22,7 +22,7 @@
     edit.blade.php) lewat atribut HTML5 form="tarif-form", jadi tetap ke-submit
     bareng Skill/Harga Sewa dalam 1 POST/PUT yang sama.
 --}}
-@props(['vendorSkill', 'kendaraanList', 'skillList', 'cabangList'])
+@props(['vendorSkill', 'kendaraanList', 'skillList', 'cabangList', 'jenisKendaraanList' => []])
 
 @php
     $existingPhotos = collect($vendorSkill->perusahaan->identitas_owner ?? [])
@@ -87,7 +87,7 @@
             <div class="flex gap-2 flex-wrap mt-2 mb-2">
                 <template x-for="(photo, i) in keptPhotos" :key="'existing-' + photo.path">
                     <div class="relative">
-                        <img :src="photo.src" @click="openPreview(i)" class="h-20 w-20 rounded-lg border border-gray-200 object-cover cursor-pointer hover:opacity-80">
+                        <img :src="photo.src" @click="openLightbox(identitasPhotos, i)" class="h-20 w-20 rounded-lg border border-gray-200 object-cover cursor-pointer hover:opacity-80">
                         @if($isDci)
                         <button type="button" @click.stop="removeKeptPhoto(i)"
                             class="absolute -top-2 -right-2 rounded-full bg-red-500 text-white w-5 h-5 flex items-center justify-center text-xs font-bold hover:bg-red-600">×</button>
@@ -96,46 +96,11 @@
                 </template>
                 <template x-for="(preview, i) in newPreviews" :key="'new-' + i">
                     <div class="relative">
-                        <img :src="preview" @click="openPreview(keptPhotos.length + i)" class="h-20 w-20 rounded-lg border border-gray-200 object-cover cursor-pointer hover:opacity-80">
+                        <img :src="preview" @click="openLightbox(identitasPhotos, keptPhotos.length + i)" class="h-20 w-20 rounded-lg border border-gray-200 object-cover cursor-pointer hover:opacity-80">
                         <button type="button" @click.stop="newFiles.splice(i, 1); newPreviews.splice(i, 1); $refs.fileInput.value = ''"
                             class="absolute -top-2 -right-2 rounded-full bg-red-500 text-white w-5 h-5 flex items-center justify-center text-xs font-bold hover:bg-red-600">×</button>
                     </div>
                 </template>
-            </div>
-
-            {{-- Lightbox galeri foto identitas owner --}}
-            <div x-show="previewIndex !== null" x-cloak
-                @click.self="closePreview()"
-                @keydown.escape.window="closePreview()"
-                @keydown.arrow-left.window="prevPreview()"
-                @keydown.arrow-right.window="nextPreview()"
-                class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70 p-4">
-                <div class="relative max-w-2xl w-full">
-                    <button type="button" @click="closePreview()"
-                        class="absolute -top-3 -right-3 bg-white rounded-full w-8 h-8 flex items-center justify-center shadow-lg hover:bg-gray-100 z-10">✕</button>
-
-                    <div class="relative bg-white rounded-lg overflow-hidden">
-                        <img :src="galleryPhotos[previewIndex]" class="w-full max-h-[65vh] object-contain bg-gray-100">
-                        <template x-if="galleryPhotos.length > 1">
-                            <button type="button" @click="prevPreview()"
-                                class="absolute left-2 top-1/2 -translate-y-1/2 bg-white/90 rounded-full w-9 h-9 flex items-center justify-center shadow hover:bg-white">‹</button>
-                        </template>
-                        <template x-if="galleryPhotos.length > 1">
-                            <button type="button" @click="nextPreview()"
-                                class="absolute right-2 top-1/2 -translate-y-1/2 bg-white/90 rounded-full w-9 h-9 flex items-center justify-center shadow hover:bg-white">›</button>
-                        </template>
-                    </div>
-
-                    <template x-if="galleryPhotos.length > 1">
-                        <div class="flex gap-2 justify-center mt-3 flex-wrap">
-                            <template x-for="(src, i) in galleryPhotos" :key="i">
-                                <img :src="src" @click="previewIndex = i"
-                                    :class="i === previewIndex ? 'ring-2 ring-avian-green opacity-100' : 'opacity-60 hover:opacity-100'"
-                                    class="h-14 w-14 rounded-md object-cover cursor-pointer border border-gray-200 transition">
-                            </template>
-                        </div>
-                    </template>
-                </div>
             </div>
             @if($isDci)
             <input type="file" accept="image/*" multiple x-ref="fileInput" @change="handleFileChange($event)"
@@ -174,6 +139,7 @@
         idPerusahaan: {{ (int) $vendorSkill->id_perusahaan }},
         idCabang: @js($vendorSkill->cabang_code),
         skillList: @js($skillList),
+        jenisKendaraanList: @js($jenisKendaraanList),
     })">
     <div class="flex items-center justify-between mb-1">
         <h2 class="text-lg font-semibold text-gray-900">Kendaraan</h2>
@@ -195,8 +161,14 @@
     <div x-show="showAddForm" class="bg-blue-50 rounded-lg p-4 border border-blue-200 mb-4 space-y-3">
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
-                <label class="mb-1 block text-xs font-medium text-gray-600">Jenis Kendaraan</label>
-                <input type="text" x-model="form.jenis_kendaraan" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-avian-green focus:outline-none">
+                <label class="mb-1 block text-xs font-medium text-gray-600">Jenis Kendaraan <span class="text-red-500">*</span></label>
+                <select x-model="form.id_jenis_kendaraan" @change="form.muatan_maksimal = muatanFromJenis(form.id_jenis_kendaraan)"
+                    class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-avian-green focus:outline-none">
+                    <option value="">-- Pilih --</option>
+                    <template x-for="j in jenisKendaraanList" :key="j.id_jenis_kendaraan">
+                        <option :value="j.id_jenis_kendaraan" x-text="j.nama_jenis"></option>
+                    </template>
+                </select>
             </div>
             <div>
                 <label class="mb-1 block text-xs font-medium text-gray-600">Plat Nomor</label>
@@ -204,7 +176,9 @@
             </div>
             <div>
                 <label class="mb-1 block text-xs font-medium text-gray-600">Muatan Maksimal (Ton) <span class="text-red-500">*</span></label>
-                <input type="number" step="0.01" min="0.01" x-model="form.muatan_maksimal" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-avian-green focus:outline-none">
+                {{-- Readonly: auto-fill dari master begitu Jenis Kendaraan dipilih (review mentor item 4). --}}
+                <input type="number" step="0.01" min="0.01" x-model="form.muatan_maksimal" readonly
+                    class="w-full rounded-lg border border-gray-300 bg-gray-100 px-3 py-2 text-sm text-gray-600 focus:border-avian-green focus:outline-none">
             </div>
         </div>
         <div>
@@ -253,6 +227,7 @@
                         editSkillSearch: '',
                         edit: {
                             jenis_kendaraan: @js($k->jenis_kendaraan),
+                            id_jenis_kendaraan: @js($k->id_jenis_kendaraan),
                             plat_nomor_truk: @js($k->plat_nomor_truk),
                             muatan_maksimal: {{ (float) $k->muatan_maksimal }},
                             id_skill: {{ Illuminate\Support\Js::from(array_values(array_filter(explode(',', (string) $k->id_skill), fn($s) => $s !== '' && is_numeric($s)))) }}.map(Number),
@@ -260,10 +235,18 @@
                         savingRow: false,
                     }" class="hover:bg-gray-50 transition">
                     <template x-if="!editing">
-                        <td class="px-4 py-3 font-medium text-gray-800">{{ $k->jenis_kendaraan ?? '—' }}</td>
+                        <td class="px-4 py-3 font-medium text-gray-800">{{ $k->jenisKendaraan?->nama_jenis ?? $k->jenis_kendaraan ?? '—' }}</td>
                     </template>
                     <template x-if="editing">
-                        <td class="px-4 py-3"><input type="text" x-model="edit.jenis_kendaraan" class="w-full rounded-lg border border-gray-300 px-2 py-1 text-sm"></td>
+                        <td class="px-4 py-3">
+                            <select x-model="edit.id_jenis_kendaraan" @change="edit.muatan_maksimal = muatanFromJenis(edit.id_jenis_kendaraan)"
+                                class="w-full rounded-lg border border-gray-300 px-2 py-1 text-sm">
+                                <option value="">-- Pilih --</option>
+                                <template x-for="j in jenisKendaraanList" :key="j.id_jenis_kendaraan">
+                                    <option :value="j.id_jenis_kendaraan" x-text="j.nama_jenis"></option>
+                                </template>
+                            </select>
+                        </td>
                     </template>
 
                     <template x-if="!editing">
@@ -277,7 +260,7 @@
                         <td class="px-4 py-3 text-right text-gray-600">{{ rtrim(rtrim(number_format((float) $k->muatan_maksimal, 2, '.', ''), '0'), '.') }}</td>
                     </template>
                     <template x-if="editing">
-                        <td class="px-4 py-3"><input type="number" step="0.01" min="0.01" x-model="edit.muatan_maksimal" class="w-full rounded-lg border border-gray-300 px-2 py-1 text-sm text-right"></td>
+                        <td class="px-4 py-3"><input type="number" step="0.01" min="0.01" x-model="edit.muatan_maksimal" readonly class="w-full rounded-lg border border-gray-300 bg-gray-100 px-2 py-1 text-sm text-right text-gray-600"></td>
                     </template>
 
                     <template x-if="!editing">
@@ -303,7 +286,7 @@
                         <template x-if="!editing">
                             <span>
                                 <button type="button" @click="editing = true" class="text-xs font-medium text-avian-green hover:text-avian-green-dark transition">Edit</button>
-                                <button type="button" @click="if(confirm('Hapus kendaraan ini?')) deleteKendaraan({{ $k->id_kendaraan }})" class="text-xs font-medium text-red-600 hover:text-red-700 transition">Hapus</button>
+                                <button type="button" @click="confirmDialog('Hapus kendaraan ini?', {danger: true}).then(ok => ok && deleteKendaraan({{ $k->id_kendaraan }}))" class="text-xs font-medium text-red-600 hover:text-red-700 transition">Hapus</button>
                             </span>
                         </template>
                         <template x-if="editing">
@@ -319,7 +302,12 @@
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="5" class="py-12 text-center text-sm text-gray-400">Belum ada kendaraan terdaftar di cabang ini.</td>
+                    @php
+                        $cabangNama = $cabangList->firstWhere('Code', $vendorSkill->cabang_code)?->Name;
+                    @endphp
+                    <td colspan="5" class="py-12 text-center text-sm text-gray-400">
+                        Belum ada kendaraan terdaftar di cabang {{ $vendorSkill->cabang_code }}{{ $cabangNama ? " ({$cabangNama})" : '' }}.
+                    </td>
                 </tr>
                 @endforelse
             </tbody>
@@ -341,34 +329,24 @@ function vendorProfilEdit({ idPerusahaan, namaPerusahaan, badanUsaha, noTelepon,
         saving: false,
         message: '',
         messageOk: false,
-        previewIndex: null, // null = lightbox tertutup; angka = index ke galleryPhotos()
 
-        get galleryPhotos() {
+        // Gabungan foto existing (yg masih di-keep) + preview foto baru, urutan
+        // sama persis kayak yg dirender — dipakai sbg argumen openLightbox()
+        // (lightbox-nya sendiri global, didefinisikan di layouts/app.blade.php).
+        get identitasPhotos() {
             return [...this.keptPhotos.map(p => p.src), ...this.newPreviews];
         },
-        openPreview(i) { this.previewIndex = i; },
-        closePreview() { this.previewIndex = null; },
-        prevPreview() {
-            if (this.previewIndex === null) return;
-            const n = this.galleryPhotos.length;
-            this.previewIndex = (this.previewIndex - 1 + n) % n;
-        },
-        nextPreview() {
-            if (this.previewIndex === null) return;
-            this.previewIndex = (this.previewIndex + 1) % this.galleryPhotos.length;
-        },
         removeKeptPhoto(i) {
-            if (confirm('Yakin mau hapus foto ini? Foto akan hilang dari database begitu Simpan Profil Perusahaan ditekan.')) {
-                this.keptPhotos.splice(i, 1);
-                this.previewIndex = null;
-            }
+            confirmDialog('Yakin mau hapus foto ini? Foto akan hilang dari database begitu Simpan Profil Perusahaan ditekan.', {danger: true}).then(ok => {
+                if (ok) this.keptPhotos.splice(i, 1);
+            });
         },
 
         handleFileChange(e) {
             const files = Array.from(e.target.files || []);
             const total = this.keptPhotos.length + this.newPreviews.length + files.length;
             if (total > 3) {
-                alert('Maksimal 3 foto identitas owner (existing + baru).');
+                notify('Maksimal 3 foto identitas owner (existing + baru).', 'warning');
                 e.target.value = '';
                 return;
             }
@@ -418,11 +396,12 @@ function vendorProfilEdit({ idPerusahaan, namaPerusahaan, badanUsaha, noTelepon,
     }
 }
 
-function kendaraanManager({ idPerusahaan, idCabang, skillList }) {
+function kendaraanManager({ idPerusahaan, idCabang, skillList, jenisKendaraanList }) {
     return {
         idPerusahaan,
         idCabang,
         skillList: skillList || [],
+        jenisKendaraanList: jenisKendaraanList || [],
         showAddForm: false,
         saving: false,
         message: '',
@@ -431,15 +410,23 @@ function kendaraanManager({ idPerusahaan, idCabang, skillList }) {
         addSkillSearch: '',
         form: {
             jenis_kendaraan: '',
+            id_jenis_kendaraan: '',
             plat_nomor_truk: '',
             muatan_maksimal: '',
             id_skill: [],
         },
 
         resetForm() {
-            this.form = { jenis_kendaraan: '', plat_nomor_truk: '', muatan_maksimal: '', id_skill: [] };
+            this.form = { jenis_kendaraan: '', id_jenis_kendaraan: '', plat_nomor_truk: '', muatan_maksimal: '', id_skill: [] };
             this.skillBaruInput = '';
             this.addSkillSearch = '';
+        },
+
+        // Muatan Maksimal ke-lock dari master jenis kendaraan begitu dipilih —
+        // dipakai form tambah & baris edit inline (review mentor item 4).
+        muatanFromJenis(idJenisKendaraan) {
+            const found = this.jenisKendaraanList.find(j => String(j.id_jenis_kendaraan) === String(idJenisKendaraan));
+            return found ? found.muatan_maksimal_ton : '';
         },
 
         // skillList sekarang ribuan baris (lihat catatan performa di atas
@@ -478,6 +465,7 @@ function kendaraanManager({ idPerusahaan, idCabang, skillList }) {
                         id_perusahaan: this.idPerusahaan,
                         id_cabang: this.idCabang,
                         jenis_kendaraan: this.form.jenis_kendaraan || null,
+                        id_jenis_kendaraan: this.form.id_jenis_kendaraan || null,
                         plat_nomor_truk: this.form.plat_nomor_truk || null,
                         muatan_maksimal: this.form.muatan_maksimal,
                         id_skill: this.form.id_skill,
@@ -512,6 +500,7 @@ function kendaraanManager({ idPerusahaan, idCabang, skillList }) {
                     headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': this.csrf() },
                     body: JSON.stringify({
                         jenis_kendaraan: edit.jenis_kendaraan || null,
+                        id_jenis_kendaraan: edit.id_jenis_kendaraan || null,
                         plat_nomor_truk: edit.plat_nomor_truk || null,
                         muatan_maksimal: edit.muatan_maksimal,
                         id_skill: edit.id_skill,
@@ -526,12 +515,12 @@ function kendaraanManager({ idPerusahaan, idCabang, skillList }) {
                 } else {
                     this.message = json.message || 'Gagal memperbarui kendaraan.';
                     this.messageOk = false;
-                    alert(this.message);
+                    notify(this.message, 'error');
                 }
             } catch (e) {
                 this.message = 'Error: ' + e.message;
                 this.messageOk = false;
-                alert(this.message);
+                notify(this.message, 'error');
             }
         },
 
@@ -546,10 +535,10 @@ function kendaraanManager({ idPerusahaan, idCabang, skillList }) {
                     window.clearDirty();
                     window.location.reload();
                 } else {
-                    alert(json.message || 'Gagal menghapus kendaraan.');
+                    notify(json.message || 'Gagal menghapus kendaraan.', 'error');
                 }
             } catch (e) {
-                alert('Error: ' + e.message);
+                notify('Error: ' + e.message, 'error');
             }
         },
     }

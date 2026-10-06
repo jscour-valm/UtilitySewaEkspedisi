@@ -20,14 +20,15 @@ $result = DbHelper::safeQuery(function () use ($limit, $sortBy, $sortOrder, $mod
     // soft-deleted tidak boleh menyembunyikan pengajuan yang masih flag=1.
     $query = DB::connection('sqlsrv')->table('sesi_pengajuan_sewa')
         ->leftJoin('sesi_unit_kendaraan', 'sesi_pengajuan_sewa.id_kendaraan', '=', 'sesi_unit_kendaraan.id_kendaraan')
-        ->leftJoin('sesi_perusahaan_ekspedisi', 'sesi_unit_kendaraan.id_perusahaan', '=', 'sesi_perusahaan_ekspedisi.id_perusahaan');
+        ->leftJoin('sesi_perusahaan_ekspedisi', DB::raw('COALESCE(sesi_unit_kendaraan.id_perusahaan, sesi_pengajuan_sewa.id_perusahaan_ekspedisi)'), '=', 'sesi_perusahaan_ekspedisi.id_perusahaan');
 
     // Tambah join ke lntrn_users kalau mode=wm (untuk nama pengaju)
-    if ($mode === 'wm') {
+    if (in_array($mode, ['wm', 'ka'])) {
         $query->leftJoin('lntrn_users', 'sesi_pengajuan_sewa.submitted_by', '=', 'lntrn_users.id');
     }
 
     $query->select(
+        'sesi_pengajuan_sewa.alur_approval as alur_approval',
         'sesi_pengajuan_sewa.id_pengajuan_sewa as id',
         'sesi_perusahaan_ekspedisi.badan_usaha as badan_usaha',
         'sesi_perusahaan_ekspedisi.nama_perusahaan as nama',
@@ -36,12 +37,31 @@ $result = DbHelper::safeQuery(function () use ($limit, $sortBy, $sortOrder, $mod
         'sesi_pengajuan_sewa.harga_sewa as harga',
         'sesi_pengajuan_sewa.rasio_sewa as rasio',
         'sesi_pengajuan_sewa.status_pengajuan as status',
-        'sesi_pengajuan_sewa.id_cabang as cabang'
+        'sesi_pengajuan_sewa.id_cabang as cabang',
+        'sesi_pengajuan_sewa.kategori_approval as kategori_approval'
     );
 
     // Kalau mode=wm, tambah nama pengaju
-    if ($mode === 'wm') {
+    if (in_array($mode, ['wm', 'ka'])) {
         $query->addSelect('lntrn_users.name as pengaju_name');
+    }
+
+    // Mode WH/WC: cuma pengajuan yang alur_approval-nya memuat peran ini.
+    // Pengajuan lama tanpa alur_approval diturunkan dari kategori (over_threshold = WM,WH).
+    if (in_array($mode, ['wh', 'wc'])) {
+        $peranMode = strtoupper($mode);
+        $query->where(function ($q) use ($peranMode) {
+            $q->where('sesi_pengajuan_sewa.alur_approval', 'like', "%{$peranMode}%");
+            if ($peranMode === 'WH') {
+                $q->orWhere(fn ($qq) => $qq->whereNull('sesi_pengajuan_sewa.alur_approval')
+                    ->where('sesi_pengajuan_sewa.kategori_approval', 'over_threshold'));
+            }
+        });
+    }
+
+    // Mode KA (KaAdmin): view-only, cuma pengajuan yang sudah approved
+    if ($mode === 'ka') {
+        $query->where('sesi_pengajuan_sewa.status_pengajuan', 'approved');
     }
 
     $query->where('sesi_pengajuan_sewa.flag', true);
@@ -63,9 +83,27 @@ $result = DbHelper::safeQuery(function () use ($limit, $sortBy, $sortOrder, $mod
     $sortCol = $sortMap[$sortBy] ?? 'sesi_pengajuan_sewa.submitted_at';
     $query->orderBy($sortCol, strtoupper($sortOrder) === 'ASC' ? 'asc' : 'desc');
 
-    $allPengajuan = $query->get()
-        ->map(fn($p) => (array) $p)
-        ->toArray();
+    $rows = $query->get();
+
+    // "Giliran" = peran berikutnya di alur_approval (logika sama dgn PengajuanSewa::approverBerikutnya()).
+    // Log approved dihitung hanya yang setelah submitted_at (edit = mulai ulang dari WM).
+    $logApproved = $rows->isEmpty() ? collect() : DB::connection('sqlsrv')->table('sesi_approval_log as al')
+        ->leftJoin('sesi_approval as ar', 'ar.id_approval_rule', '=', 'al.id_approval_rule')
+        ->whereIn('al.id_pengajuan_sewa', $rows->pluck('id'))
+        ->where('al.flag', true)
+        ->where('al.status', 'approved')
+        ->get(['al.id_pengajuan_sewa', 'al.decided_at', DB::raw('COALESCE(al.role_approver, ar.role_berwenang) as peran')])
+        ->groupBy('id_pengajuan_sewa');
+
+    $allPengajuan = $rows->map(function ($p) use ($logApproved) {
+        $sudah = $logApproved->get($p->id, collect())
+            ->filter(fn ($l) => !$p->submitted_at || $l->decided_at >= $p->submitted_at)
+            ->pluck('peran')->filter()->unique()->values()->all();
+        $alur = \App\Models\PengajuanSewa::parseAlur($p->alur_approval, $p->kategori_approval);
+        $p->alur = $alur;
+        $p->giliran = \App\Models\PengajuanSewa::approverBerikutnyaDari($p->status, $alur, $sudah);
+        return (array) $p;
+    })->toArray();
 
     return ($limit === null || (int) $limit === 0) ? $allPengajuan : array_slice($allPengajuan, 0, $limit);
 });
@@ -81,14 +119,21 @@ $statusBadges = [
 
 // Role-aware action button
 $userRole = auth()->user()->userUtility?->role;
-$isReviewer = $userRole === 'WM';
+$isReviewer = in_array($userRole, ['WM', 'WC', 'WH']);
+$isModeApprover = in_array($mode, ['wh', 'wc']);
+
+$searchPlaceholder = match ($mode) {
+    'wm', 'ka' => 'Cari nama pengaju atau perusahaan...',
+    'wh', 'wc' => 'Cari nama perusahaan atau cabang...',
+    default => 'Cari nama perusahaan...',
+};
 @endphp
 
 {{-- Search Box --}}
 <input
     type="text"
     id="pengajuanSearch"
-    placeholder="{{ $mode === 'wm' ? 'Cari nama pengaju atau perusahaan...' : 'Cari nama perusahaan...' }}"
+    placeholder="{{ $searchPlaceholder }}"
     class="mb-4 w-full rounded-lg border border-gray-300 px-4 py-2 text-sm
     focus:border-avian-green focus:outline-none">
 
@@ -96,9 +141,16 @@ $isReviewer = $userRole === 'WM';
 <div class="overflow-hidden rounded-xl border border-gray-200">
     <table class="w-full table-fixed text-sm">
         <colgroup>
-            @if($mode === 'wm')
-                <col style="width: 20%;"> {{-- KaGud --}}
-                <col style="width: 26%;"> {{-- Nama Perusahaan --}}
+            @if(in_array($mode, ['wm', 'ka']))
+                <col style="width: 18%;"> {{-- KaGud --}}
+                <col style="width: 18%;"> {{-- Nama Perusahaan --}}
+                <col style="width: 18%;"> {{-- Harga Sewa --}}
+                <col style="width: 18%;"> {{-- Rasio Sewa --}}
+                <col style="width: 21%;"> {{-- Status --}}
+                <col style="width: 7%;"> {{-- Action --}}
+            @elseif($isModeApprover)
+                <col style="width: 16%;"> {{-- Cabang --}}
+                <col style="width: 30%;"> {{-- Nama Perusahaan --}}
                 <col style="width: 18%;"> {{-- Harga Sewa --}}
                 <col style="width: 18%;"> {{-- Rasio Sewa --}}
                 <col style="width: 11%;"> {{-- Status --}}
@@ -116,8 +168,15 @@ $isReviewer = $userRole === 'WM';
 
         <thead>
             <tr class="border-b border-gray-300 text-xs font-medium uppercase tracking-wide text-gray-500">
-                @if($mode === 'wm')
+                @if(in_array($mode, ['wm', 'ka']))
                     <th class="px-4 py-3 text-left">KaGud</th>
+                    <th class="px-4 py-3 text-left">Nama Perusahaan</th>
+                    <x-sortable-th col="harga" label="Harga Sewa" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort_pengajuan" orderParam="order_pengajuan" />
+                    <x-sortable-th col="rasio" label="Rasio Sewa" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort_pengajuan" orderParam="order_pengajuan" />
+                    <th class="px-4 py-3 text-left">Status</th>
+                    <th class="px-4 py-3 text-right">Action</th>
+                @elseif($isModeApprover)
+                    <th class="px-4 py-3 text-left">Cabang</th>
                     <th class="px-4 py-3 text-left">Nama Perusahaan</th>
                     <x-sortable-th col="harga" label="Harga Sewa" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort_pengajuan" orderParam="order_pengajuan" />
                     <x-sortable-th col="rasio" label="Rasio Sewa" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort_pengajuan" orderParam="order_pengajuan" />
@@ -154,19 +213,32 @@ $isReviewer = $userRole === 'WM';
                 @php
                     $statusKey = strtolower($p['status'] ?? '');
                     $badgeConfig = $statusBadges[$statusKey] ?? ['bg' => 'bg-gray-100', 'text' => 'text-gray-600', 'label' => $p['status']];
+                    if ($statusKey === 'pending' && !empty($p['giliran'])) {
+                        $badgeConfig['label'] = $p['giliran'] === 'WM' ? 'Menunggu Validasi WM' : 'Menunggu Approval ' . $p['giliran'];
+                    }
                 @endphp
                 <tr class="hover:bg-gray-50 pengajuan-row"
-                    @if($mode === 'wm')
+                    @if(in_array($mode, ['wm', 'ka']))
                         data-kagud="{{ strtolower($p['pengaju_name'] ?? '') }}"
                     @endif
+                    @if($isModeApprover)
+                        data-cabang="{{ strtolower($p['cabang'] ?? '') }}"
+                    @endif
+                    data-giliran-saya="{{ (int) (($p['giliran'] ?? null) === $userRole) }}"
                     data-perusahaan="{{ strtolower(trim(($p['badan_usaha'] ?? '') . ' ' . ($p['nama'] ?? ''))) }}"
-                    data-status="{{ $statusKey }}">
+                    data-status="{{ $statusKey }}"
+                    data-kategori="{{ strtolower($p['kategori_approval'] ?? '') }}">
 
-                    @if($mode === 'wm')
+                    @if(in_array($mode, ['wm', 'ka']))
                         {{-- Mode WM: KaGud + Cabang --}}
                         <td class="px-4 py-3 font-medium text-gray-800">
                             <span>{{ $p['pengaju_name'] ?? 'Unknown' }}</span>
                             <span class="block text-xs font-normal text-gray-400">Cab. {{ $p['cabang'] }}</span>
+                        </td>
+                    @elseif($isModeApprover)
+                        {{-- Mode WH/WC: Cabang (lintas cabang, global access) --}}
+                        <td class="px-4 py-3 font-medium text-gray-800">
+                            Cab. {{ $p['cabang'] }}
                         </td>
                     @else
                         {{-- Mode Default: Tanggal Pengajuan --}}
@@ -190,8 +262,8 @@ $isReviewer = $userRole === 'WM';
 
                     {{-- Rasio Sewa --}}
                     <td class="px-4 py-3 whitespace-nowrap">
-                        @if($mode === 'wm')
-                            {{-- Mode WM: styling merah + threshold (dari DB) --}}
+                        @if(in_array($mode, ['wm', 'wh', 'wc', 'ka']))
+                            {{-- Mode WM/WH/WC: styling merah + threshold (dari DB) --}}
                             <span @class([
                                 'font-semibold text-red-600' => $p['rasio'] > $ambangRasio,
                                 'font-medium text-gray-800' => $p['rasio'] <= $ambangRasio,

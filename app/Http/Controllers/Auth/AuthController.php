@@ -32,6 +32,7 @@ class AuthController extends Controller
         // Cek apakah user terdaftar di utility 'sesi'
         if (! $user->userUtility) {
             Auth::logout();
+
             return back()
                 ->withErrors(['username' => 'Akun Anda tidak memiliki akses ke sistem ini.'])
                 ->onlyInput('username');
@@ -40,6 +41,7 @@ class AuthController extends Controller
         // Cek is_blocked
         if ($user->isBlocked()) {
             Auth::logout();
+
             return back()
                 ->withErrors(['username' => 'Akun Anda telah dinonaktifkan. Hubungi administrator.'])
                 ->onlyInput('username');
@@ -67,6 +69,7 @@ class AuthController extends Controller
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
+
         return redirect()->route('login');
     }
 
@@ -76,8 +79,9 @@ class AuthController extends Controller
             'KG' => route('dashboard.kg'),
             'WM' => route('dashboard.wm'),
             'WH' => route('dashboard.wh'),
-            'DCI'=> route('dashboard.dci'),
-            'KA' => '/kaadmin/dashboard',
+            'WC' => route('dashboard.wc'),
+            'DCI' => route('dashboard.dci'),
+            'KA' => route('dashboard.ka'),
             default => route('dashboard'),
         };
     }

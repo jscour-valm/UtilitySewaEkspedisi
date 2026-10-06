@@ -11,6 +11,8 @@
         :countApproved="$countApproved"
         :countRejected="$countRejected"
         :searchAttrs="['data-kagud', 'data-perusahaan']"
+        pendingOverrideAttr="data-giliran-saya"
+        pendingSubtitle="Menunggu validasi Anda"
         approvedLabel="Accepted"
         rejectedLabel="Rejected"
     />
