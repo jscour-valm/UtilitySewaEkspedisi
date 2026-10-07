@@ -175,6 +175,17 @@ class PengajuanSewa extends Model
             ->all();
     }
 
+    /** Rasio sewa dipakai Sewa Truk dan Kiriman Rutin tujuan PAC; Kiriman Rutin tujuan Toko tanpa rasio. */
+    public static function pakaiRasioUntuk(?string $jenisPengajuan, ?string $tujuanPenyewaan): bool
+    {
+        return $jenisPengajuan !== 'pengiriman_rutin' || $tujuanPenyewaan === 'PAC';
+    }
+
+    public function pakaiRasio(): bool
+    {
+        return self::pakaiRasioUntuk($this->jenis_pengajuan, $this->tujuan_penyewaan);
+    }
+
     /** Cabang tujuan PAC dalam format "Code — Name", null kalau tidak diisi. */
     public function labelCabangTujuan(): ?string
     {

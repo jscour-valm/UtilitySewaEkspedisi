@@ -29,7 +29,7 @@
         $alasanAlur = [];
         if (in_array('WC', $alur, true)) { $alasanAlur[] = 'tujuan penyewaan PAC'; }
         if (in_array('WH', $alur, true)) {
-            $alasanAlur[] = (!$isRutin && $overAmbang)
+            $alasanAlur[] = ($p->pakaiRasio() && $overAmbang)
                 ? 'rasio sewa ' . number_format($rasio, 2, ',', '.') . '% melebihi batas ' . number_format($ambangRasio, 2, ',', '.') . '%'
                 : 'area kirim baru (aturan alur saat pengajuan dibuat)';
         }
@@ -66,11 +66,13 @@
         @endif
         | Tonase | {{ $dokumen['total_berat_kg'] > 0 ? F::kg($dokumen['total_berat_kg']) : '-' }} |
         @endif
+        @if ($p->pakaiRasio())
         | Nilai {{ $isRutin ? 'Muatan' : 'SJ' }} | {{ F::rupiah($p->value_muatan) }} |
+        @endif
         | Helper Harian | {{ $helper ? F::rupiah($helper['jumlah']) : '-' }} |
-        @unless ($isRutin)
+        @if ($p->pakaiRasio())
         | Rasio Sewa | {{ number_format($rasio, 2, ',', '.') }}% ({{ $overAmbang ? 'di atas' : 'di bawah' }} ambang {{ number_format($ambangRasio, 2, ',', '.') }}%) |
-        @endunless
+        @endif
         | Alur Approval | {{ implode(' → ', $alur) }} |
         | Diajukan oleh | {{ $p->submittedBy?->name ?? '-' }} ({{ \Carbon\Carbon::parse($p->submitted_at)->format('d/m/Y H:i') }}) |
     </x-mail::table>

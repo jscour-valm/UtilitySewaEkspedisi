@@ -12,11 +12,15 @@ use App\Models\JenisBiaya;
 use App\Models\Kendaraan;
 use App\Models\MasterJenisKendaraan;
 use App\Models\PengajuanSewa;
+use App\Models\PengajuanSewaSuratJalan;
+use App\Models\PengajuanSewaToAcb;
 use App\Models\PerusahaanEkspedisi;
 use App\Models\PerusahaanSkill;
 use App\Models\RasioSewa;
 use App\Models\TarifKirimanRutin;
+use App\Services\DocumentLinkageService;
 use App\Services\NotifikasiPengajuanService;
+use App\Services\SnapshotDokumenService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -125,7 +129,6 @@ class PengajuanController extends Controller
         $baseRules = [
             'jenis_pengajuan' => 'required|in:sewa_truk,pengiriman_rutin',
             'tanggal_pengiriman' => 'required|date',
-            'value_muatan' => 'required|numeric|min:1',
             'tujuan_penyewaan' => 'required|in:Toko,PAC',
             'id_cabang_tujuan' => 'required_if:tujuan_penyewaan,PAC|nullable|string|max:10|exists:sqlsrv.dbo.sesi_master_cabang,Code',
             'id_skill' => 'nullable|array',
@@ -154,7 +157,10 @@ class PengajuanController extends Controller
             $baseRules['detail_kiriman.*.harga_custom'] = 'nullable|boolean';
         }
 
-        $request->validate($baseRules);
+        $request->validate($baseRules + $this->aturanDokumen($request), [
+            'dokumen_dipilih.required' => 'Kiriman Rutin tujuan PAC wajib memilih minimal 1 TO-ACB.',
+            'dokumen_dipilih.min' => 'Kiriman Rutin tujuan PAC wajib memilih minimal 1 TO-ACB.',
+        ]);
         $this->cekJumlahArea($request);
 
         try {
@@ -209,18 +215,20 @@ class PengajuanController extends Controller
 
             // Hitung rasio sewa termasuk biaya tambahan
             $totalBiayaTambahan = collect($request->biaya_tambahan ?? [])->sum('nominal');
-            $rasioSewa = (($hargaSewa + $totalBiayaTambahan) / $request->value_muatan) * 100;
+            $rasioSewa = $request->value_muatan > 0
+                ? (($hargaSewa + $totalBiayaTambahan) / $request->value_muatan) * 100
+                : null;
 
-            $alurApproval = $this->hitungAlurApproval($request->jenis_pengajuan, $rasioSewa, $request->tujuan_penyewaan);
+            $alurApproval = $this->hitungAlurApproval($request->jenis_pengajuan, $rasioSewa ?? 0.0, $request->tujuan_penyewaan);
             $kategoriApproval = $alurApproval === 'WM' ? 'normal' : 'over_threshold';
 
             $pengajuanData = [
                 'id_cabang' => $cabangId,
                 'id_cabang_tujuan' => $request->tujuan_penyewaan === 'PAC' ? $request->id_cabang_tujuan : null,
                 'tanggal_pengiriman' => $request->tanggal_pengiriman,
-                'value_muatan' => $request->value_muatan,
+                'value_muatan' => $request->value_muatan ?: null,
                 'harga_sewa' => $hargaSewa,
-                'rasio_sewa' => round($rasioSewa, 2),
+                'rasio_sewa' => $rasioSewa !== null ? round($rasioSewa, 2) : null,
                 'kategori_approval' => $kategoriApproval,
                 'alur_approval' => $alurApproval,
                 'tujuan_penyewaan' => $request->tujuan_penyewaan,
@@ -421,6 +429,43 @@ class PengajuanController extends Controller
         return response()->json($result);
     }
 
+    /** Kiriman Rutin tujuan Toko tidak memakai dokumen (step 3 dikunci, tanpa value muatan). */
+    private function tanpaDokumen(Request $request): bool
+    {
+        return $request->jenis_pengajuan === 'pengiriman_rutin' && $request->tujuan_penyewaan === 'Toko';
+    }
+
+    /** Aturan value muatan & dokumen: rutin + Toko tanpa dokumen, rutin + PAC wajib TO-ACB. */
+    private function aturanDokumen(Request $request): array
+    {
+        if ($this->tanpaDokumen($request)) {
+            return ['value_muatan' => 'nullable|numeric|min:0'];
+        }
+
+        $wajib = $request->jenis_pengajuan === 'pengiriman_rutin' && $request->tujuan_penyewaan === 'PAC';
+
+        return [
+            'value_muatan' => 'required|numeric|min:1',
+            'dokumen_dipilih' => $wajib ? 'required|array|min:1' : 'nullable|array',
+            'dokumen_dipilih.*' => 'string|max:50',
+        ];
+    }
+
+    /** Edit: lepas tautan SJ / TO-ACB yang tidak lagi dipilih. */
+    private function sinkronDokumen(PengajuanSewa $pengajuan, Request $request): void
+    {
+        $dipilih = $this->tanpaDokumen($request)
+            ? []
+            : array_map('strval', (array) $request->input('dokumen_dipilih', []));
+
+        PengajuanSewaSuratJalan::where('id_pengajuan_sewa', $pengajuan->id_pengajuan_sewa)
+            ->whereNotIn('id_surat_jalan', $dipilih)
+            ->update(['flag' => false]);
+        PengajuanSewaToAcb::where('id_pengajuan_sewa', $pengajuan->id_pengajuan_sewa)
+            ->whereNotIn('id_to_acb', $dipilih)
+            ->update(['flag' => false]);
+    }
+
     /** Dropdown "Cabang Tujuan" (PAC) di wizard. */
     public function getCabangList()
     {
@@ -468,11 +513,17 @@ class PengajuanController extends Controller
             : 'Cabang tujuan harus cabang yang satu area dengan cabang sendiri';
     }
 
-    // GET /api/dokumen/list?tujuan_penyewaan=Toko&cabang=01A
+    /**
+     * GET /api/dokumen/list?tujuan_penyewaan=Toko&cabang=01A&kecuali=<id pengajuan yang diedit>
+     * SJ: milik cabang pengaju. TO-ACB: semua (kolom Code = cabang tujuan). Dokumen yang
+     * sedang dipakai pengajuan lain (pending/approved) tidak ditampilkan.
+     */
     public function getDokumenList(Request $request)
     {
         $tujuanPenyewaan = $request->get('tujuan_penyewaan');
         $cabang = $request->get('cabang');
+        $kecuali = $request->integer('kecuali') ?: null;
+        $linkage = app(DocumentLinkageService::class);
 
         $dokumen = [];
 
@@ -482,6 +533,7 @@ class PengajuanController extends Controller
                     ->table('Surat Jalan Belum Kirim')
                     ->where('Flag_Correction', '')
                     ->where('Sell-to County', 'LIKE', $cabang.'%')
+                    ->whereNotIn('No_', $linkage->dokumenTerpakai('SJ', $kecuali))
                     ->select(
                         DB::raw('No_ as nomor_dokumen'),
                         DB::raw('[Sell-to Customer Name] as nama_customer'),
@@ -535,9 +587,12 @@ class PengajuanController extends Controller
             if (in_array($tujuanPenyewaan, ['PAC', 'Umum'])) {
                 $toAcbs = DB::connection('sqlsrv')
                     ->table('Transfer Antar Cabang')
-                    ->where('Code', 'LIKE', $cabang.'%')  // Filter by cabang
+                    ->whereNotIn('No_', $linkage->dokumenTerpakai('TO-ACB', $kecuali))
+                    ->orderBy('Code')
                     ->select(
                         DB::raw('No_ as nomor_dokumen'),
+                        DB::raw('Code as cabang_tujuan'),
+                        DB::raw('Name as nama_cabang_tujuan'),
                         DB::raw('[Last Shipment No_] as last_shipment_no'),
                         DB::raw('ISNULL([Gross Weight], 0) as berat'),
                         DB::raw('ISNULL([Net Weight], 0) as berat_bersih'),
@@ -550,6 +605,8 @@ class PengajuanController extends Controller
                         'id' => $to->nomor_dokumen,
                         'nomor_dokumen' => $to->nomor_dokumen,
                         'tipe' => 'TO-ACB',
+                        'cabang_tujuan' => $to->cabang_tujuan,
+                        'nama_cabang_tujuan' => $to->nama_cabang_tujuan,
                         'last_shipment_no' => $to->last_shipment_no,
                         'berat' => (float) $to->berat,
                         'berat_bersih' => (float) $to->berat_bersih,
@@ -699,7 +756,6 @@ class PengajuanController extends Controller
         $baseRules = [
             'jenis_pengajuan' => 'required|in:sewa_truk,pengiriman_rutin',
             'tanggal_pengiriman' => 'required|date',
-            'value_muatan' => 'required|numeric|min:1',
             'tujuan_penyewaan' => 'required|in:Toko,PAC',
             'id_cabang_tujuan' => 'required_if:tujuan_penyewaan,PAC|nullable|string|max:10|exists:sqlsrv.dbo.sesi_master_cabang,Code',
             'id_skill' => 'nullable|array',
@@ -728,7 +784,10 @@ class PengajuanController extends Controller
             $baseRules['detail_kiriman.*.harga_custom'] = 'nullable|boolean';
         }
 
-        $request->validate($baseRules);
+        $request->validate($baseRules + $this->aturanDokumen($request), [
+            'dokumen_dipilih.required' => 'Kiriman Rutin tujuan PAC wajib memilih minimal 1 TO-ACB.',
+            'dokumen_dipilih.min' => 'Kiriman Rutin tujuan PAC wajib memilih minimal 1 TO-ACB.',
+        ]);
         $this->cekJumlahArea($request);
 
         try {
@@ -791,16 +850,18 @@ class PengajuanController extends Controller
 
             // Hitung rasio sewa termasuk biaya tambahan
             $totalBiayaTambahan = collect($request->biaya_tambahan ?? [])->sum('nominal');
-            $rasioSewa = (($hargaSewa + $totalBiayaTambahan) / $request->value_muatan) * 100;
-            $alurApproval = $this->hitungAlurApproval($request->jenis_pengajuan, $rasioSewa, $request->tujuan_penyewaan);
+            $rasioSewa = $request->value_muatan > 0
+                ? (($hargaSewa + $totalBiayaTambahan) / $request->value_muatan) * 100
+                : null;
+            $alurApproval = $this->hitungAlurApproval($request->jenis_pengajuan, $rasioSewa ?? 0.0, $request->tujuan_penyewaan);
             $kategoriApproval = $alurApproval === 'WM' ? 'normal' : 'over_threshold';
 
             $updateData = [
                 'id_cabang_tujuan' => $request->tujuan_penyewaan === 'PAC' ? $request->id_cabang_tujuan : null,
                 'tanggal_pengiriman' => $request->tanggal_pengiriman,
-                'value_muatan' => $request->value_muatan,
+                'value_muatan' => $request->value_muatan ?: null,
                 'harga_sewa' => $hargaSewa,
-                'rasio_sewa' => round($rasioSewa, 2),
+                'rasio_sewa' => $rasioSewa !== null ? round($rasioSewa, 2) : null,
                 'kategori_approval' => $kategoriApproval,
                 'alur_approval' => $alurApproval,
                 'tujuan_penyewaan' => $request->tujuan_penyewaan,
@@ -823,6 +884,7 @@ class PengajuanController extends Controller
             }
 
             $pengajuan->update($updateData);
+            $this->sinkronDokumen($pengajuan, $request);
 
             BiayaTambahan::where('id_pengajuan_sewa', $pengajuan->id_pengajuan_sewa)->delete();
 
@@ -965,6 +1027,7 @@ class PengajuanController extends Controller
 
         return view('pages.pengajuan.detailPengajuan', [
             'pengajuan' => $pengajuan,
+            'dokumen' => app(SnapshotDokumenService::class)->ambil($pengajuan),
             'timeline' => $timeline,
             'ambangRasio' => $ambangRasio,
             'alurApproval' => $pengajuan->alurApproval(),
@@ -1247,7 +1310,7 @@ class PengajuanController extends Controller
     {
         $rasioMaks = RasioSewa::aktif()?->persentase_maksimal ?? 2.5;
 
-        $butuhWh = $jenisPengajuan === 'sewa_truk' && $rasioSewa > $rasioMaks;
+        $butuhWh = PengajuanSewa::pakaiRasioUntuk($jenisPengajuan, $tujuanPenyewaan) && $rasioSewa > $rasioMaks;
 
         return PengajuanSewa::hitungAlur($tujuanPenyewaan === 'PAC', $butuhWh);
     }

@@ -13,6 +13,7 @@ use App\Models\PerusahaanSkill;
 use App\Models\RasioSewa;
 use App\Models\TarifKirimanRutin;
 use App\Services\NotifikasiPengajuanService;
+use App\Services\SnapshotDokumenService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -103,23 +104,6 @@ class ApprovalController extends Controller
     }
 
     /**
-     * Get dummy SJ/TO-ACB dokumen untuk preview (placeholder hingga Quantum integration selesai)
-     * TODO: Replace dengan data asli dari Quantum API/relasi SuratJalan begitu endpoint tersedia.
-     * Struktur array sengaja disamakan dengan kolom tabel supaya swap-nya tinggal ganti sumber data.
-     */
-    private function getDummyDokumenSj(PengajuanSewa $pengajuan): array
-    {
-        return [
-            [
-                'no_dokumen' => 'SJ/'.now()->format('Ym').'/0001',
-                'value_muatan' => $pengajuan->value_muatan,
-                'qty' => 1,
-                'total_weight' => $pengajuan->kendaraan->muatan_maksimal ?? null,
-            ],
-        ];
-    }
-
-    /**
      * Show approval detail view — dishare WM (tingkat 1) & WH (tingkat 2).
      */
     public function show($id)
@@ -179,7 +163,7 @@ class ApprovalController extends Controller
         $ambangRasio = $rasioSewaSetting ? $rasioSewaSetting->persentase_maksimal : 2.5; // Fallback ke 2.5
 
         // Get dummy dokumen SJ/TO-ACB
-        $dokumenSj = $this->getDummyDokumenSj($pengajuan);
+        $dokumen = app(SnapshotDokumenService::class)->ambil($pengajuan);
 
         // Get history of this vendor (all pengajuan dari perusahaan yang sama — lewat
         // kendaraan (sewa_truk) ATAU id_perusahaan_ekspedisi langsung (pengiriman_rutin),
@@ -219,7 +203,7 @@ class ApprovalController extends Controller
             'approvalLogs' => $approvalLogs,
             'vendorLain' => $vendorLain,
             'historyVendor' => $historyVendor,
-            'dokumenSj' => $dokumenSj,
+            'dokumen' => $dokumen,
             'isWmApproved' => $isWmApproved,
             'ambangRasio' => $ambangRasio,
             'isPending' => $isPending,

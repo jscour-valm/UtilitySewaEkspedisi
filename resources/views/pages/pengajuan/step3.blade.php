@@ -107,8 +107,8 @@
         </div>
     </div>
 
-    {{-- Rasio sewa hanya untuk Sewa Truk; Kiriman Rutin tidak memakai rasio. --}}
-    <div class="mt-3 border-t border-gray-200 pt-3" x-show="pengajuan.jenis_pengajuan !== 'pengiriman_rutin'">
+    {{-- Rasio sewa: Sewa Truk & Kiriman Rutin tujuan PAC. --}}
+    <div class="mt-3 border-t border-gray-200 pt-3" x-show="pakaiRasio">
         <div class="flex items-center justify-between flex-wrap gap-2">
             <div>
                 <p class="text-xs text-gray-400">Estimasi Rasio Sewa</p>
@@ -123,7 +123,7 @@
     </div>
 
     {{-- Kiriman Rutin: tanpa rasio, alur tetap ditampilkan (PAC → WC) --}}
-    <div class="mt-3 border-t border-gray-200 pt-3" x-show="pengajuan.jenis_pengajuan === 'pengiriman_rutin'">
+    <div class="mt-3 border-t border-gray-200 pt-3" x-show="!pakaiRasio">
         <div class="flex items-center justify-end">
             <span class="inline-block px-3 py-1 rounded-lg text-xs font-semibold"
                 :class="alurApprovalEstimasi.length > 1 ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'"

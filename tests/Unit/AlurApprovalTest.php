@@ -23,4 +23,20 @@ class AlurApprovalTest extends TestCase
     {
         $this->assertSame($harapan, PengajuanSewa::hitungAlur($isPac, $butuhWh));
     }
+
+    public static function kasusPakaiRasio(): array
+    {
+        return [
+            'sewa truk toko' => ['sewa_truk', 'Toko', true],
+            'sewa truk PAC' => ['sewa_truk', 'PAC', true],
+            'kiriman rutin PAC' => ['pengiriman_rutin', 'PAC', true],
+            'kiriman rutin toko' => ['pengiriman_rutin', 'Toko', false],
+        ];
+    }
+
+    #[DataProvider('kasusPakaiRasio')]
+    public function test_pakai_rasio(string $jenis, string $tujuan, bool $harapan): void
+    {
+        $this->assertSame($harapan, PengajuanSewa::pakaiRasioUntuk($jenis, $tujuan));
+    }
 }

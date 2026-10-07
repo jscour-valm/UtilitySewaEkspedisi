@@ -218,8 +218,13 @@ Alpine.data('pengajuanSewa', () => ({
         return Number(window.__rasioMaks ?? 2.5)
     },
 
+    // Rasio dipakai Sewa Truk dan Kiriman Rutin tujuan PAC (sama dengan PengajuanSewa::pakaiRasioUntuk()).
+    get pakaiRasio() {
+        return this.pengajuan.jenis_pengajuan !== 'pengiriman_rutin' || this.pengajuan.tujuan_penyewaan === 'PAC'
+    },
+
     get rasioDiAtasBatas() {
-        return this.pengajuan.jenis_pengajuan === 'sewa_truk'
+        return this.pakaiRasio
             && this.rasioSewaEstimasi !== null && this.rasioSewaEstimasi > this.rasioMaks
     },
 
@@ -441,6 +446,7 @@ Alpine.data('pengajuanSewa', () => ({
             this.skillLocked = true
             this.step = 2
             this.dataAwalEdit = this.ringkasanEdit()
+            if (this.step3Dikunci) this.dokumenDipilih = []
 
             // Fetch dokumen (SJ/TO-ACB) — tujuan_penyewaan & id_cabang di atas di-assign
             // langsung (bukan lewat watcher), dan watcher yang biasanya trigger ini baru
@@ -573,6 +579,15 @@ Alpine.data('pengajuanSewa', () => ({
             if (this.pengajuan.tujuan_penyewaan && this.pengajuan.id_cabang) {
                 this.fetchDokumenList()
             }
+        })
+
+        this.$watch('step3Dikunci', dikunci => {
+            if (dikunci) this.dokumenDipilih = []
+        })
+        if (this.step3Dikunci && this.step === 3) this.step = 2
+
+        this.$watch('pengajuan.id_cabang_tujuan', (baru, lama) => {
+            if (this.pengajuan.tujuan_penyewaan === 'PAC') this.centangToAcbCabangTujuan(lama)
         })
 
         this.$watch('pengajuan.id_cabang', () => {
@@ -839,7 +854,8 @@ Alpine.data('pengajuanSewa', () => ({
             const cabang = this.pengajuan.id_cabang || 'default'
             const tujuan = this.pengajuan.tujuan_penyewaan || 'Umum'
             const skill = encodeURIComponent(this.skillGabunganLabel.join(','))
-            const res = await fetch(`/api/dokumen/list?tujuan_penyewaan=${tujuan}&cabang=${cabang}&skill=${skill}`)
+            const kecuali = this.editId || ''
+            const res = await fetch(`/api/dokumen/list?tujuan_penyewaan=${tujuan}&cabang=${cabang}&skill=${skill}&kecuali=${kecuali}`)
             const json = await res.json()
 
             // Map dokumen dengan ID unik (gunakan nomor_dokumen + tipe sebagai ID)
@@ -847,12 +863,28 @@ Alpine.data('pengajuanSewa', () => ({
                 id: d.nomor_dokumen,  // Use nomor_dokumen as unique ID
                 ...d,
             }))
+            if (this.pengajuan.tujuan_penyewaan === 'PAC' && this.dokumenDipilih.length === 0) {
+                this.centangToAcbCabangTujuan()
+            }
         } catch (e) {
             console.error('Gagal fetch dokumen list:', e)
             this.dummyDokumen = []
         } finally {
             this.loadingDokumen = false
         }
+    },
+
+    // PAC: centang TO-ACB yang Code-nya = cabang tujuan; lepas centang milik cabang tujuan sebelumnya.
+    centangToAcbCabangTujuan(tujuanLama = null) {
+        const tujuan = this.pengajuan.id_cabang_tujuan
+        const idsLama = tujuanLama
+            ? this.dummyDokumen.filter(d => d.tipe === 'TO-ACB' && d.cabang_tujuan === tujuanLama).map(d => d.id)
+            : []
+        const idsBaru = tujuan
+            ? this.dummyDokumen.filter(d => d.tipe === 'TO-ACB' && d.cabang_tujuan === tujuan).map(d => d.id)
+            : []
+        const sisa = this.dokumenDipilih.filter(id => !idsLama.includes(id))
+        this.dokumenDipilih = [...sisa, ...idsBaru.filter(id => !sisa.includes(id))]
     },
 
     async fetchLinkedDocumen(pengajuanId) {
@@ -1057,6 +1089,25 @@ Alpine.data('pengajuanSewa', () => ({
         return ''
     },
 
+    // Kiriman Rutin tujuan Toko tidak memakai dokumen: step 3 dikunci, step 2 langsung ke 4.
+    get step3Dikunci() {
+        return this.pengajuan.jenis_pengajuan === 'pengiriman_rutin' && this.pengajuan.tujuan_penyewaan === 'Toko'
+    },
+
+    get step2Lengkap() {
+        const hasVendor = this.pengajuan.jenis_pengajuan === 'sewa_truk'
+            ? this.kendaraanTerpilih !== null
+            : this.perusahaanTerpilih !== null
+        return hasVendor
+            && this.pengajuan.tanggal_pengiriman !== ''
+            && this.pengajuan.harga_sewa !== ''
+            && this.pengajuan.tujuan_penyewaan !== ''
+            && (this.pengajuan.tujuan_penyewaan !== 'PAC' || !!this.pengajuan.id_cabang_tujuan)
+            && this.adaSkillTerpilih
+            && this.pengajuan.kategoriToko !== ''
+            && this.detailKirimanRutinValid
+    },
+
     canGoToStep(target) {
         // Pas edit mode, nggak boleh balik ke step 1 (vendor/kendaraan dikunci, harga nempel ke vendor)
         if (this.editId && target === 1) return false
@@ -1073,18 +1124,10 @@ Alpine.data('pengajuanSewa', () => ({
             }
         }
         if (target === 3) {
-            const hasVendor = this.pengajuan.jenis_pengajuan === 'sewa_truk'
-                ? this.kendaraanTerpilih !== null
-                : this.perusahaanTerpilih !== null
-            return hasVendor
-            && this.pengajuan.tanggal_pengiriman !== ''
-            && this.pengajuan.harga_sewa !== ''
-            && this.pengajuan.tujuan_penyewaan !== ''
-            && this.adaSkillTerpilih
-            && this.pengajuan.kategoriToko !== ''
-            && this.detailKirimanRutinValid
+            return !this.step3Dikunci && this.step2Lengkap
         }
         if (target === 4) {
+            if (this.step3Dikunci) return this.step2Lengkap
             // Edit mode: bisa skip dokumen selection (gunakan value_muatan dari database)
             if (this.editId) return true
             // Create mode: harus pilih dokumen
@@ -1385,7 +1428,10 @@ Alpine.data('pengajuanSewa', () => ({
 
         // Calculate total value_muatan
         let valueMuatan
-        if (this.editId && this.dokumenDipilih.length === 0) {
+        if (this.step3Dikunci) {
+            this.dokumenDipilih = []
+            valueMuatan = null
+        } else if (this.editId && this.dokumenDipilih.length === 0) {
             // Edit mode tanpa re-select dokumen: gunakan value_muatan dari prefill
             valueMuatan = this.pengajuan.value_muatan
         } else {

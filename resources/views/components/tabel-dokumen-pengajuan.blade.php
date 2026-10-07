@@ -112,11 +112,12 @@
             <table class="w-full text-sm">
                 <colgroup>
                     <col class="w-10">
+                    <col class="w-[16%]">
                     <col class="w-[18%]">
-                    <col class="w-[22%]">
-                    <col class="w-[17%]">
-                    <col class="w-[17%]">
-                    <col class="w-[17%]">
+                    <col class="w-[18%]">
+                    <col class="w-[14%]">
+                    <col class="w-[14%]">
+                    <col class="w-[14%]">
                 </colgroup>
                 <thead>
                     <tr class="border-b border-gray-300 bg-gray-50">
@@ -128,6 +129,7 @@
                                 class="rounded border-gray-300">
                         </th>
                         <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">No. TO</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Cabang Tujuan</th>
                         <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">No. TS</th>
                         <th class="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">Gross Weight (kg)</th>
                         <th class="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">Net Weight (kg)</th>
@@ -137,12 +139,12 @@
                 <tbody class="divide-y divide-gray-100">
                     <template x-if="loadingDokumen && dokumenList.length === 0">
                         <tr>
-                            <td colspan="6" class="py-12 text-center text-sm text-gray-400">Memuat…</td>
+                            <td colspan="7" class="py-12 text-center text-sm text-gray-400">Memuat…</td>
                         </tr>
                     </template>
                     <template x-if="!loadingDokumen && dokumenList.length === 0">
                         <tr>
-                            <td colspan="6" class="py-12 text-center text-sm text-gray-400">
+                            <td colspan="7" class="py-12 text-center text-sm text-gray-400">
                                 Tidak ada dokumen tersedia untuk tujuan ini.
                             </td>
                         </tr>
@@ -165,6 +167,9 @@
                                     class="rounded border-gray-300">
                             </td>
                             <td class="px-4 py-3 font-medium text-gray-800 whitespace-nowrap" x-text="doc.nomor_dokumen"></td>
+                            <td class="px-4 py-3 text-xs whitespace-nowrap"
+                                :class="doc.cabang_tujuan === pengajuan.id_cabang_tujuan ? 'font-semibold text-avian-green' : 'text-gray-600'"
+                                x-text="(doc.cabang_tujuan || '—') + (doc.nama_cabang_tujuan ? ' — ' + doc.nama_cabang_tujuan : '')"></td>
                             <td class="px-4 py-3 text-gray-600 text-xs whitespace-nowrap" x-text="doc.last_shipment_no || '—'"></td>
                             <td class="px-4 py-3 text-right text-gray-600 whitespace-nowrap" x-text="Number(doc.berat).toLocaleString('id-ID', {maximumFractionDigits: 2}) + ' kg'"></td>
                             <td class="px-4 py-3 text-right text-gray-600 whitespace-nowrap" x-text="Number(doc.berat_bersih).toLocaleString('id-ID', {maximumFractionDigits: 2}) + ' kg'"></td>

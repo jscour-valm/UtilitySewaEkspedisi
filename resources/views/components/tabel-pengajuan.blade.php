@@ -36,6 +36,8 @@ $result = DbHelper::safeQuery(function () use ($limit, $sortBy, $sortOrder, $mod
         'sesi_pengajuan_sewa.submitted_at as submitted_at',
         'sesi_pengajuan_sewa.harga_sewa as harga',
         'sesi_pengajuan_sewa.rasio_sewa as rasio',
+        'sesi_pengajuan_sewa.jenis_pengajuan as jenis_pengajuan',
+        'sesi_pengajuan_sewa.tujuan_penyewaan as tujuan_penyewaan',
         'sesi_pengajuan_sewa.status_pengajuan as status',
         'sesi_pengajuan_sewa.id_cabang as cabang',
         'sesi_pengajuan_sewa.kategori_approval as kategori_approval'
@@ -262,7 +264,9 @@ $searchPlaceholder = match ($mode) {
 
                     {{-- Rasio Sewa --}}
                     <td class="px-4 py-3 whitespace-nowrap">
-                        @if(in_array($mode, ['wm', 'wh', 'wc', 'ka']))
+                        {{-- Kiriman Rutin tujuan Toko tidak memakai rasio --}}
+                        @if(! \App\Models\PengajuanSewa::pakaiRasioUntuk($p['jenis_pengajuan'], $p['tujuan_penyewaan']))
+                        @elseif(in_array($mode, ['wm', 'wh', 'wc', 'ka']))
                             {{-- Mode WM/WH/WC: styling merah + threshold (dari DB) --}}
                             <span @class([
                                 'font-semibold text-red-600' => $p['rasio'] > $ambangRasio,

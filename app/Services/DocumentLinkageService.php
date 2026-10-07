@@ -29,6 +29,7 @@ class DocumentLinkageService
     {
         // Validate pengajuan exists
         $pengajuan = PengajuanSewa::findOrFail($idPengajuanSewa);
+        $this->pastikanBelumTerpakai('SJ', $idSuratJalan, $idPengajuanSewa);
 
         // TODO: Validate idSuratJalan exists in Quantum API
         // $this->validateSuratJalanExists($idSuratJalan);
@@ -103,6 +104,7 @@ class DocumentLinkageService
     {
         // Validate pengajuan exists
         $pengajuan = PengajuanSewa::findOrFail($idPengajuanSewa);
+        $this->pastikanBelumTerpakai('TO-ACB', $idToAcb, $idPengajuanSewa);
 
         // TODO: Validate idToAcb exists in ERP API
         // $this->validateTransferAntarCabangExists($idToAcb);
@@ -175,6 +177,36 @@ class DocumentLinkageService
      *
      * @return array{tipe:string, items:array, jumlah_dokumen:int, jumlah_toko:int, total_berat_kg:float, total_nilai:float}
      */
+    /**
+     * Nomor dokumen (SJ / TO-ACB) yang sedang dipakai pengajuan lain berstatus pending atau
+     * approved. Dokumen dari pengajuan yang ditolak boleh dipakai lagi.
+     *
+     * @return string[]
+     */
+    public function dokumenTerpakai(string $tipe, ?int $kecualiPengajuan = null): array
+    {
+        [$tabel, $kolom] = $tipe === 'TO-ACB'
+            ? ['sesi_pengajuan_sewa_to_acb', 'id_to_acb']
+            : ['sesi_pengajuan_sewa_surat_jalan', 'id_surat_jalan'];
+
+        return DB::connection('sqlsrv')->table($tabel.' as d')
+            ->join('sesi_pengajuan_sewa as p', 'p.id_pengajuan_sewa', '=', 'd.id_pengajuan_sewa')
+            ->where('d.flag', true)
+            ->where('p.flag', true)
+            ->whereRaw('LOWER(p.status_pengajuan) IN (?, ?)', ['pending', 'approved'])
+            ->when($kecualiPengajuan, fn ($q) => $q->where('p.id_pengajuan_sewa', '!=', $kecualiPengajuan))
+            ->distinct()
+            ->pluck('d.'.$kolom)
+            ->all();
+    }
+
+    private function pastikanBelumTerpakai(string $tipe, string $nomor, int $idPengajuanSewa): void
+    {
+        if (in_array($nomor, $this->dokumenTerpakai($tipe, $idPengajuanSewa), true)) {
+            throw new \InvalidArgumentException("Dokumen $nomor sudah dipakai pengajuan lain yang masih aktif.");
+        }
+    }
+
     public function getDetailDokumen(PengajuanSewa $pengajuan): array
     {
         $nomorSj = $this->getSuratJalansForPengajuan($pengajuan->id_pengajuan_sewa);

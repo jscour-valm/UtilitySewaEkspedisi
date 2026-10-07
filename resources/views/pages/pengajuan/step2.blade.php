@@ -490,7 +490,7 @@
         </button>
         <button
             type="button"
-            @click="goToStep(3)"
+            @click="goToStep(step3Dikunci ? 4 : 3)"
             :disabled="pengajuan.jenis_pengajuan === 'sewa_truk'
                 ? (!pengajuan.tanggal_pengiriman || !pengajuan.harga_sewa || !pengajuan.tujuan_penyewaan || (pengajuan.tujuan_penyewaan === 'PAC' && !pengajuan.id_cabang_tujuan) || !adaSkillTerpilih || !pengajuan.kategoriToko)
                 : (!pengajuan.tanggal_pengiriman || !detailKirimanRutinValid || !pengajuan.tujuan_penyewaan || (pengajuan.tujuan_penyewaan === 'PAC' && !pengajuan.id_cabang_tujuan) || !adaSkillTerpilih || !pengajuan.kategoriToko)"

@@ -5,6 +5,7 @@
 @section('content')
 @php
     $isKirimanRutin     = $pengajuan->jenis_pengajuan === 'pengiriman_rutin';
+    $pakaiRasio         = $pengajuan->pakaiRasio();
     // Sumber "identitas" (nama perusahaan) beda tergantung jenis_pengajuan:
     // sewa_truk → vendor pemilik kendaraan; pengiriman_rutin → vendor ekspedisi langsung.
     $vendor             = $isKirimanRutin ? $pengajuan->perusahaanEkspedisi : $pengajuan->kendaraan?->perusahaan;
@@ -42,7 +43,7 @@
         {{-- Verdict strip: rasio vs ambang (sewa_truk saja — kiriman rutin gak pakai rasio,
              lihat PengajuanController::hitungAlurApproval()), total, value muatan --}}
         <div class="flex items-stretch flex-wrap mt-5 border-t border-gray-100 pt-4">
-            @unless($isKirimanRutin)
+            @if($pakaiRasio)
                 <div class="flex-1 min-w-[220px] basis-60 pr-6">
                     <p class="text-[11px] font-semibold tracking-[0.09em] text-gray-500">RASIO SEWA</p>
                     <div class="flex items-baseline gap-2.5 mt-1.5">
@@ -67,7 +68,7 @@
                 </div>
 
                 <div class="w-px bg-gray-100"></div>
-            @endunless
+            @endif
 
             <div class="flex-1 min-w-[160px] basis-44 px-6">
                 <p class="text-[11px] font-semibold tracking-[0.09em] text-gray-500">TOTAL BIAYA SEWA</p>
@@ -79,11 +80,12 @@
                 </p>
             </div>
 
+            @if($pakaiRasio)
             <div class="w-px bg-gray-100"></div>
 
             <div class="flex-1 min-w-[160px] basis-44 pl-6">
                 <p class="text-[11px] font-semibold tracking-[0.09em] text-gray-500">VALUE MUATAN</p>
-                <p class="text-[22px] font-bold tracking-tight text-gray-900 mt-2">{{ \App\Helpers\FormatHelper::rupiah($pengajuan->value_muatan) }}</p>
+                <p class="text-[22px] font-bold tracking-tight text-gray-900 mt-2">{{ $pengajuan->value_muatan ? \App\Helpers\FormatHelper::rupiah($pengajuan->value_muatan) : '-' }}</p>
                 <p class="text-xs text-gray-400 mt-1">
                     @if($isKirimanRutin)
                         {{ $pengajuan->detailKirimanRutin->count() }} jenis barang
@@ -92,6 +94,7 @@
                     @endif
                 </p>
             </div>
+            @endif
         </div>
     </div>
 
@@ -362,42 +365,7 @@
             @endif
         </p>
 
-        <div class="overflow-x-auto rounded-lg border border-gray-100">
-            <table class="w-full text-sm">
-                <thead>
-                    <tr class="border-b border-gray-100 bg-gray-50 text-[11px] font-semibold tracking-wide text-gray-500">
-                        <th class="px-3.5 py-2.5 text-left">NO DOKUMEN</th>
-                        <th class="px-3.5 py-2.5 text-right">VALUE MUATAN</th>
-                        <th class="px-3.5 py-2.5 text-right">QTY</th>
-                        <th class="px-3.5 py-2.5 text-right">TOTAL WEIGHT</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse($dokumenSj ?? [] as $d)
-                        <tr class="border-b border-gray-50 hover:bg-gray-50">
-                            <td class="px-3.5 py-3 text-gray-800">
-                                {{ $d['no_dokumen'] ?? '-' }}
-                            </td>
-                            <td class="px-3.5 py-3 text-right tabular-nums text-gray-700">
-                                {{ $d['value_muatan'] ? \App\Helpers\FormatHelper::rupiah($d['value_muatan']) : '-' }}
-                            </td>
-                            <td class="px-3.5 py-3 text-right tabular-nums text-gray-700">
-                                {{ $d['qty'] ?? '-' }}
-                            </td>
-                            <td class="px-3.5 py-3 text-right tabular-nums text-gray-700">
-                                {{ $d['total_weight'] ? \App\Helpers\FormatHelper::ton($d['total_weight']) : '-' }}
-                            </td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="4" class="px-3.5 py-4 text-center text-[13px] text-gray-400">
-                                Belum ada dokumen SJ/TO-ACB terlampir.
-                            </td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
+        <x-tabel-dokumen-terlampir :dokumen="$dokumen" />
     </div>
 
     {{-- ==================== PERBANDINGAN VENDOR ====================
@@ -515,7 +483,9 @@
                             </td>
                             <td class="px-3.5 py-3 text-right tabular-nums font-semibold
                                         {{ $h->rasio_sewa > $ambang ? 'text-red-600' : 'text-gray-700' }}">
-                                {{ $h->rasio_sewa ? number_format($h->rasio_sewa, 2, ',', '.') . '%' : '-' }}
+                                @if (\App\Models\PengajuanSewa::pakaiRasioUntuk($h->jenis_pengajuan, $h->tujuan_penyewaan))
+                                    {{ number_format((float) $h->rasio_sewa, 2, ',', '.') }}%
+                                @endif
                             </td>
                             <td class="px-3.5 py-3">
                                 @if(in_array($st, ['approved', 'disetujui']))
@@ -578,10 +548,10 @@
                 </p>
                 <p class="text-[15px] font-bold text-gray-900 mt-0.5">
                     {{ \App\Helpers\FormatHelper::rupiah($totalBiayaSewa) }}
-                    @unless($isKirimanRutin)
+                    @if($pakaiRasio)
                         <span class="font-normal text-gray-300">&middot;</span>
                         <span class="{{ $overAmbang ? 'text-red-600' : 'text-green-700' }}">Rasio {{ number_format($rasio, 2, ',', '.') }}%</span>
-                    @endunless
+                    @endif
                 </p>
             </div>
             <span class="hidden items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-[13px] font-semibold text-amber-800 lg:flex">
@@ -637,18 +607,18 @@
                     {{ $vendor?->badan_usaha }} {{ $vendor?->nama_perusahaan }}
                 </span>
             </div>
-            <div class="flex justify-between {{ $isKirimanRutin ? '' : 'border-b border-gray-50' }} px-3.5 py-2.5">
+            <div class="flex justify-between {{ $pakaiRasio ? 'border-b border-gray-50' : '' }} px-3.5 py-2.5">
                 <span class="text-[13.5px] text-gray-500">Total biaya sewa</span>
                 <span class="text-[13.5px] font-semibold text-gray-900">{{ \App\Helpers\FormatHelper::rupiah($totalBiayaSewa) }}</span>
             </div>
-            @unless($isKirimanRutin)
+            @if($pakaiRasio)
                 <div class="flex justify-between px-3.5 py-2.5">
                     <span class="text-[13.5px] text-gray-500">Rasio sewa</span>
                     <span class="text-[13.5px] font-semibold {{ $overAmbang ? 'text-red-600' : 'text-green-700' }}">
                         {{ number_format($rasio, 2, ',', '.') }}% ({{ $overAmbang ? 'di atas ambang' : 'di bawah ambang' }})
                     </span>
                 </div>
-            @endunless
+            @endif
         </div>
 
         <div class="mt-5 flex justify-end gap-2.5">

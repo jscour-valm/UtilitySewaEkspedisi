@@ -4,6 +4,7 @@
 
 @php
     $isKirimanRutin     = $pengajuan->jenis_pengajuan === 'pengiriman_rutin';
+    $pakaiRasio         = $pengajuan->pakaiRasio();
     $totalBiayaTambahan = $pengajuan->biayaTambahan?->sum('jumlah') ?? 0;
     $totalBiayaSewa     = $pengajuan->harga_sewa + $totalBiayaTambahan;
     $ambang             = (float) $ambangRasio;
@@ -40,7 +41,7 @@
         {{-- Verdict strip: rasio vs ambang (sewa_truk saja — kiriman rutin gak pakai
              rasio sbg trigger over_threshold), total, value muatan --}}
         <div class="flex items-stretch flex-wrap mt-5 border-t border-gray-100 pt-4">
-            @unless($isKirimanRutin)
+            @if($pakaiRasio)
                 <div class="flex-1 min-w-[220px] basis-60 pr-6">
                     <p class="text-[11px] font-semibold tracking-[0.09em] text-gray-500">RASIO SEWA</p>
                     <div class="flex items-baseline gap-2.5 mt-1.5">
@@ -65,7 +66,7 @@
                 </div>
 
                 <div class="w-px bg-gray-100"></div>
-            @endunless
+            @endif
 
             <div class="flex-1 min-w-[160px] basis-44 px-6">
                 <p class="text-[11px] font-semibold tracking-[0.09em] text-gray-500">TOTAL BIAYA SEWA</p>
@@ -77,11 +78,12 @@
                 </p>
             </div>
 
+            @if($pakaiRasio)
             <div class="w-px bg-gray-100"></div>
 
             <div class="flex-1 min-w-[160px] basis-44 pl-6">
                 <p class="text-[11px] font-semibold tracking-[0.09em] text-gray-500">VALUE MUATAN</p>
-                <p class="text-[22px] font-bold tracking-tight text-gray-900 mt-2">{{ \App\Helpers\FormatHelper::rupiah($pengajuan->value_muatan) }}</p>
+                <p class="text-[22px] font-bold tracking-tight text-gray-900 mt-2">{{ $pengajuan->value_muatan ? \App\Helpers\FormatHelper::rupiah($pengajuan->value_muatan) : '-' }}</p>
                 <p class="text-xs text-gray-400 mt-1">
                     @if($isKirimanRutin)
                         {{ $pengajuan->detailKirimanRutin->count() }} jenis barang
@@ -90,6 +92,7 @@
                     @endif
                 </p>
             </div>
+            @endif
         </div>
     </div>
 
@@ -103,7 +106,7 @@
                     $reasons[] = 'Tujuan penyewaan PAC (perlu approval WC)';
                 }
                 if (in_array('WH', $alurApproval, true)) {
-                    $reasons[] = (!$isKirimanRutin && $pengajuan->rasio_sewa > $ambangRasio)
+                    $reasons[] = ($pakaiRasio && $pengajuan->rasio_sewa > $ambangRasio)
                         ? "Rasio Sewa " . number_format($pengajuan->rasio_sewa, 2, ',', '.') . "% melebihi batas " . number_format($ambangRasio, 2, ',', '.') . "% (perlu approval WH)"
                         : 'Area kirim baru (aturan alur saat pengajuan dibuat)';
                 }
@@ -318,45 +321,7 @@
             @endif
         </p>
 
-        @php
-            $dokumenTerlampir = collect($pengajuan->suratJalans ?? [])
-                ->map(fn($sj) => ['nomor' => $sj->id_surat_jalan, 'tipe' => 'SJ'])
-                ->concat(
-                    collect($pengajuan->transferAntarCabang ?? [])
-                        ->map(fn($to) => ['nomor' => $to->id_to_acb, 'tipe' => 'TO-ACB'])
-                );
-        @endphp
-
-        <div class="overflow-x-auto rounded-lg border border-gray-100 mt-4">
-            <table class="w-full text-sm">
-                <thead>
-                    <tr class="border-b border-gray-100 bg-gray-50 text-[11px] font-semibold tracking-wide text-gray-500">
-                        <th class="px-3.5 py-2.5 text-left">NO DOKUMEN</th>
-                        <th class="px-3.5 py-2.5 text-left">TIPE</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse($dokumenTerlampir as $dok)
-                        <tr class="border-b border-gray-50 hover:bg-gray-50">
-                            <td class="px-3.5 py-3 text-gray-800">
-                                {{ $dok['nomor'] ?? '-' }}
-                            </td>
-                            <td class="px-3.5 py-3 text-gray-700">
-                                <span class="inline-block px-2 py-0.5 rounded text-xs font-medium {{ $dok['tipe'] === 'SJ' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700' }}">
-                                    {{ $dok['tipe'] }}
-                                </span>
-                            </td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="2" class="px-3.5 py-4 text-center text-[13px] text-gray-400">
-                                Belum ada dokumen SJ/TO-ACB terlampir.
-                            </td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
+        <x-tabel-dokumen-terlampir :dokumen="$dokumen" />
     </div>
 
     {{-- ==================== TIMELINE RIWAYAT PERSETUJUAN ==================== --}}

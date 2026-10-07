@@ -46,7 +46,7 @@ class WmDashboardController extends Controller
             'perusahaan' => $p->kendaraan->perusahaan->nama_perusahaan ?? '-',
             'tanggal' => $p->tanggal_pengiriman->format('d M Y'),
             'harga_sewa' => number_format($p->harga_sewa, 0, ',', '.'),
-            'rasio' => number_format($p->rasio_sewa, 2, ',', '.'),
+            'rasio' => number_format((float) $p->rasio_sewa, 2, ',', '.'),
             'status' => strtolower($p->status_pengajuan),
             'kategori' => $p->kategori_approval,
         ])->toArray();

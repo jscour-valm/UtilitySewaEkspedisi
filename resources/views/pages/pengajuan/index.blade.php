@@ -52,18 +52,31 @@
                 [4, 'check-circle', 'Review & Submit'],
             ] as [$n, $icon, $label])
 
-                {{-- Step bubble --}}
-                <div class="flex flex-col items-center gap-2 cursor-pointer"
+                {{-- Step bubble (step 3 dikunci untuk Kiriman Rutin tujuan Toko) --}}
+                @php $bisaDikunci = $n === 3; @endphp
+                <div class="flex flex-col items-center gap-2"
+                    @if ($bisaDikunci)
+                        :class="step3Dikunci ? 'cursor-not-allowed' : 'cursor-pointer'"
+                        :title="step3Dikunci ? 'Kiriman Rutin tujuan Toko tidak memakai dokumen' : ''"
+                    @else
+                        class="cursor-pointer"
+                    @endif
                     @click="goToStep({{ $n }})">
                     <div
                         class="w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-200"
                         :class="{
+                            'bg-gray-100 border-gray-300 text-gray-400': {{ $bisaDikunci ? 'step3Dikunci' : 'false' }},
                             'bg-avian-green border-avian-green text-white': step === {{ $n }},
-                            'bg-avian-green-light border-avian-green text-avian-green': step > {{ $n }},
-                            'bg-white border-gray-300 text-gray-400': step < {{ $n }} && !canGoToStep({{ $n }}),
+                            'bg-avian-green-light border-avian-green text-avian-green': step > {{ $n }} && !{{ $bisaDikunci ? 'step3Dikunci' : 'false' }},
+                            'bg-white border-gray-300 text-gray-400': step < {{ $n }} && !canGoToStep({{ $n }}) && !{{ $bisaDikunci ? 'step3Dikunci' : 'false' }},
                             'bg-white border-avian-green text-avian-green cursor-pointer': step < {{ $n }} && canGoToStep({{ $n }}),
                         }">
-                        <i data-lucide="{{ $icon }}" class="w-4 h-4"></i>
+                        @if ($bisaDikunci)
+                            <span x-show="!step3Dikunci"><i data-lucide="{{ $icon }}" class="w-4 h-4"></i></span>
+                            <span x-show="step3Dikunci"><i data-lucide="lock" class="w-4 h-4"></i></span>
+                        @else
+                            <i data-lucide="{{ $icon }}" class="w-4 h-4"></i>
+                        @endif
                     </div>
                     <span
                         class="text-xs font-medium"

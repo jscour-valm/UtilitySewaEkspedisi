@@ -69,7 +69,7 @@
                 <span class="font-medium">Harga Sewa:</span>
                 <span x-text="'Rp ' + Number(pengajuan.harga_sewa || 0).toLocaleString('id-ID')"></span>
             </p>
-            <p class="text-xs text-gray-600">
+            <p class="text-xs text-gray-600" x-show="!step3Dikunci">
                 <span class="font-medium">Value Muatan:</span>
                 <span x-text="'Rp ' + valueMuatanDipilih.toLocaleString('id-ID')"></span>
             </p>
@@ -133,7 +133,8 @@
                 Dokumen Terpilih
                 (<span x-text="dokumenDipilihResolved.length"></span> dokumen)<span x-show="berubah('dokumen')" class="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold normal-case text-amber-700">Diubah</span>
             </p>
-            <p x-show="dokumenDipilihResolved.length === 0" class="text-xs text-gray-400">Tidak ada dokumen</p>
+            <p x-show="step3Dikunci" class="text-xs text-gray-500">Kiriman Rutin tujuan Toko tidak memakai dokumen SJ/TO-ACB.</p>
+            <p x-show="!step3Dikunci && dokumenDipilihResolved.length === 0" class="text-xs text-gray-400">Tidak ada dokumen</p>
             <div x-show="dokumenDipilihResolved.length > 0" class="divide-y divide-gray-100">
                 <template x-for="doc in (ringkasanDokumenExpanded ? dokumenDipilihResolved : dokumenDipilihResolved.slice(0, 5))" :key="doc.id">
                     <div class="flex items-center justify-between py-1.5">
@@ -230,7 +231,7 @@
 
     {{-- Rasio Sewa & Kategori — Sewa Truk saja. Kiriman Rutin gak pakai rasio
          (lihat PengajuanController::hitungAlurApproval()). --}}
-    <div x-show="pengajuan.jenis_pengajuan !== 'pengiriman_rutin'" class="rounded-lg border-2 border-avian-green/30 bg-avian-green-light px-4 py-4">
+    <div x-show="pakaiRasio" class="rounded-lg border-2 border-avian-green/30 bg-avian-green-light px-4 py-4">
         <p class="mb-4 text-xs font-medium uppercase tracking-wide text-avian-green">Perhitungan Rasio Sewa</p>
         <div class="grid grid-cols-3 gap-4">
             <div>
@@ -274,7 +275,7 @@
     <div class="flex items-center justify-between pt-4 border-t border-gray-200">
         <button
             type="button"
-            @click="goToStep(3)"
+            @click="goToStep(step3Dikunci ? 2 : 3)"
             class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50">
             ← Kembali
         </button>
