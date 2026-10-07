@@ -7,7 +7,6 @@ use App\Models\PengajuanSewa;
 use App\Models\RasioSewa;
 use Carbon\Carbon;
 use Illuminate\Mail\Mailable;
-use Illuminate\Mail\Mailables\Attachment;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Support\Facades\DB;
@@ -27,8 +26,7 @@ class NotifikasiPengajuanMail extends Mailable
         public string $tipe,
         public string $url,
         public ?string $alasanPenolakan = null,
-        public ?string $lampiranPath = null,
-        public ?array $ringkasanDokumen = null,
+        public ?array $dokumen = null,
         public bool $ulang = false,
         public ?string $peranBerikutnya = null,
     ) {}
@@ -121,22 +119,9 @@ class NotifikasiPengajuanMail extends Mailable
                 'totalBiayaSewa' => (float) $p->harga_sewa + $totalBiayaTambahan,
                 'helper' => $helper,
                 'ambangRasio' => (float) ($rasioSetting?->persentase_maksimal ?? 2.5),
-                'dokumen' => $this->ringkasanDokumen,
+                'dokumen' => $this->dokumen,
                 'riwayat' => $p->approvalLogs->sortBy('decided_at')->values(),
             ],
         );
-    }
-
-    public function attachments(): array
-    {
-        if ($this->lampiranPath && is_file($this->lampiranPath)) {
-            return [
-                Attachment::fromPath($this->lampiranPath)
-                    ->as('Daftar-SJ-Pengajuan-'.$this->pengajuan->id_pengajuan_sewa.'.xlsx')
-                    ->withMime('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'),
-            ];
-        }
-
-        return [];
     }
 }

@@ -107,14 +107,13 @@
         </div>
     </div>
 
-    {{-- Rasio sewa cuma dipakai (dan jadi trigger over_threshold) utk Sewa Truk —
-         Kiriman Rutin gak pakai rasio, lihat PengajuanController::hitungAlurApproval(). --}}
+    {{-- Rasio sewa hanya untuk Sewa Truk; Kiriman Rutin tidak memakai rasio. --}}
     <div class="mt-3 border-t border-gray-200 pt-3" x-show="pengajuan.jenis_pengajuan !== 'pengiriman_rutin'">
         <div class="flex items-center justify-between flex-wrap gap-2">
             <div>
                 <p class="text-xs text-gray-400">Estimasi Rasio Sewa</p>
                 <p class="mt-0.5 text-lg font-bold text-gray-800"
-                    x-text="(rasioSewaEstimasi !== null ? rasioSewaEstimasi.toFixed(2) + '%' : '—') + ' / 2,5%'">
+                    x-text="(rasioSewaEstimasi !== null ? rasioSewaEstimasi.toFixed(2) + '%' : '—') + ' / ' + rasioMaks.toLocaleString('id-ID') + '%'">
                 </p>
             </div>
             <span class="inline-block px-3 py-1 rounded-lg text-xs font-semibold"
@@ -123,7 +122,7 @@
         </div>
     </div>
 
-    {{-- Kiriman Rutin: tanpa rasio, alur tetap ditampilkan (PAC → WC, area baru → WH) --}}
+    {{-- Kiriman Rutin: tanpa rasio, alur tetap ditampilkan (PAC → WC) --}}
     <div class="mt-3 border-t border-gray-200 pt-3" x-show="pengajuan.jenis_pengajuan === 'pengiriman_rutin'">
         <div class="flex items-center justify-end">
             <span class="inline-block px-3 py-1 rounded-lg text-xs font-semibold"

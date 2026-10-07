@@ -169,7 +169,7 @@ class DocumentLinkageService
 
     /**
      * Detail SJ / TO-ACB yang ter-link ke pengajuan (lookup ke view Quantum), plus agregat
-     * buat email & lampiran Excel. Kolom sama dengan PengajuanController::getDokumenList.
+     * untuk email notifikasi. Kolom sama dengan PengajuanController::getDokumenList.
      * Dokumen yang tidak ditemukan lagi di sumber (mis. SJ sudah keluar dari "Belum Kirim")
      * tetap muncul dengan detail null, biar nomornya nggak hilang.
      *

@@ -191,7 +191,7 @@
             @if($pengajuan->tujuan_penyewaan === 'PAC')
                 <div class="flex justify-between gap-4 py-2.5">
                     <span class="text-sm text-gray-500">Cabang Tujuan</span>
-                    <span class="text-sm font-semibold text-gray-900">{{ $pengajuan->id_cabang_asal ?: '-' }}</span>
+                    <span class="text-sm font-semibold text-gray-900">{{ $pengajuan->labelCabangTujuan() ?? '-' }}</span>
                 </div>
             @endif
         </div>

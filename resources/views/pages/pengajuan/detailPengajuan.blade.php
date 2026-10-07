@@ -94,6 +94,7 @@
     </div>
 
     {{-- ==================== KATEGORI APPROVAL ALERT ==================== --}}
+    @php $areaBaru = $pengajuan->areaBaru(); @endphp
     @if(count($alurApproval) > 1)
         <x-alert-info title="Perlu Persetujuan Berlapis">
             @php
@@ -102,16 +103,19 @@
                     $reasons[] = 'Tujuan penyewaan PAC (perlu approval WC)';
                 }
                 if (in_array('WH', $alurApproval, true)) {
-                    // WH ikut kalau sewa truk rasio > ambang, atau ada area baru
-                    // (lihat PengajuanController::hitungAlurApproval()).
                     $reasons[] = (!$isKirimanRutin && $pengajuan->rasio_sewa > $ambangRasio)
-                        ? "Rasio Sewa " . number_format($pengajuan->rasio_sewa, 2, ',', '.') . "% melebihi threshold " . number_format($ambangRasio, 2, ',', '.') . "% (perlu approval WH)"
-                        : 'Ada area kirim baru (perlu approval WH)';
+                        ? "Rasio Sewa " . number_format($pengajuan->rasio_sewa, 2, ',', '.') . "% melebihi batas " . number_format($ambangRasio, 2, ',', '.') . "% (perlu approval WH)"
+                        : 'Area kirim baru (aturan alur saat pengajuan dibuat)';
                 }
                 $message = "Alasan: " . implode("; ", $reasons) . " — alur: " . implode(' → ', $alurApproval) . ".";
             @endphp
             <p class="text-sm text-orange-800">{{ $message }}</p>
         </x-alert-info>
+    @endif
+    @if($areaBaru)
+        <p class="rounded-lg border border-blue-100 bg-blue-50 px-4 py-2 text-sm text-blue-700">
+            Info: pengajuan ini menambah area kirim baru — {{ implode(', ', $areaBaru) }}.
+        </p>
     @endif
     
     {{-- ==================== SATU CARD, TIGA KOLOM ==================== --}}
@@ -202,7 +206,7 @@
             @if($pengajuan->tujuan_penyewaan === 'PAC')
                 <div class="flex justify-between gap-4 py-2.5">
                     <span class="text-sm text-gray-500">Cabang Tujuan</span>
-                    <span class="text-sm font-semibold text-gray-900">{{ $pengajuan->id_cabang_tujuan ? $pengajuan->cabangTujuan->nama_cabang : '-' }}</span>
+                    <span class="text-sm font-semibold text-gray-900">{{ $pengajuan->labelCabangTujuan() ?? '-' }}</span>
                 </div>
             @endif
         </div>

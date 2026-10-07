@@ -127,8 +127,7 @@ class PengajuanController extends Controller
             'tanggal_pengiriman' => 'required|date',
             'value_muatan' => 'required|numeric|min:1',
             'tujuan_penyewaan' => 'required|in:Toko,PAC',
-            // PAC (mentor review item 5-7): cabang asal barang, wajib diisi hanya kalau PAC.
-            'id_cabang_asal' => 'required_if:tujuan_penyewaan,PAC|nullable|string|max:10|exists:sqlsrv.dbo.sesi_master_cabang,Code',
+            'id_cabang_tujuan' => 'required_if:tujuan_penyewaan,PAC|nullable|string|max:10|exists:sqlsrv.dbo.sesi_master_cabang,Code',
             'id_skill' => 'nullable|array',
             'id_skill.*' => 'required|integer|exists:sqlsrv.dbo.sesi_master_skill,id_skill',
             'skill_baru' => 'nullable|array',
@@ -171,11 +170,8 @@ class PengajuanController extends Controller
                 ], 400);
             }
 
-            if ($request->tujuan_penyewaan === 'PAC' && $request->id_cabang_asal === $cabangId) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Cabang asal barang tidak boleh sama dengan cabang sendiri untuk PAC',
-                ], 422);
+            if ($pesan = $this->cekCabangTujuan($request, $cabangId)) {
+                return response()->json(['success' => false, 'message' => $pesan], 422);
             }
 
             $allSkills = collect($request->id_skill)
@@ -215,15 +211,12 @@ class PengajuanController extends Controller
             $totalBiayaTambahan = collect($request->biaya_tambahan ?? [])->sum('nominal');
             $rasioSewa = (($hargaSewa + $totalBiayaTambahan) / $request->value_muatan) * 100;
 
-            // Cek area baru (ada skill yang belum pernah ada di cabang ini sebelum submit ini)
-            $isAreaBaru = $skillBaru->isNotEmpty();
-
-            $alurApproval = $this->hitungAlurApproval($request->jenis_pengajuan, $rasioSewa, $request->tujuan_penyewaan, $isAreaBaru);
+            $alurApproval = $this->hitungAlurApproval($request->jenis_pengajuan, $rasioSewa, $request->tujuan_penyewaan);
             $kategoriApproval = $alurApproval === 'WM' ? 'normal' : 'over_threshold';
 
             $pengajuanData = [
                 'id_cabang' => $cabangId,
-                'id_cabang_asal' => $request->tujuan_penyewaan === 'PAC' ? $request->id_cabang_asal : null,
+                'id_cabang_tujuan' => $request->tujuan_penyewaan === 'PAC' ? $request->id_cabang_tujuan : null,
                 'tanggal_pengiriman' => $request->tanggal_pengiriman,
                 'value_muatan' => $request->value_muatan,
                 'harga_sewa' => $hargaSewa,
@@ -270,7 +263,8 @@ class PengajuanController extends Controller
                     $resolved = $this->resolveHargaKirimanRutin((int) $request->id_perusahaan_ekspedisi, $cabangId, $allSkills, $detail);
                     $subtotal = $resolved['biaya_per_unit'] * $detail['quantity'];
 
-                    $usulanBaris = (bool) ($detail['usulan_update_master'] ?? false);
+                    // Barang tanpa tarif master selalu jadi usulan harga master
+                    $usulanBaris = $resolved['id_tarif'] === null || ! empty($detail['usulan_update_master']);
 
                     DetailKirimanRutin::create([
                         'id_pengajuan_sewa' => $pengajuan->id_pengajuan_sewa,
@@ -427,25 +421,51 @@ class PengajuanController extends Controller
         return response()->json($result);
     }
 
-    /**
-     * Dropdown "Cabang Asal Barang" (PAC) di wizard — cabang lain selain cabang
-     * login sendiri, sumbernya sesi_master_cabang (tabel eksternal IT), sama
-     * seperti TarifKirimanRutinController::cabangOptions().
-     */
+    /** Dropdown "Cabang Tujuan" (PAC) di wizard. */
     public function getCabangList()
     {
-        $result = DbHelper::safeQuery(function () {
-            $cabangSendiri = auth()->user()->getCabangId();
-
-            return DB::connection('sqlsrv')->table('sesi_master_cabang')
-                ->whereNotNull('Name')
-                ->when($cabangSendiri, fn ($q) => $q->where('Code', '!=', $cabangSendiri))
-                ->orderBy('Name')
-                ->get(['Code', 'Name'])
-                ->toArray();
-        });
+        $result = DbHelper::safeQuery(
+            fn () => $this->cabangTujuanOptions(auth()->user()->getCabangId())->toArray()
+        );
 
         return response()->json($result);
+    }
+
+    /**
+     * Pilihan cabang tujuan PAC: cabang satu area (sesi_master_cabang.Area) dengan
+     * cabang pengaju, selain cabang pengaju sendiri. Area cabang pengaju kosong → semua cabang.
+     */
+    private function cabangTujuanOptions(?string $cabangSendiri)
+    {
+        $db = DB::connection('sqlsrv');
+        $area = $cabangSendiri
+            ? $db->table('sesi_master_cabang')->where('Code', $cabangSendiri)->value('Area')
+            : null;
+
+        return $db->table('sesi_master_cabang')
+            ->whereNotNull('Name')
+            ->when($cabangSendiri, fn ($q) => $q->where('Code', '!=', $cabangSendiri))
+            ->when($area, fn ($q) => $q->where('Area', $area))
+            ->orderBy('Name')
+            ->get(['Code', 'Name']);
+    }
+
+    /** Pesan error kalau cabang tujuan PAC tidak valid untuk cabang pengaju, null kalau valid. */
+    private function cekCabangTujuan(Request $request, ?string $cabangId): ?string
+    {
+        if ($request->tujuan_penyewaan !== 'PAC') {
+            return null;
+        }
+
+        if ($request->id_cabang_tujuan === $cabangId) {
+            return 'Cabang tujuan tidak boleh sama dengan cabang sendiri untuk PAC';
+        }
+
+        $boleh = $this->cabangTujuanOptions($cabangId)->pluck('Code')->all();
+
+        return in_array($request->id_cabang_tujuan, $boleh, true)
+            ? null
+            : 'Cabang tujuan harus cabang yang satu area dengan cabang sendiri';
     }
 
     // GET /api/dokumen/list?tujuan_penyewaan=Toko&cabang=01A
@@ -584,7 +604,7 @@ class PengajuanController extends Controller
             'id_pengajuan_sewa' => $pengajuan->id_pengajuan_sewa,
             'jenis_pengajuan' => $pengajuan->jenis_pengajuan,
             'id_cabang' => $pengajuan->id_cabang,
-            'id_cabang_asal' => $pengajuan->id_cabang_asal,
+            'id_cabang_tujuan' => $pengajuan->id_cabang_tujuan,
             'tanggal_pengiriman' => $pengajuan->tanggal_pengiriman->format('Y-m-d'),
             'harga_sewa' => (float) $pengajuan->harga_sewa,
             'value_muatan' => (float) $pengajuan->value_muatan,
@@ -681,7 +701,7 @@ class PengajuanController extends Controller
             'tanggal_pengiriman' => 'required|date',
             'value_muatan' => 'required|numeric|min:1',
             'tujuan_penyewaan' => 'required|in:Toko,PAC',
-            'id_cabang_asal' => 'required_if:tujuan_penyewaan,PAC|nullable|string|max:10|exists:sqlsrv.dbo.sesi_master_cabang,Code',
+            'id_cabang_tujuan' => 'required_if:tujuan_penyewaan,PAC|nullable|string|max:10|exists:sqlsrv.dbo.sesi_master_cabang,Code',
             'id_skill' => 'nullable|array',
             'id_skill.*' => 'required|integer|exists:sqlsrv.dbo.sesi_master_skill,id_skill',
             'skill_baru' => 'nullable|array',
@@ -730,13 +750,10 @@ class PengajuanController extends Controller
             $user = auth()->user();
             $cabangId = $user->getCabangId();
 
-            if ($request->tujuan_penyewaan === 'PAC' && $request->id_cabang_asal === $cabangId) {
+            if ($pesan = $this->cekCabangTujuan($request, $cabangId)) {
                 DB::connection('sqlsrv')->rollBack();
 
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Cabang asal barang tidak boleh sama dengan cabang sendiri untuk PAC',
-                ], 422);
+                return response()->json(['success' => false, 'message' => $pesan], 422);
             }
 
             $allSkills = collect($request->id_skill)
@@ -767,12 +784,7 @@ class PengajuanController extends Controller
                 $this->pastikanVendorSkill((int) $request->id_perusahaan_ekspedisi, $cabangId, $allSkills);
 
                 foreach ($detailKiriman as $detail) {
-                    try {
-                        $resolved = $this->resolveHargaKirimanRutin((int) $request->id_perusahaan_ekspedisi, $cabangId, $allSkills, $detail);
-                    } catch (\InvalidArgumentException $e) {
-                        // Cuma barang yang baru ditambah saat edit yang bisa gagal di sini
-                        throw new \InvalidArgumentException('Jenis barang tanpa tarif master tidak bisa ditambahkan saat edit pengajuan.');
-                    }
+                    $resolved = $this->resolveHargaKirimanRutin((int) $request->id_perusahaan_ekspedisi, $cabangId, $allSkills, $detail);
                     $hargaSewa += $resolved['biaya_per_unit'] * $detail['quantity'];
                 }
             }
@@ -780,13 +792,11 @@ class PengajuanController extends Controller
             // Hitung rasio sewa termasuk biaya tambahan
             $totalBiayaTambahan = collect($request->biaya_tambahan ?? [])->sum('nominal');
             $rasioSewa = (($hargaSewa + $totalBiayaTambahan) / $request->value_muatan) * 100;
-            $isAreaBaru = $skillBaru->isNotEmpty();
-
-            $alurApproval = $this->hitungAlurApproval($request->jenis_pengajuan, $rasioSewa, $request->tujuan_penyewaan, $isAreaBaru);
+            $alurApproval = $this->hitungAlurApproval($request->jenis_pengajuan, $rasioSewa, $request->tujuan_penyewaan);
             $kategoriApproval = $alurApproval === 'WM' ? 'normal' : 'over_threshold';
 
             $updateData = [
-                'id_cabang_asal' => $request->tujuan_penyewaan === 'PAC' ? $request->id_cabang_asal : null,
+                'id_cabang_tujuan' => $request->tujuan_penyewaan === 'PAC' ? $request->id_cabang_tujuan : null,
                 'tanggal_pengiriman' => $request->tanggal_pengiriman,
                 'value_muatan' => $request->value_muatan,
                 'harga_sewa' => $hargaSewa,
@@ -828,11 +838,9 @@ class PengajuanController extends Controller
             }
 
             if ($request->jenis_pengajuan === 'pengiriman_rutin' && $detailKiriman) {
-                // Usulan harga per jenis barang (status apa pun) dibawa apa adanya ke baris baru —
-                // edit tidak bisa menambah/mengubah usulan karena harga terkunci
-                $usulanLama = DetailKirimanRutin::where('id_pengajuan_sewa', $pengajuan->id_pengajuan_sewa)
+                // Usulan harga baris lama (status apa pun) dibawa apa adanya; baris baru boleh mengusulkan
+                $barisLama = DetailKirimanRutin::where('id_pengajuan_sewa', $pengajuan->id_pengajuan_sewa)
                     ->where('flag', true)
-                    ->where(fn ($q) => $q->where('usulan_update_master', true)->orWhereNotNull('usulan_status'))
                     ->get()
                     ->keyBy('id_jenis_barang');
 
@@ -843,9 +851,11 @@ class PengajuanController extends Controller
 
                 // Insert baru
                 foreach ($detailKiriman as $detail) {
-                    $lama = $usulanLama->get($detail['id_jenis_barang']);
+                    $lama = $barisLama->get($detail['id_jenis_barang']);
                     $resolved = $this->resolveHargaKirimanRutin((int) $request->id_perusahaan_ekspedisi, $cabangId, $allSkills, $detail);
                     $subtotal = $resolved['biaya_per_unit'] * $detail['quantity'];
+                    // Barang baru tanpa tarif master selalu jadi usulan harga master
+                    $usulanBaru = ! $lama && ($resolved['id_tarif'] === null || ! empty($detail['usulan_update_master']));
 
                     DetailKirimanRutin::create([
                         'id_pengajuan_sewa' => $pengajuan->id_pengajuan_sewa,
@@ -856,8 +866,8 @@ class PengajuanController extends Controller
                         'subtotal' => $subtotal, // snapshot
                         'flag' => true,
                         'created_at' => now(),
-                        'usulan_update_master' => (bool) $lama?->usulan_update_master,
-                        'usulan_status' => $lama?->usulan_status,
+                        'usulan_update_master' => $lama ? (bool) $lama->usulan_update_master : $usulanBaru,
+                        'usulan_status' => $lama ? $lama->usulan_status : ($usulanBaru ? 'pending' : null),
                         'usulan_decided_by' => $lama?->usulan_decided_by,
                         'usulan_decided_at' => $lama?->usulan_decided_at,
                     ]);
@@ -1229,26 +1239,23 @@ class PengajuanController extends Controller
     }
 
     /**
-     * Urutan approver pengajuan (spesifikasi mentor, 30 Sept 2026). Vendor baru &
-     * perubahan harga TIDAK ikut menentukan — keduanya proses approval sendiri.
-     * - WC ikut kalau PAC (sewa truk maupun kiriman rutin).
-     * - WH ikut kalau sewa truk rasio > batas, atau ada area baru.
-     * Kiriman rutin tidak pakai rasio.
+     * Urutan approver pengajuan sewa. WH ikut kalau rasio sewa truk di atas batas;
+     * WC kalau PAC (lihat PengajuanSewa::hitungAlur). Kiriman rutin tidak pakai rasio.
+     * Area baru dan vendor/harga baru tidak memengaruhi alur.
      */
-    private function hitungAlurApproval(string $jenisPengajuan, float $rasioSewa, string $tujuanPenyewaan, bool $isAreaBaru): string
+    private function hitungAlurApproval(string $jenisPengajuan, float $rasioSewa, string $tujuanPenyewaan): string
     {
         $rasioMaks = RasioSewa::aktif()?->persentase_maksimal ?? 2.5;
 
-        $butuhWh = $isAreaBaru || ($jenisPengajuan === 'sewa_truk' && $rasioSewa > $rasioMaks);
+        $butuhWh = $jenisPengajuan === 'sewa_truk' && $rasioSewa > $rasioMaks;
 
         return PengajuanSewa::hitungAlur($tujuanPenyewaan === 'PAC', $butuhWh);
     }
 
     /**
-     * Tabel wewenang (2 Okt 2026): harga tidak bisa diubah lewat edit pengajuan —
-     * perubahan harga lewat pengajuan perubahan harga. Vendor/kendaraan ikut dikunci
-     * karena harga nempel ke vendor. Untuk kiriman rutin, return detail_kiriman yang
-     * harganya sudah dipaksa ke snapshot lama (barang baru → harga master).
+     * Harga tidak bisa diubah lewat edit pengajuan; vendor/kendaraan ikut dikunci karena
+     * harga melekat ke vendor. Kiriman rutin: baris yang sudah tersimpan dipaksa ke harga
+     * snapshot lama, barang baru diproses seperti pengajuan baru.
      */
     private function kunciHargaSaatEdit(Request $request, PengajuanSewa $pengajuan): array
     {
@@ -1286,11 +1293,8 @@ class PengajuanController extends Controller
                 }
                 $detail['biaya_per_unit'] = (float) $lama->harga_satuan;
                 $detail['harga_custom'] = true;
-            } else {
-                $detail['biaya_per_unit'] = null;
-                $detail['harga_custom'] = false;
+                $detail['usulan_update_master'] = false;
             }
-            $detail['usulan_update_master'] = false;
 
             return $detail;
         })->all();
@@ -1342,14 +1346,14 @@ class PengajuanController extends Controller
 
     /**
      * POST /api/pengajuan/{id}/notifikasi-baru — dipanggil frontend SETELAH SJ/TO-ACB ter-link
-     * (link dilakukan lewat request terpisah pasca-submit), biar lampiran daftar SJ tidak kosong.
+     * (link dilakukan lewat request terpisah pasca-submit), biar daftar SJ di email tidak kosong.
      * ulang=1 dipakai jalur edit/resubmit.
      */
     public function notifikasiBaru(Request $request, $id)
     {
         $pengajuan = PengajuanSewa::findOrFail($id);
 
-        if ($pengajuan->submitted_by !== auth()->id()) {
+        if (strcasecmp((string) $pengajuan->pengaju?->username, (string) auth()->user()->username) !== 0) {
             return response()->json(['success' => false, 'message' => 'Bukan pengajuan Anda'], 403);
         }
         if (strtolower($pengajuan->status_pengajuan) !== 'pending') {

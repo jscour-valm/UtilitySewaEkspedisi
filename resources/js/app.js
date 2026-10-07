@@ -78,12 +78,14 @@ document.addEventListener('DOMContentLoaded', () => {
 })
 
 // Naikkan versi tiap struktur draft berubah; draft versi lain dibuang saat dibaca.
-const PENGAJUAN_DRAFT_VERSION = 5
+const PENGAJUAN_DRAFT_VERSION = 6
 const DRAFT_TTL_MS = 48 * 60 * 60 * 1000
 
 Alpine.data('pengajuanSewa', () => ({
     step: 1, // 1-4=wizard steps (jenis pengajuan dipilih via toggle persisten)
     editId: null,
+    dataAwalEdit: null, // ringkasanEdit() saat halaman edit dibuka, pembanding penanda "Diubah" di review
+    barisAwalEdit: [], // baris Daftar Barang tersimpan saat halaman edit dibuka (harganya terkunci)
     searchKendaraan: '',
     searchPerusahaan: '',
     kendaraanTerpilih: null,
@@ -116,14 +118,14 @@ Alpine.data('pengajuanSewa', () => ({
     skillList: [],
     loadingSkillList: false, // beda "masih fetch" vs "udah selesai & beneran kosong" (Jo, 30 Sept)
     jenisKendaraanList: [], // [{id_jenis_kendaraan, nama_jenis, muatan_maksimal_ton}] — dropdown "Jenis Kendaraan"
-    cabangList: [], // [{Code, Name}] — dropdown "Cabang Asal Barang" (PAC)
+    cabangList: [], // [{Code, Name}] — dropdown "Cabang Tujuan" (PAC)
     kategoriTokoList: [],
     jenisBiayaList: [],
     pengajuan: {
         jenis_pengajuan: 'sewa_truk', // 'sewa_truk' | 'pengiriman_rutin'
         tanggal_pengiriman: '',
         tujuan_penyewaan: '',
-        id_cabang_asal: '', // PAC only — cabang asal barang, dropdown muncul kalau tujuan_penyewaan=PAC
+        id_cabang_tujuan: '', // PAC only — cabang tujuan barang
         id_skill: [],
         kategoriToko: '',
         harga_sewa: '',
@@ -211,13 +213,24 @@ Alpine.data('pengajuanSewa', () => ({
         return (this.totalDenganBiayaTambahan / this.valueMuatanDipilih) * 100
     },
 
-    // Pratinjau alur approval — rumus sama dgn PengajuanController::hitungAlurApproval():
-    // WM selalu; WC kalau PAC; WH kalau sewa truk rasio > 2,5% atau ada area baru.
+    // Batas rasio sewa dari server (RasioSewa aktif).
+    get rasioMaks() {
+        return Number(window.__rasioMaks ?? 2.5)
+    },
+
+    get rasioDiAtasBatas() {
+        return this.pengajuan.jenis_pengajuan === 'sewa_truk'
+            && this.rasioSewaEstimasi !== null && this.rasioSewaEstimasi > this.rasioMaks
+    },
+
+    // Pratinjau alur approval, sama dengan PengajuanSewa::hitungAlur().
     get alurApprovalEstimasi() {
-        const rasioLewat = this.pengajuan.jenis_pengajuan === 'sewa_truk'
-            && this.rasioSewaEstimasi !== null && this.rasioSewaEstimasi > 2.5
-        const butuhWh = rasioLewat || this.skillBaru.some(s => String(s).trim() !== '')
-        return ['WM', this.pengajuan.tujuan_penyewaan === 'PAC' ? 'WC' : null, butuhWh ? 'WH' : null].filter(Boolean)
+        if (this.rasioDiAtasBatas) return ['WM', 'WH']
+        return this.pengajuan.tujuan_penyewaan === 'PAC' ? ['WM', 'WC'] : ['WM']
+    },
+
+    get adaAreaBaru() {
+        return this.skillBaru.some(s => String(s).trim() !== '')
     },
 
     get dokumenPaged() {
@@ -394,7 +407,7 @@ Alpine.data('pengajuanSewa', () => ({
             this.pengajuan.tanggal_pengiriman = data.tanggal_pengiriman
             this.pengajuan.harga_sewa = data.harga_sewa
             this.pengajuan.tujuan_penyewaan = data.tujuan_penyewaan
-            this.pengajuan.id_cabang_asal = data.id_cabang_asal || ''
+            this.pengajuan.id_cabang_tujuan = data.id_cabang_tujuan || ''
             this.pengajuan.kategoriToko = data.kategori_toko
             this.pengajuan.catatan = data.catatan_pengajuan
             this.pengajuan.value_muatan = data.value_muatan // Prefill value_muatan dari database
@@ -418,7 +431,8 @@ Alpine.data('pengajuanSewa', () => ({
                 // Area tersimpan selalu id_skill terdaftar (1 area).
                 this.pengajuan.id_skill = data.id_skill.map(String).slice(0, 1)
                 this.skillBaru = []
-                this.detailKirimanRutin = data.detail_kiriman_dipilih || []
+                this.detailKirimanRutin = (data.detail_kiriman_dipilih || []).map(d => ({ ...d, tersimpan: true }))
+                this.barisAwalEdit = this.detailKirimanRutin.map(d => ({ ...d }))
                 this.detailKirimanArea = this.areaRutinKey
                 this.resolveRateCardForVendor()
             }
@@ -426,6 +440,7 @@ Alpine.data('pengajuanSewa', () => ({
             // Skill udah pernah dikunci sebelumnya
             this.skillLocked = true
             this.step = 2
+            this.dataAwalEdit = this.ringkasanEdit()
 
             // Fetch dokumen (SJ/TO-ACB) — tujuan_penyewaan & id_cabang di atas di-assign
             // langsung (bukan lewat watcher), dan watcher yang biasanya trigger ini baru
@@ -644,8 +659,7 @@ Alpine.data('pengajuanSewa', () => ({
         target.muatan_maksimal = found ? found.muatan_maksimal_ton : ''
     },
 
-    // Dropdown "Cabang Asal Barang" (PAC only, review mentor item 5-7) — cabang lain
-    // selain cabang login sendiri.
+    // Dropdown "Cabang Tujuan" (PAC) — cabang satu area dengan cabang sendiri.
     async fetchCabangList() {
         try {
             const res = await fetch('/api/pengajuan/cabang-list')
@@ -1028,7 +1042,7 @@ Alpine.data('pengajuanSewa', () => ({
         if (this.pengajuan.jenis_pengajuan === 'sewa_truk' && !this.pengajuan.harga_sewa) missing.push('Harga Sewa')
         if (this.pengajuan.jenis_pengajuan === 'pengiriman_rutin' && !this.detailKirimanRutinValid) missing.push('Daftar Barang (pilih jenis barang & isi qty/harga tiap baris)')
         if (!this.pengajuan.tujuan_penyewaan) missing.push('Tujuan Penyewaan')
-        if (this.pengajuan.tujuan_penyewaan === 'PAC' && !this.pengajuan.id_cabang_asal) missing.push('Cabang Asal Barang')
+        if (this.pengajuan.tujuan_penyewaan === 'PAC' && !this.pengajuan.id_cabang_tujuan) missing.push('Cabang Tujuan')
         if (!this.adaSkillTerpilih) missing.push('Skill/Area (minimal 1)')
         if (!this.pengajuan.kategoriToko) missing.push('Kategori Toko')
         return missing.length ? 'Lengkapi dulu: ' + missing.join(', ') : ''
@@ -1224,22 +1238,88 @@ Alpine.data('pengajuanSewa', () => ({
         })
     },
 
+    // Pilihan jenis barang per baris. Mode edit: baris baru tidak boleh memilih jenis
+    // yang sudah ada di baris lain.
+    opsiJenisBarang(idx) {
+        const detail = this.detailKirimanRutin[idx]
+        if (!this.editId || !detail || detail.tersimpan) return this.jenisBarangList
+        const dipakai = this.detailKirimanRutin
+            .filter((d, i) => i !== idx && d.id_jenis_barang)
+            .map(d => String(d.id_jenis_barang))
+        return this.jenisBarangList.filter(b => !dipakai.includes(String(b.id_jenis_barang)))
+    },
+
+    // Mode edit: harga baris yang sudah tersimpan tidak bisa diubah.
+    hargaTerkunci(detail) {
+        return !!(this.editId && detail.tersimpan)
+    },
+
+    // Data pembanding mode edit, dikelompokkan per kartu di step 4.
+    ringkasanEdit() {
+        const urut = arr => arr.map(String).sort()
+        return {
+            tanggal: String(this.pengajuan.tanggal_pengiriman || ''),
+            tujuan: JSON.stringify([
+                this.pengajuan.tujuan_penyewaan || '',
+                this.pengajuan.tujuan_penyewaan === 'PAC' ? (this.pengajuan.id_cabang_tujuan || '') : '',
+                urut([...this.pengajuan.id_skill, ...this.skillBaru]),
+                this.pengajuan.kategoriToko || '',
+            ]),
+            barang: JSON.stringify(urut(this.detailKirimanRutin
+                .filter(d => d.id_jenis_barang && Number(d.quantity) > 0)
+                .map(d => d.id_jenis_barang + ':' + Number(d.quantity)))),
+            biaya: JSON.stringify(urut(this.biayaTambahan.map(b => b.id_jenis_biaya + ':' + Number(b.nominal || 0)))),
+            dokumen: JSON.stringify(urut(this.dokumenDipilih)),
+            catatan: String(this.pengajuan.catatan || '').trim(),
+        }
+    },
+
+    // Bagian yang berbeda dari data saat halaman edit dibuka.
+    get perubahanEdit() {
+        if (!this.editId || !this.dataAwalEdit) return []
+        const label = {
+            tanggal: 'Tanggal pengiriman',
+            tujuan: 'Tujuan & area',
+            barang: 'Daftar barang',
+            biaya: 'Biaya tambahan',
+            dokumen: 'Dokumen',
+            catatan: 'Catatan',
+        }
+        const sekarang = this.ringkasanEdit()
+        return Object.keys(label)
+            .filter(k => sekarang[k] !== this.dataAwalEdit[k])
+            .map(k => ({ bagian: k, label: label[k] }))
+    },
+
+    berubah(...bagian) {
+        return this.perubahanEdit.some(p => bagian.includes(p.bagian))
+    },
+
     // Kiriman Rutin: dipanggil saat user pilih jenis barang di 1 baris Daftar Barang.
-    // Cari tarif existing utk (vendor terpilih, jenis barang ini); kalau ga ketemu,
-    // biarkan user isi harga manual (akan didaftarkan sbg tarif baru saat submit).
+    // Tarif vendor ada → harga master; tidak ada → user isi harga dan baris jadi usulan harga master.
     pilihJenisBarangDetail(detail) {
+        // Mode edit: jenis yang pernah tersimpan (baris dihapus lalu ditambah lagi) pakai harga lamanya
+        const awal = this.editId && this.barisAwalEdit.find(b => String(b.id_jenis_barang) === String(detail.id_jenis_barang))
+        if (awal) {
+            Object.assign(detail, { ...awal, quantity: detail.quantity })
+            detail.subtotal = Number(detail.quantity || 0) * Number(detail.harga_satuan || 0)
+            return
+        }
         const tarif = this.tarifAreaTerpilih.find(t => t.id_jenis_barang == detail.id_jenis_barang)
         if (tarif) {
             detail.id_tarif_kiriman_rutin = tarif.id_tarif
             detail.jenis_barang = tarif.nama_barang
             detail.harga_satuan = tarif.biaya_per_unit
             detail.tarif_baru = false
+            detail.usulan_update_master = false
         } else {
             const barang = this.jenisBarangList.find(b => b.id_jenis_barang == detail.id_jenis_barang)
             detail.id_tarif_kiriman_rutin = null
             detail.jenis_barang = barang?.nama_barang ?? ''
             detail.harga_satuan = ''
             detail.tarif_baru = true
+            // Barang tanpa tarif master: harganya selalu diajukan jadi harga master
+            detail.usulan_update_master = true
         }
         detail.subtotal = Number(detail.quantity || 0) * Number(detail.harga_satuan || 0)
     },
@@ -1319,7 +1399,7 @@ Alpine.data('pengajuanSewa', () => ({
             harga_sewa: this.pengajuan.harga_sewa,
             value_muatan: valueMuatan,
             tujuan_penyewaan: this.pengajuan.tujuan_penyewaan,
-            id_cabang_asal: this.pengajuan.tujuan_penyewaan === 'PAC' ? this.pengajuan.id_cabang_asal : null,
+            id_cabang_tujuan: this.pengajuan.tujuan_penyewaan === 'PAC' ? this.pengajuan.id_cabang_tujuan : null,
             id_skill: this.pengajuan.id_skill,
             skill_baru: this.skillBaru,
             kategori_toko: this.pengajuan.kategoriToko,
@@ -1348,7 +1428,7 @@ Alpine.data('pengajuanSewa', () => ({
                 biaya_per_unit: (d.tarif_baru || d.usulan_update_master || d.harga_custom) ? d.harga_satuan : null,
                 harga_custom: !!d.harga_custom,
                 // Part B — usul per baris (independen, bukan all-or-nothing per pengajuan).
-                usulan_update_master: d.usulan_update_master,
+                usulan_update_master: !!(d.usulan_update_master || d.tarif_baru),
             }))
         }
 
@@ -1381,7 +1461,7 @@ Alpine.data('pengajuanSewa', () => ({
                 await this.linkDokumenToPengajuan(json.id_pengajuan)
             }
 
-            // Email notifikasi ke WM — dipicu SETELAH dokumen ter-link supaya lampiran daftar SJ terisi.
+            // Email notifikasi ke WM — dipicu SETELAH dokumen ter-link supaya daftar SJ di email terisi.
             // Gagal kirim notifikasi tidak boleh mengganggu alur submit.
             try {
                 await fetch(`/api/pengajuan/${json.id_pengajuan}/notifikasi-baru`, {

@@ -18,21 +18,20 @@ use Illuminate\Support\Facades\Mail;
  */
 class NotifikasiPengajuanService
 {
-    public function __construct(private LampiranSjService $lampiran) {}
+    public function __construct(private SnapshotDokumenService $snapshot) {}
 
-    /** Pengajuan baru (atau diajukan ulang) masuk: To WM cabang, CC KG pengaju. Lampiran SJ dibuat ulang (snapshot). */
+    /** Pengajuan baru (atau diajukan ulang) masuk: To WM cabang, CC KG pengaju. Snapshot dokumen diperbarui. */
     public function pengajuanBaru(PengajuanSewa $p, bool $ulang = false): void
     {
         $this->kirim($p, 'baru', $this->emailWm($p->id_cabang), $this->emailKg($p), $ulang, true);
     }
 
     /**
-     * Satu email per keputusan (validasi/approval/tolak), To KG pengaju — matriks tabel
-     * wewenang Jo (2 Okt 2026) + matriks mentor (30 Sept):
+     * Satu email per keputusan (validasi/approval/tolak), To KG pengaju:
      * - lanjut WC        → CC WM, WC
-     * - lanjut WH        → CC WM, WH (+WC kalau yang approve WC, alur 3 tingkat)
+     * - lanjut WH        → CC WM, WH (+WC kalau tujuan PAC)
      * - final approved   → CC WM, WC, KA (+WH kalau alur punya tahap approval)
-     * - ditolak          → CC WM + WC/WH yang ada di alur (KA tidak, nunggu jawaban mentor)
+     * - ditolak          → CC WM + WC/WH yang ada di alur (tanpa KA)
      * DCI selalu di-CC lewat kirim().
      */
     public function keputusan(PengajuanSewa $p, string $peranPemutus, ?string $berikutnya, ?string $alasanPenolakan = null): void
@@ -61,7 +60,12 @@ class NotifikasiPengajuanService
         }
 
         if ($berikutnya !== null) {
-            return ['menunggu_approval', array_values(array_unique(['WM', $peranPemutus, $berikutnya]))];
+            $cc = ['WM', $peranPemutus, $berikutnya];
+            if ($p->tujuan_penyewaan === 'PAC') {
+                $cc[] = 'WC';
+            }
+
+            return ['menunggu_approval', array_values(array_unique($cc))];
         }
 
         // Final di WM saja (sewa ≤ batas rasio / rutin tanpa PAC): WM, WC, KA.
@@ -69,7 +73,7 @@ class NotifikasiPengajuanService
         return ['approved', $alur === ['WM'] ? ['WM', 'WC', 'KA'] : ['WM', 'WC', 'WH', 'KA']];
     }
 
-    private function kirim(PengajuanSewa $p, string $tipe, array $to, array $ccTambahan = [], bool $ulang = false, bool $buatLampiran = false, ?string $peranBerikutnya = null, ?string $alasan = null): void
+    private function kirim(PengajuanSewa $p, string $tipe, array $to, array $ccTambahan = [], bool $ulang = false, bool $perbaruiSnapshot = false, ?string $peranBerikutnya = null, ?string $alasan = null): void
     {
         $to = array_values(array_unique($to));
         if (empty($to)) {
@@ -84,17 +88,16 @@ class NotifikasiPengajuanService
         // Satu link untuk semua penerima: redirect sesuai role (approver → halaman review, lainnya → detail)
         $url = route('pengajuan.buka', $p->id_pengajuan_sewa);
 
-        defer(function () use ($p, $tipe, $to, $cc, $url, $alasan, $ulang, $buatLampiran, $peranBerikutnya) {
+        defer(function () use ($p, $tipe, $to, $cc, $url, $alasan, $ulang, $perbaruiSnapshot, $peranBerikutnya) {
             try {
-                $lampiran = $buatLampiran ? $this->lampiran->buat($p) : $this->lampiran->ambil($p);
+                $dokumen = $perbaruiSnapshot ? $this->snapshot->simpan($p) : $this->snapshot->ambil($p);
 
                 $mailable = new NotifikasiPengajuanMail(
                     $p->fresh(),
                     $tipe,
                     $url,
                     $alasan,
-                    $lampiran,
-                    $this->lampiran->ringkasan($p),
+                    $dokumen,
                     $ulang,
                     $peranBerikutnya,
                 );

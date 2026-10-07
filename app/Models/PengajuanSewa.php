@@ -6,6 +6,7 @@ use App\Models\Concerns\HasFlag;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\DB;
 
 class PengajuanSewa extends Model
 {
@@ -23,7 +24,7 @@ class PengajuanSewa extends Model
         'id_kendaraan',
         'id_perusahaan_ekspedisi',
         'id_cabang',
-        'id_cabang_asal',
+        'id_cabang_tujuan',
         'tanggal_pengiriman',
         'value_muatan',
         'harga_sewa',
@@ -136,13 +137,56 @@ class PengajuanSewa extends Model
     }
 
     /**
-     * Urutan approver sesuai spesifikasi mentor (30 Sept 2026): WM selalu validasi,
-     * WC kalau PAC, WH kalau butuh WH (rasio sewa truk >2,5% atau area baru).
-     * PAC + butuh WH = 3 tingkat WM → WC → WH.
+     * Urutan approver: WM selalu validasi; lalu WH kalau rasio sewa truk di atas batas
+     * (termasuk PAC), WC kalau PAC dengan rasio di bawah batas.
      */
     public static function hitungAlur(bool $isPac, bool $butuhWh): string
     {
-        return implode(',', array_filter(['WM', $isPac ? 'WC' : null, $butuhWh ? 'WH' : null]));
+        if ($butuhWh) {
+            return 'WM,WH';
+        }
+
+        return $isPac ? 'WM,WC' : 'WM';
+    }
+
+    /**
+     * Nama area pengajuan ini yang baru didaftarkan ke cabang lewat pengajuan ini
+     * (baris sesi_cabang_skill dibuat di sekitar waktu pengajuan dibuat/diajukan ulang).
+     * Hanya informasi; tidak memengaruhi alur approval.
+     *
+     * @return string[]
+     */
+    public function areaBaru(): array
+    {
+        $ids = array_filter(array_map('trim', explode(',', (string) $this->id_skill)));
+        if (! $ids || ! $this->created_at) {
+            return [];
+        }
+
+        $mulai = $this->created_at->copy()->subMinutes(5);
+        $selesai = ($this->submitted_at ?? $this->created_at)->copy()->addMinutes(5);
+
+        return DB::connection('sqlsrv')->table('sesi_cabang_skill as cs')
+            ->join('sesi_master_skill as ms', 'ms.id_skill', '=', 'cs.id_skill')
+            ->where('cs.cabang_code', $this->id_cabang)
+            ->whereIn('cs.id_skill', $ids)
+            ->whereBetween('cs.created_at', [$mulai, $selesai])
+            ->pluck('ms.nama_skill')
+            ->all();
+    }
+
+    /** Cabang tujuan PAC dalam format "Code — Name", null kalau tidak diisi. */
+    public function labelCabangTujuan(): ?string
+    {
+        if (! $this->id_cabang_tujuan) {
+            return null;
+        }
+
+        $nama = DB::connection('sqlsrv')->table('sesi_master_cabang')
+            ->where('Code', $this->id_cabang_tujuan)
+            ->value('Name');
+
+        return $nama ? $this->id_cabang_tujuan.' — '.$nama : $this->id_cabang_tujuan;
     }
 
     /** @return string[] mis. ['WM','WC','WH']. Pengajuan lama tanpa alur diturunkan dari kategori. */

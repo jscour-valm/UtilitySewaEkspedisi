@@ -63,7 +63,7 @@
                 placeholder="Contoh: 2.500.000"
                 class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-avian-green focus:outline-none"
                 :class="editId ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''">
-            {{-- Tabel wewenang (2 Okt): harga terkunci saat edit, perubahan harga lewat pengajuan perubahan harga --}}
+            {{-- Tabel wewenang : harga terkunci saat edit, perubahan harga lewat pengajuan perubahan harga --}}
             <p x-show="editId" class="mt-1 text-[11px] text-gray-500">Harga sewa tidak bisa diubah saat edit. Untuk mengubah harga, gunakan pengajuan perubahan harga.</p>
             {{-- Part B — usul harga di atas jadi harga master baru (vendor+cabang+area
                  ini). Keputusan approve/reject-nya independen dari approve/reject
@@ -97,16 +97,16 @@
             </div>
         </div>
 
-        {{-- Cabang Asal Barang (PAC ONLY) — review mentor item 5-7 --}}
+        {{-- Cabang Tujuan (PAC) --}}
         <div x-show="pengajuan.tujuan_penyewaan === 'PAC'">
             <label class="mb-1 block text-xs font-medium text-gray-600">
-                Cabang Asal Barang <span class="text-red-500">*</span>
+                Cabang Tujuan <span class="text-red-500">*</span>
             </label>
             <div class="relative">
                 <select
-                    x-model="pengajuan.id_cabang_asal"
+                    x-model="pengajuan.id_cabang_tujuan"
                     class="w-full appearance-none rounded-lg border border-gray-300 px-3 py-2 pr-9 text-sm focus:border-avian-green focus:outline-none">
-                    <option value="">-- Pilih Cabang Asal --</option>
+                    <option value="">-- Pilih Cabang Tujuan --</option>
                     <template x-for="c in cabangList" :key="c.Code">
                         <option :value="c.Code" x-text="c.Code + ' — ' + c.Name"></option>
                     </template>
@@ -254,6 +254,9 @@
                             + Tambah Item
                         </button>
                     </div>
+                    <p x-show="editId" class="mb-3 text-[11px] text-gray-500">
+                        Saat edit, harga barang yang sudah ada terkunci. Barang baru tetap bisa ditambahkan.
+                    </p>
 
                     <div x-show="detailKirimanRutin.length === 0" class="text-sm text-gray-400 text-center py-4">
                         Belum ada item. Klik "+ Tambah Item" untuk mulai.
@@ -263,14 +266,15 @@
                         <template x-for="(detail, idx) in detailKirimanRutin" :key="idx">
                             <div class="bg-white rounded border border-gray-200 p-3">
                                 <div class="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_5rem_1.75rem_8rem_8rem_1.5rem] sm:gap-3 sm:items-center">
-                                    {{-- Jenis Barang Dropdown (selalu semua master, apapun vendornya) --}}
+                                    {{-- Jenis Barang: semua master; mode edit baris tersimpan dikunci --}}
                                     <div>
                                         <select x-model="detail.id_jenis_barang"
                                             x-init="$nextTick(() => { $el.value = detail.id_jenis_barang })"
                                             @change="pilihJenisBarangDetail(detail)"
-                                            class="w-full rounded border border-gray-300 px-2 py-1.5 text-xs">
+                                            :disabled="hargaTerkunci(detail)"
+                                            class="w-full rounded border border-gray-300 px-2 py-1.5 text-xs disabled:bg-gray-100 disabled:text-gray-600">
                                             <option value="">-- Pilih Barang --</option>
-                                            <template x-for="b in jenisBarangList" :key="b.id_jenis_barang">
+                                            <template x-for="b in opsiJenisBarang(idx)" :key="b.id_jenis_barang">
                                                 <option :value="b.id_jenis_barang" x-text="b.nama_barang"></option>
                                             </template>
                                         </select>
@@ -291,10 +295,10 @@
                                     {{-- Harga Satuan: read-only kalau tarif sudah ada, editable kalau tarif baru --}}
                                     <div>
                                         <span class="sm:hidden text-[10px] text-gray-400">Harga Satuan</span>
-                                        <template x-if="editId || (!detail.tarif_baru && !detail.usulan_update_master && !detail.harga_custom)">
+                                        <template x-if="hargaTerkunci(detail) || (!detail.tarif_baru && !detail.usulan_update_master && !detail.harga_custom)">
                                             <span class="block sm:text-right text-xs text-gray-500 py-1" x-text="'Rp ' + Number(detail.harga_satuan || 0).toLocaleString('id-ID')"></span>
                                         </template>
-                                        <template x-if="!editId && (detail.tarif_baru || detail.usulan_update_master || detail.harga_custom)">
+                                        <template x-if="!hargaTerkunci(detail) && (detail.tarif_baru || detail.usulan_update_master || detail.harga_custom)">
                                             <input type="text" inputmode="numeric"
                                                 :value="formatRibuan(detail.harga_satuan)"
                                                 @input="detail.harga_satuan = parseRibuan($event.target.value); detail.subtotal = Number(detail.quantity || 0) * Number(detail.harga_satuan || 0)"
@@ -317,11 +321,8 @@
                                 </div>
 
                                 {{-- Notifikasi tarif — baris penuh terpisah --}}
-                                <p x-show="detail.tarif_baru && !editId" class="mt-2 text-[11px] font-medium text-amber-600">
-                                    Harga khusus pengajuan ini. Belum jadi tarif resmi vendor — daftarkan lewat Kelola Tarif kalau mau dipakai pengajuan berikutnya.
-                                </p>
-                                <p x-show="detail.tarif_baru && editId" class="mt-2 text-[11px] font-medium text-red-600">
-                                    Jenis barang ini belum punya tarif master, jadi tidak bisa ditambahkan saat edit pengajuan.
+                                <p x-show="detail.tarif_baru && !hargaTerkunci(detail)" class="mt-2 text-[11px] font-medium text-amber-600">
+                                    Barang ini belum punya tarif master. Harga yang diisi otomatis diajukan sebagai harga master vendor dan diputuskan approver.
                                 </p>
                                 <template x-if="cekSelisihTarif(detail) !== null">
                                     <p class="mt-2 text-[11px] font-medium text-blue-600">
@@ -329,10 +330,9 @@
                                         selisih <span x-text="(Number(detail.harga_satuan) > cekSelisihTarif(detail) ? '+' : '−') + 'Rp ' + Math.abs(Number(detail.harga_satuan) - cekSelisihTarif(detail)).toLocaleString('id-ID')"></span> per unit.
                                     </p>
                                 </template>
-                                {{-- Part B — usul per baris (independen, bukan all-or-nothing per pengajuan).
-                                     Mode edit: harga terkunci (tabel wewenang, 2 Okt), checkbox usulan disembunyikan. --}}
-                                <label x-show="!editId && (Number(detail.harga_satuan) > 0 || detail.usulan_update_master) && !usulanTerkunci(detail.usulan_status)" class="mt-2 flex items-start gap-2 text-[11px] text-gray-500">
-                                    <input type="checkbox" x-model="detail.usulan_update_master" @change="toggleUsulanHarga(detail)" class="mt-0.5 rounded border-gray-300 text-avian-green focus:ring-avian-green">
+                                {{-- Usulan harga master per baris; disembunyikan untuk baris yang harganya terkunci saat edit --}}
+                                <label x-show="!hargaTerkunci(detail) && (Number(detail.harga_satuan) > 0 || detail.usulan_update_master) && !usulanTerkunci(detail.usulan_status)" class="mt-2 flex items-start gap-2 text-[11px] text-gray-500">
+                                    <input type="checkbox" x-model="detail.usulan_update_master" :disabled="detail.tarif_baru" @change="toggleUsulanHarga(detail)" class="mt-0.5 rounded border-gray-300 text-avian-green focus:ring-avian-green">
                                     <span>Ajukan sbg harga master jenis barang ini? <span class="text-gray-400">(centang untuk mengubah harga di kolom; harga itu yang dipakai di pengajuan ini)</span></span>
                                 </label>
                                 <p x-show="usulanTerkunci(detail.usulan_status)" class="mt-2 text-[11px] font-medium"
@@ -492,12 +492,12 @@
             type="button"
             @click="goToStep(3)"
             :disabled="pengajuan.jenis_pengajuan === 'sewa_truk'
-                ? (!pengajuan.tanggal_pengiriman || !pengajuan.harga_sewa || !pengajuan.tujuan_penyewaan || (pengajuan.tujuan_penyewaan === 'PAC' && !pengajuan.id_cabang_asal) || !adaSkillTerpilih || !pengajuan.kategoriToko)
-                : (!pengajuan.tanggal_pengiriman || !detailKirimanRutinValid || !pengajuan.tujuan_penyewaan || (pengajuan.tujuan_penyewaan === 'PAC' && !pengajuan.id_cabang_asal) || !adaSkillTerpilih || !pengajuan.kategoriToko)"
+                ? (!pengajuan.tanggal_pengiriman || !pengajuan.harga_sewa || !pengajuan.tujuan_penyewaan || (pengajuan.tujuan_penyewaan === 'PAC' && !pengajuan.id_cabang_tujuan) || !adaSkillTerpilih || !pengajuan.kategoriToko)
+                : (!pengajuan.tanggal_pengiriman || !detailKirimanRutinValid || !pengajuan.tujuan_penyewaan || (pengajuan.tujuan_penyewaan === 'PAC' && !pengajuan.id_cabang_tujuan) || !adaSkillTerpilih || !pengajuan.kategoriToko)"
             :title="tooltipStep2"
             :class="(pengajuan.jenis_pengajuan === 'sewa_truk'
-                ? (pengajuan.tanggal_pengiriman && pengajuan.harga_sewa && pengajuan.tujuan_penyewaan && (pengajuan.tujuan_penyewaan !== 'PAC' || pengajuan.id_cabang_asal) && adaSkillTerpilih && pengajuan.kategoriToko)
-                : (pengajuan.tanggal_pengiriman && detailKirimanRutinValid && pengajuan.tujuan_penyewaan && (pengajuan.tujuan_penyewaan !== 'PAC' || pengajuan.id_cabang_asal) && adaSkillTerpilih && pengajuan.kategoriToko))
+                ? (pengajuan.tanggal_pengiriman && pengajuan.harga_sewa && pengajuan.tujuan_penyewaan && (pengajuan.tujuan_penyewaan !== 'PAC' || pengajuan.id_cabang_tujuan) && adaSkillTerpilih && pengajuan.kategoriToko)
+                : (pengajuan.tanggal_pengiriman && detailKirimanRutinValid && pengajuan.tujuan_penyewaan && (pengajuan.tujuan_penyewaan !== 'PAC' || pengajuan.id_cabang_tujuan) && adaSkillTerpilih && pengajuan.kategoriToko))
                 ? 'bg-avian-green text-white hover:bg-avian-green-dark'
                 : 'bg-gray-100 text-gray-400 cursor-not-allowed'"
             class="rounded-lg px-4 py-2 text-sm font-medium transition">

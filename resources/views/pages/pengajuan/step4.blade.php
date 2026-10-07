@@ -1,9 +1,20 @@
 <div class="space-y-6">
 
-    <h3 class="text-sm font-semibold text-gray-700">Review & Submit</h3>
+    <h3 class="text-sm font-semibold text-gray-700" x-text="editId ? 'Review Perubahan' : 'Review & Submit'"></h3>
+
+    {{-- Mode edit: ringkasan bagian yang berubah --}}
+    <div x-show="editId" class="rounded-lg border px-4 py-3"
+        :class="perubahanEdit.length ? 'border-amber-300 bg-amber-50' : 'border-gray-200 bg-gray-50'">
+        <p x-show="perubahanEdit.length" class="text-xs text-amber-800">
+            <span class="font-medium">Yang diubah:</span>
+            <span x-text="perubahanEdit.map(p => p.label).join(', ')"></span>.
+            Bagian yang berubah ditandai <span class="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">Diubah</span>.
+        </p>
+        <p x-show="!perubahanEdit.length" class="text-xs text-gray-600">Belum ada perubahan dari pengajuan sebelumnya.</p>
+    </div>
 
     {{-- Alert Info --}}
-    <div class="rounded-lg bg-blue-50 border border-blue-200 px-4 py-3">
+    <div x-show="!editId" class="rounded-lg bg-blue-50 border border-blue-200 px-4 py-3">
         <p class="text-xs text-blue-700">
             <span class="font-medium">Periksa kembali data Anda sebelum submit.</span>
             Setelah submit, pengajuan akan masuk ke proses approval.
@@ -48,8 +59,8 @@
         </div>
 
         {{-- Tanggal & Harga --}}
-        <div class="rounded-lg border border-gray-200 p-4 bg-gray-50">
-            <p class="mb-3 text-xs font-medium text-gray-500 uppercase">Tanggal & Harga</p>
+        <div :class="berubah('tanggal', 'barang') ? 'border-amber-400 bg-amber-50' : 'border-gray-200 bg-gray-50'" class="rounded-lg border p-4">
+            <p class="mb-3 text-xs font-medium text-gray-500 uppercase">Tanggal & Harga<span x-show="berubah('tanggal', 'barang')" class="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold normal-case text-amber-700">Diubah</span></p>
             <p class="text-xs text-gray-600 mb-1">
                 <span class="font-medium">Pengiriman:</span>
                 <span x-text="formatTanggalID(pengajuan.tanggal_pengiriman)"></span>
@@ -65,15 +76,15 @@
         </div>
 
         {{-- Tujuan & Skill --}}
-        <div class="rounded-lg border border-gray-200 p-4 bg-gray-50">
-            <p class="mb-3 text-xs font-medium text-gray-500 uppercase">Tujuan & Area Pengantaran</p>
+        <div :class="berubah('tujuan') ? 'border-amber-400 bg-amber-50' : 'border-gray-200 bg-gray-50'" class="rounded-lg border p-4">
+            <p class="mb-3 text-xs font-medium text-gray-500 uppercase">Tujuan & Area Pengantaran<span x-show="berubah('tujuan')" class="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold normal-case text-amber-700">Diubah</span></p>
             <p class="text-xs text-gray-600 mb-1">
                 <span class="font-medium">Tujuan Penyewaan:</span>
                 <span x-text="pengajuan.tujuan_penyewaan"></span>
             </p>
             <p class="text-xs text-gray-600 mb-1" x-show="pengajuan.tujuan_penyewaan === 'PAC'">
-                <span class="font-medium">Cabang Asal Barang:</span>
-                <span x-text="cabangList.find(c => c.Code === pengajuan.id_cabang_asal)?.Name || pengajuan.id_cabang_asal || '—'"></span>
+                <span class="font-medium">Cabang Tujuan:</span>
+                <span x-text="cabangList.find(c => c.Code === pengajuan.id_cabang_tujuan)?.Name || pengajuan.id_cabang_tujuan || '—'"></span>
             </p>
             <p class="text-xs text-gray-600 mb-1">
                 <span class="font-medium">Skill / Area:</span>
@@ -90,8 +101,8 @@
         </div>
 
         {{-- Total Biaya --}}
-        <div class="rounded-lg border border-gray-200 p-4 bg-gray-50">
-            <p class="mb-3 text-xs font-medium text-gray-500 uppercase">Rincian Biaya</p>
+        <div :class="berubah('barang', 'biaya') ? 'border-amber-400 bg-amber-50' : 'border-gray-200 bg-gray-50'" class="rounded-lg border p-4">
+            <p class="mb-3 text-xs font-medium text-gray-500 uppercase">Rincian Biaya<span x-show="berubah('barang', 'biaya')" class="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold normal-case text-amber-700">Diubah</span></p>
             <p class="text-sm font-bold text-avian-green"
                 x-text="'Rp ' + (Number(pengajuan.harga_sewa || 0) + biayaTambahan.reduce((s, b) => s + (Number(b.nominal) || 0), 0)).toLocaleString('id-ID')">
             </p>
@@ -117,10 +128,10 @@
         </div>
 
         {{-- Dokumen Terpilih --}}
-        <div class="rounded-lg border border-gray-200 p-4 bg-gray-50 col-span-2">
+        <div :class="berubah('dokumen') ? 'border-amber-400 bg-amber-50' : 'border-gray-200 bg-gray-50'" class="rounded-lg border p-4 col-span-2">
             <p class="mb-3 text-xs font-medium text-gray-500 uppercase">
                 Dokumen Terpilih
-                (<span x-text="dokumenDipilihResolved.length"></span> dokumen)
+                (<span x-text="dokumenDipilihResolved.length"></span> dokumen)<span x-show="berubah('dokumen')" class="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold normal-case text-amber-700">Diubah</span>
             </p>
             <p x-show="dokumenDipilihResolved.length === 0" class="text-xs text-gray-400">Tidak ada dokumen</p>
             <div x-show="dokumenDipilihResolved.length > 0" class="divide-y divide-gray-100">
@@ -201,19 +212,20 @@
         </div>
 
         {{-- Catatan (jika ada) --}}
-        <div x-show="pengajuan.catatan" class="rounded-lg border border-gray-200 p-4 bg-gray-50 h-full">
-            <p class="mb-2 text-xs font-medium text-gray-600">Catatan</p>
+        <div x-show="pengajuan.catatan" :class="berubah('catatan') ? 'border-amber-400 bg-amber-50' : 'border-gray-200 bg-gray-50'" class="rounded-lg border p-4 h-full">
+            <p class="mb-2 text-xs font-medium text-gray-600">Catatan<span x-show="berubah('catatan')" class="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold normal-case text-amber-700">Diubah</span></p>
             <p class="text-sm text-gray-700" x-text="pengajuan.catatan"></p>
         </div>
     </div>
 
-    {{-- Pratinjau alur approval (semua jenis) — sama dgn hitungan server saat submit --}}
+    {{-- Pratinjau alur approval (sama dengan hitungan server saat submit) --}}
     <div class="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
         <p class="text-xs font-medium uppercase tracking-wide text-gray-500">Alur Approval</p>
         <p class="mt-1 text-sm font-semibold text-gray-800" x-text="alurApprovalEstimasi.join(' → ')"></p>
         <p class="mt-1 text-xs text-gray-500">
-            WM memvalidasi<span x-show="alurApprovalEstimasi.includes('WC')">, WC approve karena tujuan PAC</span><span x-show="alurApprovalEstimasi.includes('WH')">, WH approve karena <span x-text="(pengajuan.jenis_pengajuan === 'sewa_truk' && rasioSewaEstimasi > 2.5) ? 'rasio di atas 2,5%' : 'ada area kirim baru'"></span></span>.
+            WM memvalidasi<span x-show="alurApprovalEstimasi.includes('WC')">, WC approve karena tujuan PAC</span><span x-show="alurApprovalEstimasi.includes('WH')">, WH approve karena rasio di atas <span x-text="rasioMaks.toLocaleString('id-ID')"></span>%</span>.
         </p>
+        <p x-show="adaAreaBaru" class="mt-1 text-xs text-blue-600">Info: pengajuan ini menambah area kirim baru.</p>
     </div>
 
     {{-- Rasio Sewa & Kategori — Sewa Truk saja. Kiriman Rutin gak pakai rasio
@@ -242,28 +254,20 @@
             <p class="text-xs font-medium text-avian-green/70 mb-2">KATEGORI RASIO SEWA</p>
             <div class="flex items-center gap-2 flex-wrap">
                 <span
-                    x-show="rasioSewaEstimasi !== null && rasioSewaEstimasi <= 2.5"
+                    x-show="rasioSewaEstimasi !== null && !rasioDiAtasBatas"
                     class="inline-block px-3 py-1 rounded-lg bg-blue-100 text-blue-700 text-xs font-semibold">
                     ✓ NORMAL
                 </span>
                 <span
-                    x-show="rasioSewaEstimasi !== null && rasioSewaEstimasi > 2.5"
+                    x-show="rasioDiAtasBatas"
                     class="inline-block px-3 py-1 rounded-lg bg-orange-100 text-orange-700 text-xs font-semibold">
-                    ⚠️ Rasio &gt; 2.5% — perlu approval WH
+                    ⚠️ Rasio &gt; <span x-text="rasioMaks.toLocaleString('id-ID')"></span>% — perlu approval WH
                 </span>
             </div>
             <p class="mt-2 text-xs text-avian-green/70">
-                Threshold standar rasio sewa adalah <span class="font-semibold">2.5%</span>.
+                Batas rasio sewa: <span class="font-semibold" x-text="rasioMaks.toLocaleString('id-ID') + '%'"></span>.
             </p>
         </div>
-    </div>
-
-    {{-- Kiriman Rutin: PAC tetap trigger over_threshold walau tanpa rasio --}}
-    <div x-show="pengajuan.jenis_pengajuan === 'pengiriman_rutin' && pengajuan.tujuan_penyewaan === 'PAC'"
-        class="rounded-lg border-2 border-orange-200 bg-orange-50 px-4 py-3">
-        <span class="inline-block px-3 py-1 rounded-lg bg-orange-100 text-orange-700 text-xs font-semibold">
-            ⚠️ OVER THRESHOLD — Tujuan PAC
-        </span>
     </div>
 
     {{-- Navigasi --}}
@@ -280,8 +284,8 @@
             :disabled="submitting"
             :class="submitting ? 'bg-gray-300 cursor-not-allowed' : 'bg-avian-green text-white hover:bg-avian-green-dark'"
             class="rounded-lg px-6 py-2 text-sm font-medium transition">
-            <span x-show="!submitting">✓ Submit Pengajuan</span>
-            <span x-show="submitting">Mengirim...</span>
+            <span x-show="!submitting" x-text="editId ? '✓ Simpan Perubahan' : '✓ Submit Pengajuan'"></span>
+            <span x-show="submitting" x-text="editId ? 'Menyimpan...' : 'Mengirim...'"></span>
         </button>
     </div>
 </div>

@@ -74,17 +74,10 @@
         @if($tab === 'semua')
             {{-- ==================== TAB SEMUA: 1 baris = 1 perusahaan ==================== --}}
             @if($isKg)
-                {{-- POV KaGud (30 Sept): Cakupan/Kendaraan diganti detail per jenis tarif —
-                     Sewa Truk = thumbnail dokumen identitas, Kiriman Rutin = kolom harga per
-                     jenis barang (kolom yang sering keisi di kiri, jarang digeser ke kanan). --}}
                 @php
                     $widths = ['nama' => 200, 'badan_usaha' => 140, 'dokumen' => 160, 'harga_sewa' => 160, 'diperbarui' => 130, 'aksi' => 90];
                     $totalWidth = array_sum($widths) + count($jenisBarangCols) * 140;
                 @endphp
-                {{-- 1 Okt: shared hover-popover (1 x-teleport doang buat SELURUH tabel) — tiap
-                baris bisa punya banyak sel hover (Harga Sewa + N kolom jenis barang), dan
-                x-teleport per-sel (versi sebelumnya) kena bug Alpine (teleport ke-2 dst dalam
-                baris yang sama gak pernah muncul). Dipindah ke 1 state bersama di wrapper ini. --}}
                 <div x-data="{
                         hoverPop: { open: false, pos: '', left: 0, title: '', items: [], el: null },
                         showPop(el, title, items) {
@@ -403,11 +396,6 @@
                 $left = ['kode_area' => 0];
                 $left['cabang'] = $left['kode_area'] + $stickyWidths['kode_area'];
                 $left['nama'] = $left['cabang'] + $stickyWidths['cabang'];
-                // Lebar tetap (bukan ngikutin panjang nama lagi) — nama panjang di-truncate +
-                // tooltip di header-nya sendiri (lihat sortable-th.blade.php: title + class
-                // truncate). Sebelumnya lebar dihitung dari panjang nama barang, jadi makin
-                // banyak jenis barang & makin panjang namanya, tabel makin lebar & makin
-                // jauh harus scroll horizontal (Revisi: Jo, review mentor item 1).
                 $barangWidths = $jenisBarangList->map(fn ($jb) => 90);
                 $areaKirimWidth = 220;
                 $tableWidth = array_sum($stickyWidths) + $areaKirimWidth + $barangWidths->sum() + 130 + 130 + 90;

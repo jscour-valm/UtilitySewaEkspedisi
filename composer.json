@@ -10,7 +10,6 @@
         "laravel/framework": "^13.8",
         "laravel/tinker": "^3.0",
         "opcodesio/log-viewer": "^3.24",
-        "phpoffice/phpspreadsheet": "^5.10",
         "spatie/laravel-activitylog": "^4.12"
     },
     "require-dev": {

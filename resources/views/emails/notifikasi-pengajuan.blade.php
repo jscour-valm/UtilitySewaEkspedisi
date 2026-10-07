@@ -30,12 +30,16 @@
         if (in_array('WC', $alur, true)) { $alasanAlur[] = 'tujuan penyewaan PAC'; }
         if (in_array('WH', $alur, true)) {
             $alasanAlur[] = (!$isRutin && $overAmbang)
-                ? 'rasio sewa ' . number_format($rasio, 2, ',', '.') . '% melebihi ambang ' . number_format($ambangRasio, 2, ',', '.') . '%'
-                : 'ada area kirim baru';
+                ? 'rasio sewa ' . number_format($rasio, 2, ',', '.') . '% melebihi batas ' . number_format($ambangRasio, 2, ',', '.') . '%'
+                : 'area kirim baru (aturan alur saat pengajuan dibuat)';
         }
+        $areaBaru = $p->areaBaru();
     @endphp
     @if (count($alur) > 1)
         **Alur approval: {{ implode(' → ', $alur) }}**{{ $alasanAlur ? ' — ' . implode(', ', $alasanAlur) : '' }}.
+    @endif
+    @if ($areaBaru)
+        Info: pengajuan ini menambah area kirim baru — {{ implode(', ', $areaBaru) }}.
     @endif
 
     <x-mail::table>
@@ -53,7 +57,7 @@
         @endif
         | Tujuan Penyewaan | {{ $p->tujuan_penyewaan ?: '-' }}{{ $p->kategori_toko ? ' (' . $p->kategori_toko . ')' : '' }} |
         @if ($p->tujuan_penyewaan === 'PAC')
-        | Cabang Asal Barang | {{ $p->id_cabang_asal ?: '-' }} |
+        | Cabang Tujuan | {{ $p->labelCabangTujuan() ?? '-' }} |
         @endif
         @if ($dokumen)
         | Jumlah {{ $dokumen['tipe'] === 'TO-ACB' ? 'TO-ACB' : 'Surat Jalan' }} | {{ $dokumen['jumlah_dokumen'] }} |
@@ -108,8 +112,28 @@
     </x-mail::table>
     @endif
 
-    @if ($dokumen)
-    Daftar {{ $dokumen['tipe'] === 'TO-ACB' ? 'TO-ACB' : 'Surat Jalan' }} lengkap terlampir dalam file Excel.
+    @if ($dokumen && ! empty($dokumen['items']))
+    @if ($dokumen['tipe'] === 'TO-ACB')
+    **Daftar TO-ACB**
+    <x-mail::table>
+        | No TO-ACB | Last Shipment | Berat | Nilai |
+        |:--|:--|--:|--:|
+        @foreach ($dokumen['items'] as $d)
+        | {{ $d['nomor'] }} | {{ $d['last_shipment_no'] ?? '-' }} | {{ F::kg($d['berat'] ?? 0) }} | {{ F::rupiah($d['nilai'] ?? 0) }} |
+        @endforeach
+        | **Total** | | **{{ F::kg($dokumen['total_berat_kg'] ?? 0) }}** | **{{ F::rupiah($dokumen['total_nilai'] ?? 0) }}** |
+    </x-mail::table>
+    @else
+    **Daftar Surat Jalan**
+    <x-mail::table>
+        | No SJ | Customer | Kota | Berat | Nilai |
+        |:--|:--|:--|--:|--:|
+        @foreach ($dokumen['items'] as $d)
+        | {{ $d['nomor'] }} | {{ $d['customer'] ?? '-' }} | {{ $d['kota'] ?? '-' }} | {{ F::kg($d['berat'] ?? 0) }} | {{ F::rupiah($d['nilai'] ?? 0) }} |
+        @endforeach
+        | **Total** | | | **{{ F::kg($dokumen['total_berat_kg'] ?? 0) }}** | **{{ F::rupiah($dokumen['total_nilai'] ?? 0) }}** |
+    </x-mail::table>
+    @endif
     @endif
 
     <x-mail::button :url="$url" color="primary">
