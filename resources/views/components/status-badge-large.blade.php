@@ -35,6 +35,13 @@
       'dot' => 'bg-red-400',
       'label' => 'Ditolak',
     ],
+    'cancelled' => [
+      'bg' => 'bg-gray-50',
+      'border' => 'border-gray-200',
+      'text' => 'text-gray-700',
+      'dot' => 'bg-gray-400',
+      'label' => 'Dibatalkan',
+    ],
     default => [
       'bg' => 'bg-gray-50',
       'border' => 'border-gray-200',

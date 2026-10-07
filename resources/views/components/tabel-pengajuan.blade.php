@@ -34,6 +34,7 @@ $result = DbHelper::safeQuery(function () use ($limit, $sortBy, $sortOrder, $mod
         'sesi_perusahaan_ekspedisi.nama_perusahaan as nama',
         'sesi_pengajuan_sewa.tanggal_pengiriman as tanggal',
         'sesi_pengajuan_sewa.submitted_at as submitted_at',
+        'sesi_pengajuan_sewa.created_at as created_at',
         'sesi_pengajuan_sewa.harga_sewa as harga',
         'sesi_pengajuan_sewa.rasio_sewa as rasio',
         'sesi_pengajuan_sewa.jenis_pengajuan as jenis_pengajuan',
@@ -97,6 +98,9 @@ $result = DbHelper::safeQuery(function () use ($limit, $sortBy, $sortOrder, $mod
         ->get(['al.id_pengajuan_sewa', 'al.decided_at', DB::raw('COALESCE(al.role_approver, ar.role_berwenang) as peran')])
         ->groupBy('id_pengajuan_sewa');
 
+    $rentang = \App\Helpers\RentangTanggalDashboard::dariRequest();
+    $role = auth()->user()->userUtility?->role;
+
     $allPengajuan = $rows->map(function ($p) use ($logApproved) {
         $sudah = $logApproved->get($p->id, collect())
             ->filter(fn ($l) => !$p->submitted_at || $l->decided_at >= $p->submitted_at)
@@ -105,7 +109,10 @@ $result = DbHelper::safeQuery(function () use ($limit, $sortBy, $sortOrder, $mod
         $p->alur = $alur;
         $p->giliran = \App\Models\PengajuanSewa::approverBerikutnyaDari($p->status, $alur, $sudah);
         return (array) $p;
-    })->toArray();
+    })
+        ->filter(fn ($p) => $rentang->tampil($role, $p['submitted_at'] ?? $p['created_at'], $p['status'], $p['giliran']))
+        ->values()
+        ->toArray();
 
     return ($limit === null || (int) $limit === 0) ? $allPengajuan : array_slice($allPengajuan, 0, $limit);
 });
@@ -117,6 +124,7 @@ $statusBadges = [
     'pending' => ['bg' => 'bg-blue-100', 'text' => 'text-blue-700', 'label' => 'Pending'],
     'approved' => ['bg' => 'bg-avian-green-light', 'text' => 'text-avian-green', 'label' => 'Disetujui'],
     'rejected' => ['bg' => 'bg-red-100', 'text' => 'text-red-600', 'label' => 'Ditolak'],
+    'cancelled' => ['bg' => 'bg-gray-100', 'text' => 'text-gray-600', 'label' => 'Dibatalkan'],
 ];
 
 // Role-aware action button

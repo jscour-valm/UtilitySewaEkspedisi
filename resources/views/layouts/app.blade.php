@@ -41,6 +41,7 @@
                                 'pending' => 'bg-amber-400',
                                 'approved' => 'bg-green-400',
                                 'rejected' => 'bg-red-400',
+                                'cancelled' => 'bg-gray-400',
                                 default => 'bg-gray-300',
                             };
                         @endphp

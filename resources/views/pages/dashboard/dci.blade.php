@@ -4,6 +4,8 @@
 
 @section('content')
 <div class="space-y-4">
+    <x-filter-tanggal-dashboard />
+
     {{-- Summary Cards — read-only, klik buat filter tabel di bawah --}}
     <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
         <div class="stat-filter-card grid cursor-pointer rounded-xl transition ring-2 ring-transparent

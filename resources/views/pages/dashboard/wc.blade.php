@@ -4,6 +4,8 @@
 
 @section('content')
 <div class="space-y-4">
+    <x-filter-tanggal-dashboard />
+
     <x-dashboard-stat-filters
         :countTotal="$countTotal"
         :countPending="$countPending"

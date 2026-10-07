@@ -14,6 +14,17 @@
         <h1 class="text-lg font-semibold text-gray-900">
             {{ $breadcrumb['title'] }}
         </h1>
+
+        @if(isset($breadcrumb['jenis']))
+            {{-- Jenis tarif pengajuan; warna sama dengan label di halaman Perusahaan --}}
+            <span @class([
+                'rounded-full px-3 py-1 text-xs font-semibold',
+                'bg-blue-50 text-blue-600' => $breadcrumb['jenis'] === 'pengiriman_rutin',
+                'bg-avian-green-light text-avian-green' => $breadcrumb['jenis'] !== 'pengiriman_rutin',
+            ])>
+                {{ $breadcrumb['jenis'] === 'pengiriman_rutin' ? 'Kiriman Rutin' : 'Sewa Truk' }}
+            </span>
+        @endif
     @else
         {{-- Regular Title --}}
         <h1 class="text-xl font-semibold text-gray-900">

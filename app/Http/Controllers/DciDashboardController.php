@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\RentangTanggalDashboard;
 use App\Models\PengajuanSewa;
 
 class DciDashboardController extends Controller
@@ -17,13 +18,16 @@ class DciDashboardController extends Controller
      */
     public function index()
     {
-        $query = PengajuanSewa::query();
+        $rentang = RentangTanggalDashboard::dariRequest();
+        $pengajuan = PengajuanSewa::get(['status_pengajuan', 'kategori_approval', 'submitted_at', 'created_at'])
+            ->filter(fn ($p) => $rentang->tampil('DCI', $p->submitted_at ?? $p->created_at, $p->status_pengajuan, null));
+        $status = fn (string $s) => $pengajuan->filter(fn ($p) => strtolower($p->status_pengajuan) === $s)->count();
 
-        $countTotal         = (clone $query)->count();
-        $countPending       = (clone $query)->where('status_pengajuan', 'Pending')->count();
-        $countApproved      = (clone $query)->where('status_pengajuan', 'Approved')->count();
-        $countRejected      = (clone $query)->where('status_pengajuan', 'Rejected')->count();
-        $countOverThreshold = (clone $query)->where('kategori_approval', 'over_threshold')->count();
+        $countTotal = $pengajuan->count();
+        $countPending = $status('pending');
+        $countApproved = $status('approved');
+        $countRejected = $status('rejected');
+        $countOverThreshold = $pengajuan->where('kategori_approval', 'over_threshold')->count();
 
         return view('pages.dashboard.dci', compact(
             'countTotal',

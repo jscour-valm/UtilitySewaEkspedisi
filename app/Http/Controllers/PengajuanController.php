@@ -1020,6 +1020,15 @@ class PengajuanController extends Controller
             }
         }
 
+        if ($pengajuan->dibatalkan_at) {
+            $timeline->push([
+                'type' => 'dibatalkan',
+                'aktor' => $pengajuan->submittedBy,
+                'decided_at' => $pengajuan->dibatalkan_at,
+                'reason' => $pengajuan->alasan_pembatalan,
+            ]);
+        }
+
         $timeline = $timeline->sortBy('decided_at')->values();
 
         $rasioSewaSetting = RasioSewa::aktif();
@@ -1038,6 +1047,7 @@ class PengajuanController extends Controller
                 'back_label' => 'Dashboard',
                 'title' => 'Detail Pengajuan',
                 'status' => strtolower($pengajuan->status_pengajuan),
+                'jenis' => $pengajuan->jenis_pengajuan,
             ],
         ]);
     }
@@ -1416,7 +1426,7 @@ class PengajuanController extends Controller
     {
         $pengajuan = PengajuanSewa::findOrFail($id);
 
-        if (strcasecmp((string) $pengajuan->pengaju?->username, (string) auth()->user()->username) !== 0) {
+        if (! $this->milikPengaju($pengajuan)) {
             return response()->json(['success' => false, 'message' => 'Bukan pengajuan Anda'], 403);
         }
         if (strtolower($pengajuan->status_pengajuan) !== 'pending') {
@@ -1430,5 +1440,40 @@ class PengajuanController extends Controller
         }
 
         return response()->json(['success' => true]);
+    }
+
+    /** POST /api/pengajuan/{id}/batalkan — pengaju membatalkan pengajuan yang masih pending. */
+    public function batalkan(Request $request, $id)
+    {
+        $request->validate(['alasan' => 'required|string|max:500']);
+
+        $pengajuan = PengajuanSewa::findOrFail($id);
+
+        if (! $this->milikPengaju($pengajuan)) {
+            return response()->json(['success' => false, 'message' => 'Bukan pengajuan Anda'], 403);
+        }
+        if (! $pengajuan->bisaDibatalkanPengaju()) {
+            return response()->json(['success' => false, 'message' => 'Hanya pengajuan berstatus pending yang bisa dibatalkan'], 422);
+        }
+
+        $peranGiliran = $pengajuan->approverBerikutnya();
+        $pengajuan->update([
+            'status_pengajuan' => 'Cancelled',
+            'dibatalkan_at' => now(),
+            'alasan_pembatalan' => trim($request->alasan),
+        ]);
+
+        try {
+            app(NotifikasiPengajuanService::class)->dibatalkan($pengajuan, $peranGiliran);
+        } catch (\Throwable $e) {
+            \Log::warning('Notifikasi pembatalan gagal: '.$e->getMessage());
+        }
+
+        return response()->json(['success' => true, 'message' => 'Pengajuan dibatalkan']);
+    }
+
+    private function milikPengaju(PengajuanSewa $pengajuan): bool
+    {
+        return strcasecmp((string) $pengajuan->pengaju?->username, (string) auth()->user()->username) === 0;
     }
 }

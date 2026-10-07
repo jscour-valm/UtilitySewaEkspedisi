@@ -5,6 +5,8 @@
 @section('content')
 
 <div class="space-y-2">
+    <div class="mb-4"><x-filter-tanggal-dashboard /></div>
+
     {{-- Card: Pengajuan Sewa --}}
     <div class="rounded-xl">
         <div class="rounded-xl bg-white shadow  mb-4">

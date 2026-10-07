@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\RentangTanggalDashboard;
 use App\Models\PengajuanSewa;
 
 class WhDashboardController extends Controller
@@ -30,6 +31,11 @@ class WhDashboardController extends Controller
             })
             ->orderBy('submitted_at', 'desc')
             ->get();
+
+        $rentang = RentangTanggalDashboard::dariRequest();
+        $allPengajuan = $allPengajuan
+            ->filter(fn ($p) => $rentang->tampil($peran, $p->submitted_at ?? $p->created_at, $p->status_pengajuan, $p->approverBerikutnya()))
+            ->values();
 
         return view($view, [
             'allPengajuan' => $allPengajuan,

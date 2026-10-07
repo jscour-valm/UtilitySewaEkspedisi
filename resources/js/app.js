@@ -21,6 +21,46 @@ window.notify = function (message, type = 'success', title = null) {
 };
 
 // Pengganti confirm() — return Promise<boolean> (resolve true kalau user klik "Ya").
+// Detail pengajuan: pengaju membatalkan pengajuan pending (alasan wajib).
+window.batalkanPengajuan = async function (id) {
+    const { value: alasan, isConfirmed } = await Swal.fire({
+        title: 'Batalkan pengajuan?',
+        text: 'Pengajuan yang dibatalkan tidak bisa diproses lagi. Dokumen SJ/TO-ACB-nya bisa dipakai pengajuan lain.',
+        icon: 'warning',
+        input: 'textarea',
+        inputPlaceholder: 'Alasan pembatalan',
+        inputAttributes: { maxlength: 500 },
+        showCancelButton: true,
+        confirmButtonText: 'Batalkan Pengajuan',
+        cancelButtonText: 'Kembali',
+        confirmButtonColor: '#dc2626',
+        reverseButtons: true,
+        inputValidator: v => (!v || !v.trim()) ? 'Alasan pembatalan wajib diisi' : undefined,
+    })
+    if (!isConfirmed) return
+
+    try {
+        const res = await fetch(`/api/pengajuan/${id}/batalkan`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+            },
+            body: JSON.stringify({ alasan: alasan.trim() }),
+        })
+        const json = await res.json()
+        if (!res.ok || !json.success) {
+            window.notify(json.message || 'Gagal membatalkan pengajuan', 'error')
+            return
+        }
+        await window.notify('Pengajuan dibatalkan', 'success')
+        window.location.reload()
+    } catch (e) {
+        window.notify('Gagal membatalkan pengajuan', 'error')
+    }
+}
+
 window.confirmDialog = function (message, { danger = false, confirmText = 'Ya', cancelText = 'Batal', title = 'Yakin?', icon = 'warning' } = {}) {
     return Swal.fire({
         icon,
@@ -1694,6 +1734,33 @@ Alpine.data('pengajuanSewa', () => ({
         } finally {
             this.savingKendaraan = false
         }
+    },
+}))
+
+// Filter tanggal dashboard: rentang maks `maksHari`, tanggal tidak boleh melewati hari ini.
+Alpine.data('filterTanggalDashboard', (dari, sampai, maksHari) => ({
+    dari,
+    sampai,
+    hariIni: new Date().toLocaleDateString('en-CA'),
+
+    geser(tanggal, hari) {
+        const d = new Date(tanggal + 'T00:00:00')
+        d.setDate(d.getDate() + hari)
+        return d.toLocaleDateString('en-CA')
+    },
+
+    ubahDari() {
+        if (!this.dari) return
+        if (this.sampai < this.dari) this.sampai = this.dari
+        const batas = this.geser(this.dari, maksHari - 1)
+        if (this.sampai > batas) this.sampai = batas < this.hariIni ? batas : this.hariIni
+    },
+
+    ubahSampai() {
+        if (!this.sampai) return
+        if (this.dari > this.sampai) this.dari = this.sampai
+        const batas = this.geser(this.sampai, -(maksHari - 1))
+        if (this.dari < batas) this.dari = batas
     },
 }))
 

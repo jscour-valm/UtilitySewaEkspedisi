@@ -63,6 +63,7 @@ class NotifikasiPengajuanMail extends Mailable
             'menunggu_approval' => '['.$this->langkahSebelumnya()." - Menunggu Approval {$this->peranBerikutnya}] ",
             'approved' => '[APPROVED] ',
             'rejected' => '[REJECTED] ',
+            'dibatalkan' => '[DIBATALKAN] ',
         };
 
         return new Envelope(subject: $awalan.$inti);
@@ -100,6 +101,7 @@ class NotifikasiPengajuanMail extends Mailable
                 ? ['Pengajuan disetujui', "Pengajuan sewa dari cabang $kode telah divalidasi WM (validasi WM = keputusan final)."]
                 : ['Pengajuan disetujui', "Pengajuan sewa dari cabang $kode telah disetujui."],
             'rejected' => ['Pengajuan ditolak', "Pengajuan sewa dari cabang $kode ditolak dengan alasan:"],
+            'dibatalkan' => ['Pengajuan dibatalkan', "Pengajuan sewa dari cabang $kode dibatalkan oleh pengaju dengan alasan:"],
         };
 
         $rasioSetting = RasioSewa::aktif();

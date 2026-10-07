@@ -39,6 +39,7 @@ Route::middleware(['auth', 'role:KG'])->group(function () {
     Route::post('/api/pengajuan/kendaraan', [PengajuanController::class, 'storeKendaraan'])->name('pengajuan.store-kendaraan');
     Route::post('/api/pengajuan/submit', [PengajuanController::class, 'submitPengajuan'])->name('pengajuan.submit');
     Route::post('/api/pengajuan/{id}/notifikasi-baru', [PengajuanController::class, 'notifikasiBaru'])->name('pengajuan.notifikasi-baru');
+    Route::post('/api/pengajuan/{id}/batalkan', [PengajuanController::class, 'batalkan'])->name('pengajuan.batalkan');
     Route::put('/api/pengajuan/{id}', [PengajuanController::class, 'update'])->name('pengajuan.update');
     Route::get('/api/pengajuan/skill-list', [PengajuanController::class, 'getSkillList'])->name('pengajuan.skill-list');
     Route::get('/api/pengajuan/kategori-toko-list', [PengajuanController::class, 'getKategoriTokoList']);

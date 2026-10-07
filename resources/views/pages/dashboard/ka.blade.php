@@ -4,6 +4,8 @@
 
 @section('content')
 <div class="space-y-4">
+    <x-filter-tanggal-dashboard />
+
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <x-stat-card
             label="Pengajuan Disetujui"

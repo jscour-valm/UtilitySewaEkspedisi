@@ -4,6 +4,8 @@
 
 @section('content')
 <div class="space-y-4">
+    <x-filter-tanggal-dashboard />
+
     {{-- Summary Cards (Stat Cards) - Clickable filters --}}
     <x-dashboard-stat-filters
         :countTotal="$countTotal"

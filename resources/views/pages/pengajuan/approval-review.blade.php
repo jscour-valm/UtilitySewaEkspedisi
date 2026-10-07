@@ -492,6 +492,8 @@
                                     <span class="rounded-full bg-green-100 px-2.5 py-0.5 text-[11.5px] font-semibold text-green-700">Approve</span>
                                 @elseif(in_array($st, ['rejected', 'ditolak']))
                                     <span class="rounded-full bg-red-100 px-2.5 py-0.5 text-[11.5px] font-semibold text-red-600">Reject</span>
+                                @elseif($st === 'cancelled')
+                                    <span class="rounded-full bg-gray-100 px-2.5 py-0.5 text-[11.5px] font-semibold text-gray-500">Dibatalkan</span>
                                 @else
                                     <span class="rounded-full bg-gray-100 px-2.5 py-0.5 text-[11.5px] font-semibold text-gray-500">{{ ucfirst($h->status_pengajuan ?? '-') }}</span>
                                 @endif

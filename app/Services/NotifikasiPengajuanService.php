@@ -50,6 +50,25 @@ class NotifikasiPengajuanService
         );
     }
 
+    /**
+     * Pengajuan dibatalkan pengaju: To peran yang sedang giliran (fallback WM),
+     * CC KG pengaju + peran yang sudah approve. Alasan ikut di badan email.
+     */
+    public function dibatalkan(PengajuanSewa $p, ?string $peranGiliran): void
+    {
+        [$to, $cc] = self::penerimaPembatalan($p, $peranGiliran);
+
+        $this->kirim($p, 'dibatalkan', $this->emailPeran($to, $p), array_merge($this->emailKg($p), $this->emailPeran($cc, $p)), alasan: $p->alasan_pembatalan);
+    }
+
+    /** @return array{0: string[], 1: string[]} [peran To, peran CC selain KG & DCI] */
+    public static function penerimaPembatalan(PengajuanSewa $p, ?string $peranGiliran): array
+    {
+        $sudah = array_values(array_diff($p->peranSudahApprove(), [$peranGiliran]));
+
+        return [[$peranGiliran ?? 'WM'], $sudah];
+    }
+
     /** @return array{0: string, 1: string[]} [tipe email, peran yang di-CC selain DCI] */
     public static function penerimaKeputusan(PengajuanSewa $p, string $peranPemutus, ?string $berikutnya): array
     {

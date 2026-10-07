@@ -45,6 +45,8 @@ class PengajuanSewa extends Model
         'usulan_status',
         'usulan_decided_by',
         'usulan_decided_at',
+        'dibatalkan_at',
+        'alasan_pembatalan',
     ];
 
     protected $casts = [
@@ -56,6 +58,7 @@ class PengajuanSewa extends Model
         'submitted_at' => 'datetime',
         'usulan_harga_sewa' => 'boolean',
         'usulan_decided_at' => 'datetime',
+        'dibatalkan_at' => 'datetime',
     ];
 
     public function kendaraan(): BelongsTo
@@ -223,6 +226,12 @@ class PengajuanSewa extends Model
     {
         return strtolower((string) $this->status_pengajuan) === 'pending'
             && $this->approverBerikutnya() === 'WM';
+    }
+
+    /** Pengaju boleh membatalkan selama pengajuan masih pending (tahap mana pun). */
+    public function bisaDibatalkanPengaju(): bool
+    {
+        return strtolower((string) $this->status_pengajuan) === 'pending';
     }
 
     /**

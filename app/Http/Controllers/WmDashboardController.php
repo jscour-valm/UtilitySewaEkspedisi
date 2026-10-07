@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\RentangTanggalDashboard;
 use App\Models\PengajuanSewa;
 
 class WmDashboardController extends Controller
@@ -30,7 +31,10 @@ class WmDashboardController extends Controller
             $query->whereRaw('1=0');
         }
 
-        $allPengajuan = $query->orderBy('submitted_at', 'desc')->get();
+        $rentang = RentangTanggalDashboard::dariRequest();
+        $allPengajuan = $query->orderBy('submitted_at', 'desc')->get()
+            ->filter(fn ($p) => $rentang->tampil('WM', $p->submitted_at ?? $p->created_at, $p->status_pengajuan, $p->approverBerikutnya()))
+            ->values();
 
         // Count by status
         // Pending = giliran WM memvalidasi (yang sudah divalidasi & menunggu WC/WH tidak dihitung)

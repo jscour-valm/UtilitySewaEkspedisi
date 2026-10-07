@@ -34,6 +34,13 @@
                 :pendingLabel="$approverBerikutnya ? \App\Http\Controllers\ApprovalController::labelMenunggu($approverBerikutnya) : 'Menunggu Validasi WM'" />
         </div>
 
+        @if($pengajuan->dibatalkan_at)
+            <div class="mt-3.5 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700">
+                Dibatalkan pengaju pada {{ $pengajuan->dibatalkan_at->translatedFormat('d M Y, H:i') }}.
+                <span class="font-medium">Alasan:</span> {{ $pengajuan->alasan_pembatalan }}
+            </div>
+        @endif
+
         {{-- Alur persetujuan: pill (1–3 langkah sesuai alur_approval) --}}
         <x-alur-approval-pill :alur="$alurApproval" :sudah="$peranSudahApprove" :berikutnya="$approverBerikutnya"
             :status="$pengajuan->status_pengajuan" :actingRole="auth()->user()->userUtility?->role" />
@@ -334,7 +341,19 @@
             <div class="absolute left-4 top-2 bottom-2 w-px bg-gray-200"></div>
             <div class="space-y-6">
                 @foreach($timeline as $entry)
-                @if($entry['type'] === 'resubmit')
+                @if($entry['type'] === 'dibatalkan')
+                    <div class="relative flex gap-4 pl-10">
+                        <div class="absolute left-2.5 top-1 h-3 w-3 rounded-full border-2 bg-gray-400 border-gray-400 -translate-x-1/2"></div>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center justify-between">
+                                <p class="text-sm font-medium text-gray-800">{{ $entry['aktor']?->name ?? 'Unknown' }}</p>
+                                <span class="text-xs text-gray-400">{{ \Carbon\Carbon::parse($entry['decided_at'])->translatedFormat('d M Y, H:i') }}</span>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-0.5">Dibatalkan Pengaju</p>
+                            <p class="mt-2 text-xs text-gray-600 bg-gray-50 rounded-lg px-3 py-2">{{ $entry['reason'] }}</p>
+                        </div>
+                    </div>
+                @elseif($entry['type'] === 'resubmit')
                     {{-- Synthetic resubmit entry --}}
                     <div class="relative flex gap-4 pl-10">
                         <div class="absolute left-2.5 top-1 h-3 w-3 rounded-full border-2 bg-blue-400 border-blue-400 -translate-x-1/2"></div>
@@ -395,7 +414,22 @@
 
 </div>
 
-{{-- Floating Edit Button --}}
+{{-- Tombol aksi pengaju: batalkan (selama pending) & edit (sebelum divalidasi WM) --}}
+@if(auth()->id() == $pengajuan->submitted_by && $pengajuan->bisaDibatalkanPengaju())
+<div class="fixed bottom-6 right-24">
+    <button type="button" onclick="batalkanPengajuan({{ $pengajuan->id_pengajuan_sewa }})"
+        class="group relative flex h-14 w-14 items-center justify-center rounded-full border border-red-200 bg-white text-red-600 shadow-lg hover:shadow-xl hover:bg-red-50 transition-all hover:scale-105"
+        title="Batalkan Pengajuan">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+        </svg>
+        <span class="absolute right-full mr-3 whitespace-nowrap rounded bg-gray-900 px-3 py-1.5 text-xs text-white opacity-0 transition group-hover:opacity-100 pointer-events-none">
+            Batalkan Pengajuan
+        </span>
+    </button>
+</div>
+@endif
+
 @if(auth()->id() == $pengajuan->submitted_by && $pengajuan->bisaDieditPengaju())
 <div class="fixed bottom-6 right-6">
     <a href="{{ route('pengajuan.edit', $pengajuan->id_pengajuan_sewa) }}"

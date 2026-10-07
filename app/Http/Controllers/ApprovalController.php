@@ -222,6 +222,7 @@ class ApprovalController extends Controller
                 'back_label' => 'Dashboard',
                 'title' => 'Detail Pengajuan',
                 'status' => strtolower($pengajuan->status_pengajuan),
+                'jenis' => $pengajuan->jenis_pengajuan,
             ],
         ]);
     }
