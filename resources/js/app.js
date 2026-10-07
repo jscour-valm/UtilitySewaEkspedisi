@@ -4,10 +4,9 @@ import { createIcons, icons } from 'lucide';
 import Swal from 'sweetalert2';
 import 'sweetalert2/dist/sweetalert2.min.css';
 
-// Ganti alert()/confirm() native browser jadi modal SweetAlert2 (Jo, 30 Sept 2026)
-// — warna ikut design system app (avian-green = aksi utama, merah = destruktif),
-// bukan warna default SweetAlert2. Diekspos ke window supaya bisa dipanggil dari
-// <script>/x-data inline di file Blade lain juga (pola sama kayak window.formatRibuan).
+// Pengganti alert()/confirm() native: modal SweetAlert2 dengan warna design system
+// (avian-green = aksi utama, merah = destruktif). Diekspos ke window supaya bisa
+// dipanggil dari <script>/x-data inline di Blade.
 window.Swal = Swal;
 
 window.notify = function (message, type = 'success', title = null) {
@@ -20,7 +19,6 @@ window.notify = function (message, type = 'success', title = null) {
     });
 };
 
-// Pengganti confirm() — return Promise<boolean> (resolve true kalau user klik "Ya").
 // Detail pengajuan: pengaju membatalkan pengajuan pending (alasan wajib).
 window.batalkanPengajuan = async function (id) {
     const { value: alasan, isConfirmed } = await Swal.fire({
@@ -61,6 +59,7 @@ window.batalkanPengajuan = async function (id) {
     }
 }
 
+// Pengganti confirm() — return Promise<boolean> (resolve true kalau user klik "Ya").
 window.confirmDialog = function (message, { danger = false, confirmText = 'Ya', cancelText = 'Batal', title = 'Yakin?', icon = 'warning' } = {}) {
     return Swal.fire({
         icon,
@@ -74,6 +73,124 @@ window.confirmDialog = function (message, { danger = false, confirmText = 'Ya', 
         reverseButtons: true,
     }).then((r) => r.isConfirmed);
 };
+
+// Pemantau sesi, hanya di halaman ber-layout app (meta sesi-lifetime & sesi-pengguna):
+// - Session habis (idle melebihi SESSION_LIFETIME, atau server balas 401/419) → popup
+//   blocking lalu login ulang. Aktivitas = respons server terakhir (muat halaman / fetch),
+//   dibagi antar-tab lewat localStorage supaya tab yang diam tidak me-logout tab yang aktif.
+// - Satu browser hanya punya satu session: kalau tab lain login dengan akun berbeda, tab ini
+//   diblokir (fetch & submit form ditahan) sampai dimuat ulang dengan akun yang aktif.
+const sesiMenit = Number(document.querySelector('meta[name="sesi-lifetime"]')?.content);
+const sesiPengguna = document.querySelector('meta[name="sesi-pengguna"]')?.content;
+if (sesiMenit > 0 && sesiPengguna) {
+    const KUNCI_AKTIF = 'sesi:aktifTerakhir';
+    const KUNCI_PENGGUNA = 'sesi:pengguna';
+    const batasMs = sesiMenit * 60 * 1000;
+    const fireAsli = Swal.fire.bind(Swal);
+    const fetchAsli = window.fetch.bind(window);
+    let aktifLokal = Date.now();
+    let terblokir = false;
+    let timer = null;
+
+    const baca = (kunci) => {
+        try {
+            return localStorage.getItem(kunci);
+        } catch {
+            return null;
+        }
+    };
+    const tulis = (kunci, nilai) => {
+        try {
+            localStorage.setItem(kunci, nilai);
+        } catch {}
+    };
+
+    // Popup yang tidak bisa ditutup; setelah tampil, modal lain (notify gagal, dsb.) dimatikan.
+    const blokir = (opsi, lanjut) => {
+        if (terblokir) return;
+        terblokir = true;
+        clearTimeout(timer);
+        fireAsli({
+            icon: 'warning',
+            confirmButtonColor: '#1B7A43',
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            ...opsi,
+        }).then(lanjut);
+        Swal.fire = () => new Promise(() => {});
+    };
+
+    window.tampilkanSesiHabis = function () {
+        const kembali = encodeURIComponent(location.pathname + location.search);
+        blokir({
+            title: 'Sesi habis',
+            text: 'Sesi Anda sudah berakhir. Silakan login ulang untuk melanjutkan.',
+            confirmButtonText: 'Login Ulang',
+        }, () => { location.href = `/sesi-habis?kembali=${kembali}`; });
+    };
+
+    const tampilkanGantiAkun = () => blokir({
+        title: 'Akun berganti',
+        text: 'Tab lain sudah login dengan akun berbeda. Satu browser hanya bisa memakai satu akun; halaman ini akan dibuka ulang dengan akun yang sedang aktif.',
+        confirmButtonText: 'Buka Ulang',
+    }, () => { location.href = '/'; });
+
+    const akunMasihSama = () => {
+        const aktif = baca(KUNCI_PENGGUNA);
+        if (aktif && aktif !== sesiPengguna) {
+            tampilkanGantiAkun();
+            return false;
+        }
+        return true;
+    };
+
+    // Dicek tiap ≤1 menit (bukan satu timeout 2 jam) supaya tetap jalan setelah laptop sleep.
+    const cekSesi = () => {
+        clearTimeout(timer);
+        if (terblokir || !akunMasihSama()) return;
+        const aktifTerakhir = Math.max(aktifLokal, Number(baca(KUNCI_AKTIF)) || 0);
+        const sisa = aktifTerakhir + batasMs - Date.now();
+        if (sisa <= 0) {
+            window.tampilkanSesiHabis();
+            return;
+        }
+        timer = setTimeout(cekSesi, Math.min(sisa, 60 * 1000));
+    };
+
+    const catatAktif = () => {
+        aktifLokal = Date.now();
+        tulis(KUNCI_AKTIF, String(aktifLokal));
+        cekSesi();
+    };
+
+    window.fetch = async (...args) => {
+        if (terblokir || !akunMasihSama()) return new Promise(() => {});
+        const res = await fetchAsli(...args);
+        const keLogin = res.redirected && new URL(res.url).pathname === '/login';
+        if (res.status === 401 || res.status === 419 || keLogin) {
+            window.tampilkanSesiHabis();
+        } else {
+            catatAktif();
+        }
+        return res;
+    };
+
+    document.addEventListener('submit', (e) => {
+        if (terblokir || !akunMasihSama()) e.preventDefault();
+    }, true);
+
+    window.addEventListener('storage', (e) => {
+        if (e.key === KUNCI_PENGGUNA && e.newValue && e.newValue !== sesiPengguna) tampilkanGantiAkun();
+    });
+
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') cekSesi();
+    });
+
+    // Halaman ini dimuat dengan akun ini → jadi akun aktif untuk semua tab.
+    tulis(KUNCI_PENGGUNA, sesiPengguna);
+    catatAktif();
+}
 
 // Format nomor pakai titik ribuan (format Indonesia) — dipakai buat semua
 // input angka besar (harga, muatan, dst) di seluruh app, bukan cuma wizard
@@ -1738,31 +1855,149 @@ Alpine.data('pengajuanSewa', () => ({
 }))
 
 // Filter tanggal dashboard: rentang maks `maksHari`, tanggal tidak boleh melewati hari ini.
-Alpine.data('filterTanggalDashboard', (dari, sampai, maksHari) => ({
-    dari,
-    sampai,
-    hariIni: new Date().toLocaleDateString('en-CA'),
-
-    geser(tanggal, hari) {
+// Filter periode dashboard (components/filter-tanggal-dashboard). Tanggal = string 'YYYY-MM-DD'.
+// Klik pertama = tanggal mulai, akhir otomatis mulai + (maksHari - 1) dibatasi hari ini;
+// klik kedua di dalam rentang itu = tanggal akhir.
+Alpine.data('filterTanggalDashboard', (dari, sampai, maksHari) => {
+    const BULAN = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des']
+    const BULAN_PANJANG = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember']
+    const keStr = (d) => d.toLocaleDateString('en-CA')
+    const geser = (tanggal, hari) => {
         const d = new Date(tanggal + 'T00:00:00')
         d.setDate(d.getDate() + hari)
-        return d.toLocaleDateString('en-CA')
-    },
+        return keStr(d)
+    }
+    const hariIni = keStr(new Date())
+    const minimal = (a, b) => (a < b ? a : b)
 
-    ubahDari() {
-        if (!this.dari) return
-        if (this.sampai < this.dari) this.sampai = this.dari
-        const batas = this.geser(this.dari, maksHari - 1)
-        if (this.sampai > batas) this.sampai = batas < this.hariIni ? batas : this.hariIni
-    },
+    const hariDalamMinggu = (new Date(hariIni + 'T00:00:00').getDay() + 6) % 7 // Senin = 0
+    const seninIni = geser(hariIni, -hariDalamMinggu)
+    const preset = [
+        { nama: 'Hari ini', dari: hariIni, sampai: hariIni },
+        { nama: 'Kemarin', dari: geser(hariIni, -1), sampai: geser(hariIni, -1) },
+        { nama: `${maksHari} hari terakhir`, dari: geser(hariIni, -(maksHari - 1)), sampai: hariIni },
+        { nama: 'Minggu ini', dari: seninIni, sampai: hariIni },
+        { nama: 'Minggu lalu', dari: geser(seninIni, -7), sampai: geser(seninIni, -1) },
+    ]
 
-    ubahSampai() {
-        if (!this.sampai) return
-        if (this.dari > this.sampai) this.dari = this.sampai
-        const batas = this.geser(this.sampai, -(maksHari - 1))
-        if (this.dari < batas) this.dari = batas
-    },
-}))
+    return {
+        dari,
+        sampai,
+        hariIni,
+        preset,
+        buka: false,
+        pilihDari: dari,
+        pilihSampai: sampai,
+        menungguAkhir: false,
+        tahun: 0,
+        bulan: 0,
+
+        toggle() {
+            if (this.buka) {
+                this.buka = false
+                return
+            }
+            this.pilihDari = this.dari
+            this.pilihSampai = this.sampai
+            this.menungguAkhir = false
+            this.tampilkanBulan(this.sampai)
+            this.buka = true
+        },
+
+        tampilkanBulan(tanggal) {
+            this.tahun = Number(tanggal.slice(0, 4))
+            this.bulan = Number(tanggal.slice(5, 7)) - 1
+        },
+
+        geserBulan(n) {
+            const d = new Date(this.tahun, this.bulan + n, 1)
+            this.tahun = d.getFullYear()
+            this.bulan = d.getMonth()
+        },
+
+        get bisaMaju() {
+            return keStr(new Date(this.tahun, this.bulan + 1, 1)) <= hariIni
+        },
+
+        get judulBulan() {
+            return `${BULAN_PANJANG[this.bulan]} ${this.tahun}`
+        },
+
+        // Sel kalender minggu penuh (Senin di kolom pertama); tanggal bulan sebelum/sesudah
+        // ikut tampil (luar: true) supaya sorotan periode lintas bulan tetap menyambung.
+        get hariBulan() {
+            const mulai = -((new Date(this.tahun, this.bulan, 1).getDay() + 6) % 7)
+            const jumlah = new Date(this.tahun, this.bulan + 1, 0).getDate()
+            const total = Math.ceil((jumlah - mulai) / 7) * 7
+            const sel = []
+            for (let i = 0; i < total; i++) {
+                const d = new Date(this.tahun, this.bulan, mulai + i + 1)
+                sel.push({ tgl: keStr(d), hari: d.getDate(), luar: d.getMonth() !== this.bulan })
+            }
+            return sel
+        },
+
+        klikTanggal(t) {
+            if (t > hariIni) return
+            if (this.menungguAkhir && t >= this.pilihDari && t <= geser(this.pilihDari, maksHari - 1)) {
+                this.pilihSampai = t
+                this.menungguAkhir = false
+                return
+            }
+            this.pilihDari = t
+            this.pilihSampai = minimal(geser(t, maksHari - 1), hariIni)
+            this.menungguAkhir = true
+        },
+
+        pilihPreset(p) {
+            this.pilihDari = p.dari
+            this.pilihSampai = p.sampai
+            this.menungguAkhir = false
+            this.tampilkanBulan(p.sampai)
+        },
+
+        terapkan() {
+            this.dari = this.pilihDari
+            this.sampai = this.pilihSampai
+            this.buka = false
+            this.$nextTick(() => this.$root.submit())
+        },
+
+        kelasTanggal(sel) {
+            const t = sel.tgl
+            if (t === this.pilihDari || t === this.pilihSampai) return 'bg-avian-green font-semibold text-white'
+            if (t > this.pilihDari && t < this.pilihSampai) return sel.luar ? 'text-avian-green/60' : 'font-medium text-avian-green'
+            if (sel.luar) return 'text-gray-400 hover:bg-gray-100'
+            return t === hariIni ? 'font-semibold text-avian-green ring-1 ring-avian-green/40 hover:bg-gray-100' : 'text-gray-700 hover:bg-gray-100'
+        },
+
+        // Pita rentang di belakang tombol tanggal; ujung mulai/akhir dari tengah lingkaran.
+        kelasRentang(t) {
+            if (t < this.pilihDari || t > this.pilihSampai || this.pilihDari === this.pilihSampai) return ''
+            if (t === this.pilihDari) return 'bg-linear-to-r from-transparent from-50% to-avian-green-light to-50%'
+            if (t === this.pilihSampai) return 'bg-linear-to-r from-avian-green-light from-50% to-transparent to-50%'
+            return 'bg-avian-green-light'
+        },
+
+        namaPreset(a, b) {
+            return preset.find((p) => p.dari === a && p.sampai === b)?.nama ?? null
+        },
+
+        label(a, b) {
+            const [ta, ba, ha] = a.split('-').map(Number)
+            const [tb, bb, hb] = b.split('-').map(Number)
+            const akhir = `${hb} ${BULAN[bb - 1]} ${tb}`
+            if (a === b) return akhir
+            if (ta !== tb) return `${ha} ${BULAN[ba - 1]} ${ta} – ${akhir}`
+            if (ba !== bb) return `${ha} ${BULAN[ba - 1]} – ${akhir}`
+            return `${ha} – ${akhir}`
+        },
+
+        jumlahHari(a, b) {
+            return Math.round((new Date(b + 'T00:00:00') - new Date(a + 'T00:00:00')) / 86400000) + 1
+        },
+    }
+})
 
 // Ikon duluan, baru Alpine.start() — createIcons() gak butuh Alpine selesai
 // hydrate, dan halaman yang lagi hydrate banyak komponen x-data (mis. /perusahaan

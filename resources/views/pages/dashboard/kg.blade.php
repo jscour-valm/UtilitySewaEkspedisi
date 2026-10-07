@@ -5,17 +5,18 @@
 @section('content')
 
 <div class="space-y-2">
-    <div class="mb-4"><x-filter-tanggal-dashboard /></div>
-
-    {{-- Card: Pengajuan Sewa --}}
+    {{-- Card: Pengajuan Sewa (filter periode hanya berlaku untuk tabel ini) --}}
     <div class="rounded-xl">
         <div class="rounded-xl bg-white shadow  mb-4">
-            <div class="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+            <div class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-6 py-4">
                 <h2 class="text-sm font-semibold text-gray-700">Pengajuan Sewa</h2>
-                <a href="{{ route('pengajuan.kg') }}"
-                class="rounded-lg bg-avian-green px-3 py-1.5 text-xs font-medium text-white hover:bg-avian-green-dark">
-                    + Pengajuan Baru
-                </a>
+                <div class="flex flex-wrap items-center gap-3">
+                    <x-filter-tanggal-dashboard />
+                    <a href="{{ route('pengajuan.kg') }}"
+                    class="rounded-lg bg-avian-green px-3 py-1.5 text-xs font-medium text-white hover:bg-avian-green-dark">
+                        + Pengajuan Baru
+                    </a>
+                </div>
             </div>
             <div class="p-6">
                 <x-tabel-pengajuan mode="dashboard" />

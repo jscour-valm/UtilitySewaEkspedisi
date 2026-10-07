@@ -148,8 +148,9 @@ $searchPlaceholder = match ($mode) {
     focus:border-avian-green focus:outline-none">
 
 {{-- Tabel --}}
-<div class="overflow-hidden rounded-xl border border-gray-200">
-    <table class="w-full table-fixed text-sm">
+{{-- Lebar minimum + scroll horizontal supaya kolom Action tidak terpotong saat layar sempit / sidebar terbuka --}}
+<div class="overflow-x-auto rounded-xl border border-gray-200">
+    <table class="w-full min-w-[56rem] table-fixed text-sm">
         <colgroup>
             @if(in_array($mode, ['wm', 'ka']))
                 <col style="width: 18%;"> {{-- KaGud --}}
@@ -157,14 +158,14 @@ $searchPlaceholder = match ($mode) {
                 <col style="width: 18%;"> {{-- Harga Sewa --}}
                 <col style="width: 18%;"> {{-- Rasio Sewa --}}
                 <col style="width: 21%;"> {{-- Status --}}
-                <col style="width: 7%;"> {{-- Action --}}
+                <col style="width: 6.5rem;"> {{-- Action --}}
             @elseif($isModeApprover)
                 <col style="width: 16%;"> {{-- Cabang --}}
                 <col style="width: 30%;"> {{-- Nama Perusahaan --}}
                 <col style="width: 18%;"> {{-- Harga Sewa --}}
                 <col style="width: 18%;"> {{-- Rasio Sewa --}}
                 <col style="width: 11%;"> {{-- Status --}}
-                <col style="width: 7%;"> {{-- Action --}}
+                <col style="width: 6.5rem;"> {{-- Action --}}
             @else
                 <col style="width: 16%;"> {{-- Tanggal Pengajuan --}}
                 <col style="width: 16%;"> {{-- Tanggal Pengiriman --}}
@@ -172,7 +173,7 @@ $searchPlaceholder = match ($mode) {
                 <col style="width: 14%;"> {{-- Harga Sewa --}}
                 <col style="width: 12%;"> {{-- Rasio Sewa --}}
                 <col style="width: 10%;"> {{-- Status --}}
-                <col style="width: 7%;"> {{-- Action --}}
+                <col style="width: 6.5rem;"> {{-- Action --}}
             @endif
         </colgroup>
 
@@ -300,12 +301,12 @@ $searchPlaceholder = match ($mode) {
                     <td class="px-4 py-3 text-right">
                         @if($isReviewer)
                             <a href="{{ route('approval.show', $p['id']) }}"
-                                class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50">
+                                class="inline-block whitespace-nowrap rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50">
                                 Review
                             </a>
                         @else
                             <a href="{{ route('pengajuan.show', $p['id']) }}"
-                                class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50">
+                                class="inline-block whitespace-nowrap rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50">
                                 Detail
                             </a>
                         @endif

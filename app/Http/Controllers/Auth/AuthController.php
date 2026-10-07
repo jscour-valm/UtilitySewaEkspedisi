@@ -73,6 +73,32 @@ class AuthController extends Controller
         return redirect()->route('login');
     }
 
+    public function beranda()
+    {
+        $role = Auth::user()?->userUtility?->role;
+
+        return $role ? redirect($this->redirectByRole($role)) : redirect()->route('login');
+    }
+
+    /**
+     * Tujuan popup "Sesi habis": logout penuh (termasuk cookie "Ingat saya") lalu ke login.
+     * `kembali` = halaman terakhir, dibuka lagi setelah login (hanya path internal).
+     */
+    public function sesiHabis(Request $request)
+    {
+        Auth::logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        $kembali = (string) $request->query('kembali', '');
+        if (str_starts_with($kembali, '/') && ! str_starts_with($kembali, '//') && ! str_contains($kembali, '\\')) {
+            redirect()->setIntendedUrl(url($kembali));
+        }
+
+        return redirect()->route('login')
+            ->withErrors(['username' => 'Sesi Anda sudah berakhir. Silakan login ulang.']);
+    }
+
     private function redirectByRole(string $jabatan): string
     {
         return match ($jabatan) {

@@ -10,8 +10,11 @@ if (!$isActive) {
 } elseif ($sortOrder === 'asc') {
     $nextParams = $baseQuery->merge([$sortParam => $col, $orderParam => 'desc'])->all();
 } else {
-    // Balik ke default (remove sort params dari query)
-    $nextParams = $baseQuery->except([$sortParam, $orderParam])->all();
+    // Balik ke default. Di route ber-middleware query.sesi urutan tersimpan di session,
+    // jadi dikirim kosong supaya terhapus; selain itu cukup dibuang dari query.
+    $nextParams = in_array('query.sesi', request()->route()?->gatherMiddleware() ?? [], true)
+        ? $baseQuery->merge([$sortParam => '', $orderParam => ''])->all()
+        : $baseQuery->except([$sortParam, $orderParam])->all();
 }
 $sortUrl = '?' . http_build_query($nextParams);
 $icon = $isActive ? ($sortOrder === 'asc' ? '↑' : '↓') : '⇅';

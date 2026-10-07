@@ -21,13 +21,14 @@ use Illuminate\Support\Facades\Route;
 Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
 Route::post('/login', [AuthController::class, 'login'])->name('login.submit');
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+Route::get('/sesi-habis', [AuthController::class, 'sesiHabis'])->name('sesi.habis');
 
-// Redirect root ke login
-Route::get('/', fn () => redirect()->route('login'));
+// Root: dashboard sesuai role kalau sudah login, selain itu ke login
+Route::get('/', [AuthController::class, 'beranda'])->name('beranda');
 
 // Protected routes
 Route::middleware(['auth', 'role:KG'])->group(function () {
-    Route::get('/dashboard/kg', fn () => view('pages.dashboard.kg'))->name('dashboard.kg');
+    Route::get('/dashboard/kg', fn () => view('pages.dashboard.kg'))->name('dashboard.kg')->middleware('query.sesi');
     Route::get('/pengajuan', fn () => view('pages.pengajuan.index'))->name('pengajuan.kg');
     Route::get('/pengajuan/{id}/edit', [PengajuanController::class, 'edit'])->name('pengajuan.edit');
 
@@ -70,19 +71,19 @@ Route::middleware(['auth', 'role:KG,KA,WM,WC,WH,DCI'])->group(function () {
 });
 
 Route::middleware(['auth', 'role:WM'])->group(function () {
-    Route::get('/dashboard/wm', [WmDashboardController::class, 'index'])->name('dashboard.wm');
+    Route::get('/dashboard/wm', [WmDashboardController::class, 'index'])->name('dashboard.wm')->middleware('query.sesi');
 });
 
 Route::middleware(['auth', 'role:KA'])->group(function () {
-    Route::get('/kaadmin/dashboard', [KaDashboardController::class, 'index'])->name('dashboard.ka');
+    Route::get('/kaadmin/dashboard', [KaDashboardController::class, 'index'])->name('dashboard.ka')->middleware('query.sesi');
 });
 
 Route::middleware(['auth', 'role:WH'])->group(function () {
-    Route::get('/dashboard/wh', [WhDashboardController::class, 'index'])->name('dashboard.wh');
+    Route::get('/dashboard/wh', [WhDashboardController::class, 'index'])->name('dashboard.wh')->middleware('query.sesi');
 });
 
 Route::middleware(['auth', 'role:WC'])->group(function () {
-    Route::get('/dashboard/wc', [WcDashboardController::class, 'index'])->name('dashboard.wc');
+    Route::get('/dashboard/wc', [WcDashboardController::class, 'index'])->name('dashboard.wc')->middleware('query.sesi');
 });
 
 Route::middleware(['auth', 'role:WM,WC,WH'])->group(function () {
@@ -115,7 +116,7 @@ Route::middleware(['auth', 'role:WM,WH,DCI'])->group(function () {
 });
 
 Route::middleware(['auth', 'role:DCI'])->group(function () {
-    Route::get('/dashboard/dci', [DciDashboardController::class, 'index'])->name('dashboard.dci');
+    Route::get('/dashboard/dci', [DciDashboardController::class, 'index'])->name('dashboard.dci')->middleware('query.sesi');
     Route::put('/perusahaan/sewa-truk/{id}', [TarifKirimanRutinController::class, 'updateSewaTruk'])->name('perusahaan.sewa-truk.update');
     Route::put('/perusahaan/kiriman-rutin/{id}', [TarifKirimanRutinController::class, 'updateKirimanRutin'])->name('perusahaan.kiriman-rutin.update');
 

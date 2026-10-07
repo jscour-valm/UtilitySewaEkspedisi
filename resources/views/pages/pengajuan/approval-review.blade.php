@@ -207,12 +207,19 @@
 
             @if($isKirimanRutin)
                 @forelse($pengajuan->detailKirimanRutin as $detail)
+                    @php $master = $hargaMaster['detail'][$detail->id_detail_kiriman] ?? null; @endphp
                     <div class="flex justify-between gap-4 py-2.5 border-b border-gray-50">
-                        <span class="text-sm text-gray-500">
-                            {{ $detail->jenisBarang?->nama_barang ?? '-' }}
-                            <span class="text-xs text-gray-400">&times; {{ rtrim(rtrim(number_format($detail->quantity, 2, ',', '.'), '0'), ',') }}</span>
-                        </span>
-                        <span class="text-sm font-semibold text-gray-900 tabular-nums">{{ \App\Helpers\FormatHelper::rupiah($detail->subtotal) }}</span>
+                        <div class="min-w-0">
+                            <span class="text-sm text-gray-500">
+                                {{ $detail->jenisBarang?->nama_barang ?? '-' }}
+                                <span class="text-xs text-gray-400">&times; {{ rtrim(rtrim(number_format($detail->quantity, 2, ',', '.'), '0'), ',') }}</span>
+                            </span>
+                            <p class="text-[11px] text-gray-400 tabular-nums">
+                                {{ \App\Helpers\FormatHelper::rupiah($detail->harga_satuan) }}/unit
+                                @if($master !== null) · master {{ \App\Helpers\FormatHelper::rupiah($master) }} @endif
+                            </p>
+                        </div>
+                        <x-selisih-harga-master :tampil="$detail->subtotal" :harga="$detail->harga_satuan" :master="$master" satuan="/unit" />
                     </div>
                 @empty
                     <div class="flex justify-between gap-4 py-2.5 border-b border-gray-50">
@@ -222,8 +229,13 @@
                 @endforelse
             @else
                 <div class="flex justify-between gap-4 py-2.5 border-b border-gray-50">
-                    <span class="text-sm text-gray-500">Sewa Kendaraan</span>
-                    <span class="text-sm font-semibold text-gray-900 tabular-nums">{{ \App\Helpers\FormatHelper::rupiah($pengajuan->harga_sewa) }}</span>
+                    <div class="min-w-0">
+                        <span class="text-sm text-gray-500">Sewa Kendaraan</span>
+                        @if($hargaMaster['sewa'] !== null)
+                            <p class="text-[11px] text-gray-400 tabular-nums">master {{ \App\Helpers\FormatHelper::rupiah($hargaMaster['sewa']) }}</p>
+                        @endif
+                    </div>
+                    <x-selisih-harga-master :tampil="$pengajuan->harga_sewa" :harga="$pengajuan->harga_sewa" :master="$hargaMaster['sewa']" />
                 </div>
             @endif
 

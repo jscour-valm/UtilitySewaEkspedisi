@@ -20,6 +20,7 @@ use App\Models\RasioSewa;
 use App\Models\TarifKirimanRutin;
 use App\Services\DocumentLinkageService;
 use App\Services\NotifikasiPengajuanService;
+use App\Services\HargaMasterPengajuanService;
 use App\Services\SnapshotDokumenService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -1037,6 +1038,7 @@ class PengajuanController extends Controller
         return view('pages.pengajuan.detailPengajuan', [
             'pengajuan' => $pengajuan,
             'dokumen' => app(SnapshotDokumenService::class)->ambil($pengajuan),
+            'hargaMaster' => app(HargaMasterPengajuanService::class)->ambil($pengajuan),
             'timeline' => $timeline,
             'ambangRasio' => $ambangRasio,
             'alurApproval' => $pengajuan->alurApproval(),

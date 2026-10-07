@@ -13,6 +13,7 @@ use App\Models\PerusahaanSkill;
 use App\Models\RasioSewa;
 use App\Models\TarifKirimanRutin;
 use App\Services\NotifikasiPengajuanService;
+use App\Services\HargaMasterPengajuanService;
 use App\Services\SnapshotDokumenService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -217,6 +218,7 @@ class ApprovalController extends Controller
             'adaUsulan' => $adaUsulan,
             'usulanDetailKiriman' => $usulanDetailKiriman,
             'usulanSewaTrukVendorSkill' => $usulanSewaTrukVendorSkill,
+            'hargaMaster' => app(HargaMasterPengajuanService::class)->ambil($pengajuan),
             'breadcrumb' => [
                 'back_url' => route('dashboard'),
                 'back_label' => 'Dashboard',
@@ -324,17 +326,7 @@ class ApprovalController extends Controller
      */
     private function resolveVendorSkillForSewaTruk(PengajuanSewa $pengajuan): ?array
     {
-        $idPerusahaan = $pengajuan->kendaraan?->id_perusahaan;
-        $idSkill = collect(explode(',', (string) $pengajuan->id_skill))
-            ->map(fn ($s) => (int) trim($s))
-            ->filter()
-            ->first();
-
-        if (! $idPerusahaan || ! $idSkill) {
-            return null;
-        }
-
-        return ['id_perusahaan' => $idPerusahaan, 'id_skill' => $idSkill, 'cabang_code' => $pengajuan->id_cabang];
+        return app(HargaMasterPengajuanService::class)->konteksSewaTruk($pengajuan);
     }
 
     /**
