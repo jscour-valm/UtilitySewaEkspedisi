@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Helpers\FormatHelper;
-use App\Http\Controllers\Concerns\LogsRiwayatHarga;
 use App\Models\Approval;
 use App\Models\ApprovalLog;
 use App\Models\DetailKirimanRutin;
@@ -12,16 +11,15 @@ use App\Models\PengajuanSewa;
 use App\Models\PerusahaanSkill;
 use App\Models\RasioSewa;
 use App\Models\TarifKirimanRutin;
-use App\Services\NotifikasiPengajuanService;
 use App\Services\HargaMasterPengajuanService;
+use App\Services\NotifikasiPengajuanService;
+use App\Services\PersetujuanMasterService;
 use App\Services\SnapshotDokumenService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class ApprovalController extends Controller
 {
-    use LogsRiwayatHarga;
-
     /** Peran yang bisa ada di alur_approval pengajuan (urutan tingkat). */
     public const PERAN_APPROVER = ['WM', 'WC', 'WH'];
 
@@ -329,11 +327,7 @@ class ApprovalController extends Controller
         return app(HargaMasterPengajuanService::class)->konteksSewaTruk($pengajuan);
     }
 
-    /**
-     * Part B — apply usulan Sewa Truk ke master: firstOrCreate vendor_skill (auto-create
-     * kalau skill/area ini emang belum terdaftar), snapshot harga lama, update ke harga
-     * yang diusulkan (= harga_sewa pengajuan ini).
-     */
+    /** Terapkan harga_sewa pengajuan ini ke master Sewa Truk (vendor + area + cabang). */
     private function applyUsulanSewaTruk(PengajuanSewa $pengajuan): void
     {
         $ctx = $this->resolveVendorSkillForSewaTruk($pengajuan);
@@ -341,70 +335,29 @@ class ApprovalController extends Controller
             throw new \RuntimeException('Vendor/skill pengajuan ini tidak bisa di-resolve, usulan gagal diterapkan.');
         }
 
-        $vendorSkill = PerusahaanSkill::withInactive()->firstOrCreate($ctx, ['flag' => true]);
-        $hargaLama = $vendorSkill->harga_sewa;
-        $vendorSkill->update([
-            'harga_sewa_sebelumnya' => $hargaLama,
-            'harga_sewa' => $pengajuan->harga_sewa,
-            'flag' => true,
-        ]);
-        $this->catatRiwayatHargaSewaTruk($vendorSkill->id_vendor_skill, $hargaLama, $pengajuan->harga_sewa);
+        app(PersetujuanMasterService::class)->terapkanHargaSewaTruk($ctx, (float) $pengajuan->harga_sewa);
     }
 
-    /**
-     * Part B — apply usulan Kiriman Rutin (1 baris/jenis barang) ke master. Kalau baris
-     * ini dulu punya tarif resmi (`id_tarif_kiriman_rutin` terisi), update row itu.
-     * Kalau ad-hoc (belum ada row master sama sekali), resolve/auto-create vendor_skill
-     * dari skill pertama pengajuan (pola sama kayak resolveVendorSkillForSewaTruk()),
-     * lalu buat row tarif baru.
-     */
+    /** Terapkan harga satu barang Kiriman Rutin ke master tarif (area pertama pengajuan). */
     private function applyUsulanKirimanRutin(PengajuanSewa $pengajuan, DetailKirimanRutin $detail): void
     {
-        if ($detail->id_tarif_kiriman_rutin) {
-            $tarif = TarifKirimanRutin::withInactive()->find($detail->id_tarif_kiriman_rutin);
-            if ($tarif) {
-                $biayaLama = $tarif->biaya_per_unit;
-                $tarif->update([
-                    'harga_sebelumnya' => $biayaLama,
-                    'biaya_per_unit' => $detail->harga_satuan,
-                    'flag' => true,
-                ]);
-                $this->catatRiwayatTarifKirimanRutin($tarif->id_tarif, $biayaLama, $detail->harga_satuan);
-
-                return;
-            }
-        }
-
         $idSkill = collect(explode(',', (string) $pengajuan->id_skill))
             ->map(fn ($s) => (int) trim($s))
             ->filter()
             ->first();
-        if (! $pengajuan->id_perusahaan_ekspedisi || ! $idSkill) {
+        $tarifAda = $detail->id_tarif_kiriman_rutin
+            && TarifKirimanRutin::withInactive()->whereKey($detail->id_tarif_kiriman_rutin)->exists();
+        if (! $tarifAda && (! $pengajuan->id_perusahaan_ekspedisi || ! $idSkill)) {
             throw new \RuntimeException('Vendor/skill pengajuan ini tidak bisa di-resolve, usulan gagal diterapkan.');
         }
 
-        $vendorSkill = PerusahaanSkill::withInactive()->firstOrCreate(
-            ['id_perusahaan' => (int) $pengajuan->id_perusahaan_ekspedisi, 'id_skill' => $idSkill, 'cabang_code' => $pengajuan->id_cabang],
-            ['flag' => true]
+        $idTarif = app(PersetujuanMasterService::class)->terapkanTarifKirimanRutin(
+            ['id_perusahaan' => (int) $pengajuan->id_perusahaan_ekspedisi, 'id_skill' => (int) $idSkill, 'cabang_code' => $pengajuan->id_cabang],
+            (int) $detail->id_jenis_barang,
+            (float) $detail->harga_satuan,
+            $detail->id_tarif_kiriman_rutin,
         );
-        if (! $vendorSkill->flag) {
-            $vendorSkill->update(['flag' => true]);
-        }
-
-        $tarif = TarifKirimanRutin::withInactive()->firstOrCreate(
-            ['id_vendor_skill' => $vendorSkill->id_vendor_skill, 'id_jenis_barang' => $detail->id_jenis_barang],
-            ['biaya_per_unit' => $detail->harga_satuan, 'flag' => true]
-        );
-        if (! $tarif->wasRecentlyCreated) {
-            $biayaLama = $tarif->biaya_per_unit;
-            $tarif->update([
-                'harga_sebelumnya' => $biayaLama,
-                'biaya_per_unit' => $detail->harga_satuan,
-                'flag' => true,
-            ]);
-            $this->catatRiwayatTarifKirimanRutin($tarif->id_tarif, $biayaLama, $detail->harga_satuan);
-        }
-        $detail->update(['id_tarif_kiriman_rutin' => $tarif->id_tarif]);
+        $detail->update(['id_tarif_kiriman_rutin' => $idTarif]);
     }
 
     /**

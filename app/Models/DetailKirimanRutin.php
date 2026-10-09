@@ -20,7 +20,7 @@ class DetailKirimanRutin extends Model
 
     protected $fillable = [
         'id_pengajuan_sewa', 'id_jenis_barang', 'id_tarif_kiriman_rutin', 'quantity', 'harga_satuan', 'subtotal', 'flag',
-        'usulan_update_master', 'usulan_status', 'usulan_decided_by', 'usulan_decided_at',
+        'usulan_update_master', 'usulan_status', 'usulan_decided_by', 'usulan_decided_at', 'id_usulan_harga',
     ];
 
     protected $casts = [
@@ -40,6 +40,12 @@ class DetailKirimanRutin extends Model
     public function usulanDecidedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'usulan_decided_by', 'id');
+    }
+
+    /** Usulan harga master yang ikut diajukan untuk barang ini. */
+    public function usulanHarga(): BelongsTo
+    {
+        return $this->belongsTo(UsulanHarga::class, 'id_usulan_harga', 'id_usulan_harga');
     }
 
     public function tarif(): BelongsTo

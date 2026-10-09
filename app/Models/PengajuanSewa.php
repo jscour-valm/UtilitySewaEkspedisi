@@ -47,6 +47,7 @@ class PengajuanSewa extends Model
         'usulan_decided_at',
         'dibatalkan_at',
         'alasan_pembatalan',
+        'id_usulan_harga',
     ];
 
     protected $casts = [
@@ -127,6 +128,31 @@ class PengajuanSewa extends Model
     public function usulanDecidedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'usulan_decided_by', 'id');
+    }
+
+    /** Usulan harga master Sewa Truk yang ikut diajukan bersama pengajuan ini. */
+    public function usulanHarga(): BelongsTo
+    {
+        return $this->belongsTo(UsulanHarga::class, 'id_usulan_harga', 'id_usulan_harga');
+    }
+
+    /** Vendor pengajuan: Sewa Truk lewat kendaraan, Kiriman Rutin langsung. */
+    public function vendor(): ?PerusahaanEkspedisi
+    {
+        return $this->jenis_pengajuan === 'sewa_truk'
+            ? $this->kendaraan?->perusahaan
+            : $this->perusahaanEkspedisi;
+    }
+
+    /**
+     * Vendor baru yang belum di-approve WH. Selama ada, WM belum boleh memvalidasi
+     * pengajuan ini. Usulan harga tidak menahan pengajuan (proses terpisah).
+     */
+    public function vendorMenungguApproval(): ?PerusahaanEkspedisi
+    {
+        $vendor = $this->vendor();
+
+        return $vendor && $vendor->sedangBerjalan() ? $vendor : null;
     }
 
     public function hitungRasio()

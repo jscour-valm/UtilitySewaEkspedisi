@@ -6,6 +6,10 @@ use App\Models\Concerns\HasFlag;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * Log keputusan approval. Satu baris milik salah satu: pengajuan sewa (id_pengajuan_sewa),
+ * vendor baru (id_perusahaan), atau usulan harga master (id_usulan_harga).
+ */
 class ApprovalLog extends Model
 {
     use HasFlag;
@@ -20,6 +24,8 @@ class ApprovalLog extends Model
 
     protected $fillable = [
         'id_pengajuan_sewa',
+        'id_perusahaan',
+        'id_usulan_harga',
         'id_approval_rule',
         'id_approver',
         'role_approver',
@@ -38,6 +44,16 @@ class ApprovalLog extends Model
     public function pengajuan(): BelongsTo
     {
         return $this->belongsTo(PengajuanSewa::class, 'id_pengajuan_sewa', 'id_pengajuan_sewa');
+    }
+
+    public function perusahaan(): BelongsTo
+    {
+        return $this->belongsTo(PerusahaanEkspedisi::class, 'id_perusahaan', 'id_perusahaan');
+    }
+
+    public function usulanHarga(): BelongsTo
+    {
+        return $this->belongsTo(UsulanHarga::class, 'id_usulan_harga', 'id_usulan_harga');
     }
 
     public function approval(): BelongsTo

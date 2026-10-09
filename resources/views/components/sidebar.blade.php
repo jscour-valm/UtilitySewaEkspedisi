@@ -63,8 +63,8 @@
             <span x-show="sidebarOpen" x-cloak class="truncate">Dashboard</span>
         </a>
 
-        {{-- Perusahaan — 1 nav item buat KG/WM/WH/DCI (gantiin "Kendaraan" KG, dropdown "Kendaraan" WM/WH, dan link Sewa Truk/Kiriman Rutin di Master Data DCI) --}}
-        @if(in_array($role, ['KG', 'WM', 'WH', 'DCI']))
+        {{-- Perusahaan (master vendor & tarif) — KG/WM/WH/DCI, WC read-only --}}
+        @if(in_array($role, ['KG', 'WM', 'WH', 'WC', 'DCI']))
         <a href="{{ route('perusahaan.index') }}"
             class="flex items-center gap-3 py-3 px-4 rounded-lg mx-2 transition text-sm
             {{ request()->is('perusahaan*')

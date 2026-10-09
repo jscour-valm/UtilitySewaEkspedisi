@@ -10,6 +10,7 @@ use App\Http\Controllers\JenisKendaraanController;
 use App\Http\Controllers\KaDashboardController;
 use App\Http\Controllers\KendaraanController;
 use App\Http\Controllers\PengajuanController;
+use App\Http\Controllers\PersetujuanMasterController;
 use App\Http\Controllers\PerusahaanController;
 use App\Http\Controllers\TarifKirimanRutinController;
 use App\Http\Controllers\WcDashboardController;
@@ -70,6 +71,12 @@ Route::middleware(['auth', 'role:KG,KA,WM,WC,WH,DCI'])->group(function () {
     Route::get('/pengajuan/{id}/buka', [PengajuanController::class, 'buka'])->name('pengajuan.buka');
 });
 
+// Link di email proses vendor baru / usulan harga master
+Route::middleware(['auth', 'role:KG,WM,WC,WH,DCI'])->group(function () {
+    Route::get('/persetujuan/{jenis}/{id}/buka', [PersetujuanMasterController::class, 'buka'])
+        ->whereIn('jenis', ['vendor', 'harga'])->whereNumber('id')->name('persetujuan.buka');
+});
+
 Route::middleware(['auth', 'role:WM'])->group(function () {
     Route::get('/dashboard/wm', [WmDashboardController::class, 'index'])->name('dashboard.wm')->middleware('query.sesi');
 });
@@ -93,7 +100,7 @@ Route::middleware(['auth', 'role:WM,WC,WH'])->group(function () {
     Route::post('/approval/{id}/usulan', [ApprovalController::class, 'decideUsulan'])->name('approval.usulan.decide');
 });
 
-Route::middleware(['auth', 'role:KG,WM,WH,DCI'])->group(function () {
+Route::middleware(['auth', 'role:KG,WM,WH,WC,DCI'])->group(function () {
     Route::get('/perusahaan', [PerusahaanController::class, 'index'])->name('perusahaan.index');
     Route::get('/perusahaan/facet/skill-options', [PerusahaanController::class, 'skillOptions'])->name('perusahaan.facet.skill-options');
     Route::get('/api/perusahaan/preview', [PerusahaanController::class, 'preview'])->name('perusahaan.preview');
