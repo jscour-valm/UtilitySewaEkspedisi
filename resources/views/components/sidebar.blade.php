@@ -187,6 +187,20 @@
         </div>
         @endif
 
+        {{-- Pengaturan alur approval, penerima email, batas rasio — hanya DCI --}}
+        @if($role === 'DCI')
+        <a href="{{ route('pengaturan.index') }}"
+            class="flex items-center gap-3 py-3 px-4 rounded-lg mx-2 transition text-sm
+            {{ request()->is('pengaturan*')
+                ? 'bg-green-800 text-white font-semibold'
+                : 'text-green-100 hover:bg-green-800/60' }}">
+            <span class="{{ $iconWrapClass }}" :class="sidebarOpen ? 'w-5' : 'w-full'">
+                <i data-lucide="sliders-horizontal" class="w-5 h-5"></i>
+            </span>
+            <span x-show="sidebarOpen" x-cloak class="truncate">Pengaturan</span>
+        </a>
+        @endif
+
         {{-- Setting Approver — hanya DCI (TIDAK dibuka ke WH/WM, beda dari Master Data
         di atas — link ini nggak boleh ikut ke-broaden bareng, rutenya masih role:DCI). --}}
         @if($role === 'DCI')

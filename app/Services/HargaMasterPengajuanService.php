@@ -12,7 +12,8 @@ use App\Models\TarifKirimanRutin;
 /**
  * Harga master pembanding untuk harga di pengajuan (penanda naik/turun di Rincian Biaya).
  * Kalau usulan perubahan master pengajuan ini sudah disetujui, master sekarang = harga
- * pengajuan, jadi pembandingnya diambil dari riwayat (harga sebelum diubah).
+ * pengajuan, jadi pembandingnya harga master sebelum usulan (harga_lama usulan; data lama
+ * sebelum tabel usulan ada diambil dari riwayat harga).
  * null = barang/area belum punya harga master.
  */
 class HargaMasterPengajuanService
@@ -53,6 +54,10 @@ class HargaMasterPengajuanService
 
     private function hargaSewaTruk(PengajuanSewa $pengajuan): ?float
     {
+        if ($pengajuan->usulanHarga?->sudahDisetujui()) {
+            return $pengajuan->usulanHarga->harga_lama !== null ? (float) $pengajuan->usulanHarga->harga_lama : null;
+        }
+
         $ctx = $this->konteksSewaTruk($pengajuan);
         $vendorSkill = $ctx ? PerusahaanSkill::withInactive()->where($ctx)->first() : null;
         if (! $vendorSkill) {
@@ -74,6 +79,10 @@ class HargaMasterPengajuanService
 
     private function tarifKirimanRutin(DetailKirimanRutin $detail): ?float
     {
+        if ($detail->usulanHarga?->sudahDisetujui()) {
+            return $detail->usulanHarga->harga_lama !== null ? (float) $detail->usulanHarga->harga_lama : null;
+        }
+
         if (! $detail->id_tarif_kiriman_rutin) {
             return null;
         }

@@ -9,12 +9,10 @@ use Illuminate\Support\Facades\Mail;
 
 /**
  * Kirim email notifikasi SETELAH response lewat defer() — tanpa tabel `jobs`, dan
- * kegagalan SMTP tidak pernah menggagalkan aksi user. Semua DCI selalu di-CC.
+ * kegagalan SMTP tidak pernah menggagalkan aksi user. Penerima ditentukan pemanggil (AturanEmail).
  */
 class PengirimEmail
 {
-    public function __construct(private PenerimaEmail $penerima) {}
-
     /**
      * @param  string  $label  untuk log, mis. "'baru' pengajuan #12"
      * @param  string[]  $to
@@ -30,7 +28,7 @@ class PengirimEmail
             return;
         }
 
-        $cc = array_values(array_diff(array_unique(array_merge($cc, $this->penerima->role('DCI'))), $to));
+        $cc = array_values(array_diff(array_unique($cc), $to));
 
         defer(function () use ($label, $to, $cc, $buatMailable) {
             try {

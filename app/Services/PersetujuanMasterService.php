@@ -7,6 +7,7 @@ use App\Helpers\FormatHelper;
 use App\Http\Controllers\Concerns\LogsRiwayatHarga;
 use App\Mail\NotifikasiMasterMail;
 use App\Models\ApprovalLog;
+use App\Models\AturanEmail;
 use App\Models\PengajuanSewa;
 use App\Models\PerusahaanEkspedisi;
 use App\Models\PerusahaanSkill;
@@ -77,7 +78,7 @@ class PersetujuanMasterService
      * @param  array{jenis: string, id_perusahaan: int, id_skill: int, cabang_code: string, id_jenis_barang?: ?int}  $target
      * @return UsulanHarga|null null kalau harga sama dengan master sekarang (tidak perlu usulan)
      */
-    public function ajukanUsulan(array $target, float $harga, string $sumber, ?string $catatan, User $kg): ?UsulanHarga
+    public function ajukanUsulan(array $target, float $harga, string $sumber, ?string $catatan, User $kg, bool $kirimEmail = true): ?UsulanHarga
     {
         $jenis = $target['jenis'];
         $idJenisBarang = $jenis === UsulanHarga::JENIS_KIRIMAN_RUTIN ? ($target['id_jenis_barang'] ?? null) : null;
@@ -85,7 +86,7 @@ class PersetujuanMasterService
             throw new PersetujuanMasterException('Jenis barang usulan tarif Kiriman Rutin wajib diisi.');
         }
 
-        return DB::connection('sqlsrv')->transaction(function () use ($target, $jenis, $idJenisBarang, $harga, $sumber, $catatan, $kg) {
+        return DB::connection('sqlsrv')->transaction(function () use ($target, $jenis, $idJenisBarang, $harga, $sumber, $catatan, $kg, $kirimEmail) {
             $berjalan = UsulanHarga::untukTarif($jenis, (int) $target['id_perusahaan'], (int) $target['id_skill'], $target['cabang_code'], $idJenisBarang)
                 ->sedangBerjalan()
                 ->lockForUpdate()
@@ -126,7 +127,9 @@ class PersetujuanMasterService
                 'flag' => true,
             ]);
 
-            $this->kirimEmail($usulan, 'diajukan');
+            if ($kirimEmail) {
+                $this->kirimEmail($usulan, 'diajukan');
+            }
 
             return $usulan;
         });
@@ -185,6 +188,10 @@ class PersetujuanMasterService
             }
             $objek->save();
 
+            if ($objek instanceof UsulanHarga && $aksi !== 'divalidasi') {
+                $this->sinkronStatusPengajuan($objek, $user);
+            }
+
             $this->catatLog($objek, $user, $peran, $setuju, $alasan);
 
             $db->commit();
@@ -205,18 +212,20 @@ class PersetujuanMasterService
     }
 
     /**
-     * Peran penerima email per aksi (KG = pengaju saja, WM = cabang pengaju). DCI di-CC lewat PengirimEmail.
+     * Peran penerima email per aksi sesuai pengaturan DCI (KG = pengaju saja, WM = cabang pengaju).
      *
      * @return array{0: string[], 1: string[]} [peran To, peran CC]
      */
     public static function penerima(string $aksi, ?string $peranPemutus = null): array
     {
-        return match ($aksi) {
-            'diajukan', 'diajukan_ulang' => [['WM'], ['KG']],
-            'divalidasi' => [['WH'], ['KG', 'WM']],
-            'disetujui' => [['KG'], ['WM', 'WH', 'WC']],
-            'ditolak' => [['KG'], $peranPemutus === 'WH' ? ['WM', 'WH'] : ['WM']],
-        };
+        $aturan = AturanEmail::penerima(match ($aksi) {
+            'diajukan', 'diajukan_ulang' => 'master_diajukan',
+            'divalidasi' => 'master_divalidasi',
+            'disetujui' => 'master_disetujui',
+            'ditolak' => $peranPemutus === 'WH' ? 'master_ditolak_wh' : 'master_ditolak_wm',
+        });
+
+        return [$aturan['to'], $aturan['cc']];
     }
 
     /** Sewa Truk: harga_sewa di sesi_perusahaan_skill (dibuat kalau belum ada). @return int id_vendor_skill */
@@ -352,6 +361,22 @@ class PersetujuanMasterService
         }
 
         return $daftar;
+    }
+
+    /**
+     * Penanda usulan di baris pengajuan (usulan_status, dipakai badge di wizard & detail)
+     * ikut keputusan final usulan.
+     */
+    private function sinkronStatusPengajuan(UsulanHarga $usulan, User $user): void
+    {
+        $kolom = [
+            'usulan_status' => $usulan->status,
+            'usulan_decided_by' => $user->id,
+            'usulan_decided_at' => now(),
+        ];
+        $db = DB::connection('sqlsrv');
+        $db->table('sesi_pengajuan_sewa')->where('id_usulan_harga', $usulan->id_usulan_harga)->update($kolom);
+        $db->table('sesi_detail_kiriman_rutin')->where('id_usulan_harga', $usulan->id_usulan_harga)->update($kolom);
     }
 
     /** Log keputusan di sesi_approval_log; tingkat 1 = validasi WM, 2 = approval WH. */

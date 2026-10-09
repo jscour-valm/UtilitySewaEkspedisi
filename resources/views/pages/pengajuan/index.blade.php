@@ -9,6 +9,7 @@
 <script>window.__userCabang = @json(auth()->user()->getCabangId());</script>
 <script>window.__userId = @json(auth()->id());</script>
 <script>window.__rasioMaks = @json((float) (\App\Models\RasioSewa::aktif()?->persentase_maksimal ?? 2.5));</script>
+<script>window.__aturanAlur = @json(\App\Models\AturanAlur::semua());</script>
 <div
     class="flex flex-col gap-4 pb-2"
     x-data="pengajuanSewa">

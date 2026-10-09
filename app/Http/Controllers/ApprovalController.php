@@ -5,15 +5,11 @@ namespace App\Http\Controllers;
 use App\Helpers\FormatHelper;
 use App\Models\Approval;
 use App\Models\ApprovalLog;
-use App\Models\DetailKirimanRutin;
 use App\Models\Kendaraan;
 use App\Models\PengajuanSewa;
-use App\Models\PerusahaanSkill;
 use App\Models\RasioSewa;
-use App\Models\TarifKirimanRutin;
 use App\Services\HargaMasterPengajuanService;
 use App\Services\NotifikasiPengajuanService;
-use App\Services\PersetujuanMasterService;
 use App\Services\SnapshotDokumenService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -183,19 +179,6 @@ class ApprovalController extends Controller
                 ->get()
             : collect();
 
-        // Part B — usulan perubahan harga master: cuma actionable di tier TERAKHIR/final
-        // pengajuan ini (independen dari $canAct, yang soal approve/reject pengajuannya
-        // sendiri). detailKirimanRutin relation udah otomatis kesaring flag=true (HasFlag).
-        $isUsulanTerminalTier = $pengajuan->isUsulanTerminalTierFor($userRole);
-        $usulanDetailKiriman = $pengajuan->detailKirimanRutin->where('usulan_update_master', true);
-        $adaUsulan = (bool) $pengajuan->usulan_harga_sewa || $usulanDetailKiriman->isNotEmpty();
-        // Harga master SEKARANG (sebelum di-apply) — buat nampilin before/after di panel usulan.
-        $usulanSewaTrukVendorSkill = null;
-        if ($pengajuan->usulan_harga_sewa) {
-            $ctx = $this->resolveVendorSkillForSewaTruk($pengajuan);
-            $usulanSewaTrukVendorSkill = $ctx ? PerusahaanSkill::withInactive()->where($ctx)->first() : null;
-        }
-
         return view('pages.pengajuan.approval-review', [
             'pengajuan' => $pengajuan,
             'timeline' => $timeline,
@@ -212,11 +195,8 @@ class ApprovalController extends Controller
             'alurApproval' => $pengajuan->alurApproval(),
             'peranSudahApprove' => $pengajuan->peranSudahApprove(),
             'approverBerikutnya' => $approverBerikutnya,
-            'isUsulanTerminalTier' => $isUsulanTerminalTier,
-            'adaUsulan' => $adaUsulan,
-            'usulanDetailKiriman' => $usulanDetailKiriman,
-            'usulanSewaTrukVendorSkill' => $usulanSewaTrukVendorSkill,
             'hargaMaster' => app(HargaMasterPengajuanService::class)->ambil($pengajuan),
+            'vendorMenunggu' => strtolower($pengajuan->status_pengajuan) === 'pending' ? $pengajuan->vendorMenungguApproval() : null,
             'breadcrumb' => [
                 'back_url' => route('dashboard'),
                 'back_label' => 'Dashboard',
@@ -316,133 +296,6 @@ class ApprovalController extends Controller
     }
 
     /**
-     * Part B — resolve konteks vendor+skill+cabang buat usulan Sewa Truk (harga_sewa
-     * pengajuan ini diusulkan jadi harga master). Pengajuan sewa_truk nyimpen `id_skill`
-     * sbg CSV beberapa area — kalau lebih dari 1, dianggap semua "sama" (pola yang sama
-     * kayak resolveHargaKirimanRutin() buat kiriman rutin), ambil yang PERTAMA doang.
-     * Return null kalau kendaraan/skill nggak bisa di-resolve (data nggak lengkap).
-     */
-    private function resolveVendorSkillForSewaTruk(PengajuanSewa $pengajuan): ?array
-    {
-        return app(HargaMasterPengajuanService::class)->konteksSewaTruk($pengajuan);
-    }
-
-    /** Terapkan harga_sewa pengajuan ini ke master Sewa Truk (vendor + area + cabang). */
-    private function applyUsulanSewaTruk(PengajuanSewa $pengajuan): void
-    {
-        $ctx = $this->resolveVendorSkillForSewaTruk($pengajuan);
-        if (! $ctx) {
-            throw new \RuntimeException('Vendor/skill pengajuan ini tidak bisa di-resolve, usulan gagal diterapkan.');
-        }
-
-        app(PersetujuanMasterService::class)->terapkanHargaSewaTruk($ctx, (float) $pengajuan->harga_sewa);
-    }
-
-    /** Terapkan harga satu barang Kiriman Rutin ke master tarif (area pertama pengajuan). */
-    private function applyUsulanKirimanRutin(PengajuanSewa $pengajuan, DetailKirimanRutin $detail): void
-    {
-        $idSkill = collect(explode(',', (string) $pengajuan->id_skill))
-            ->map(fn ($s) => (int) trim($s))
-            ->filter()
-            ->first();
-        $tarifAda = $detail->id_tarif_kiriman_rutin
-            && TarifKirimanRutin::withInactive()->whereKey($detail->id_tarif_kiriman_rutin)->exists();
-        if (! $tarifAda && (! $pengajuan->id_perusahaan_ekspedisi || ! $idSkill)) {
-            throw new \RuntimeException('Vendor/skill pengajuan ini tidak bisa di-resolve, usulan gagal diterapkan.');
-        }
-
-        $idTarif = app(PersetujuanMasterService::class)->terapkanTarifKirimanRutin(
-            ['id_perusahaan' => (int) $pengajuan->id_perusahaan_ekspedisi, 'id_skill' => (int) $idSkill, 'cabang_code' => $pengajuan->id_cabang],
-            (int) $detail->id_jenis_barang,
-            (float) $detail->harga_satuan,
-            $detail->id_tarif_kiriman_rutin,
-        );
-        $detail->update(['id_tarif_kiriman_rutin' => $idTarif]);
-    }
-
-    /**
-     * Part B — WM/WH decide usulan perubahan harga master, INDEPENDEN dari approve/reject
-     * pengajuannya sendiri. `id_detail_kiriman` diisi kalau target-nya 1 baris kiriman
-     * rutin spesifik; null = target-nya usulan harga_sewa sewa_truk di pengajuan ini.
-     */
-    public function decideUsulan(Request $request, $id)
-    {
-        $request->validate([
-            'decision' => 'required|in:approved,rejected',
-            'id_detail_kiriman' => 'nullable|integer',
-        ]);
-
-        $pengajuan = PengajuanSewa::with('detailKirimanRutin')->findOrFail($id);
-        $userRole = auth()->user()->userUtility?->role;
-
-        if (! in_array($userRole, ['WM', 'WH'])) {
-            return response()->json(['error' => 'Anda tidak memiliki akses'], 403);
-        }
-        if (! auth()->user()->canAccessCabang($pengajuan->id_cabang)) {
-            return response()->json(['error' => 'Anda hanya bisa akses pengajuan dari cabang Anda'], 403);
-        }
-        if (strtolower($pengajuan->status_pengajuan) !== 'pending') {
-            return response()->json(['error' => 'Pengajuan tidak dalam status pending'], 400);
-        }
-        // Gate utama Part B: usulan cuma boleh diputuskan di tier TERAKHIR/final pengajuan
-        // ini — beda dari $canAct (approve/reject pengajuan), independen.
-        if (! $pengajuan->isUsulanTerminalTierFor($userRole)) {
-            return response()->json(['error' => 'Usulan cuma bisa diputuskan di tier terakhir pengajuan ini'], 400);
-        }
-
-        $decision = $request->decision;
-        $decidedBy = auth()->id();
-        $decidedAt = now();
-
-        try {
-            DB::connection('sqlsrv')->beginTransaction();
-
-            if ($request->id_detail_kiriman) {
-                $detail = $pengajuan->detailKirimanRutin
-                    ->firstWhere('id_detail_kiriman', (int) $request->id_detail_kiriman);
-
-                if (! $detail || ! $detail->usulan_update_master || $detail->usulan_status !== 'pending') {
-                    DB::connection('sqlsrv')->rollBack();
-
-                    return response()->json(['error' => 'Usulan ini tidak ditemukan atau sudah diputuskan'], 400);
-                }
-
-                if ($decision === 'approved') {
-                    $this->applyUsulanKirimanRutin($pengajuan, $detail);
-                }
-                $detail->update([
-                    'usulan_status' => $decision,
-                    'usulan_decided_by' => $decidedBy,
-                    'usulan_decided_at' => $decidedAt,
-                ]);
-            } else {
-                if ($pengajuan->jenis_pengajuan !== 'sewa_truk' || ! $pengajuan->usulan_harga_sewa || $pengajuan->usulan_status !== 'pending') {
-                    DB::connection('sqlsrv')->rollBack();
-
-                    return response()->json(['error' => 'Usulan ini tidak ditemukan atau sudah diputuskan'], 400);
-                }
-
-                if ($decision === 'approved') {
-                    $this->applyUsulanSewaTruk($pengajuan);
-                }
-                $pengajuan->update([
-                    'usulan_status' => $decision,
-                    'usulan_decided_by' => $decidedBy,
-                    'usulan_decided_at' => $decidedAt,
-                ]);
-            }
-
-            DB::connection('sqlsrv')->commit();
-
-            return response()->json(['message' => 'Usulan berhasil diputuskan']);
-        } catch (\Exception $e) {
-            DB::connection('sqlsrv')->rollBack();
-
-            return response()->json(['error' => $e->getMessage()], 500);
-        }
-    }
-
-    /**
      * Validasi (WM) / approval (WC, WH) sesuai urutan alur_approval pengajuan.
      * Status jadi approved saat peran terakhir di alur menyetujui.
      */
@@ -495,6 +348,14 @@ class ApprovalController extends Controller
                     : 'Pengajuan ini sudah tidak menunggu keputusan.';
 
                 return response()->json(['error' => $pesan], 400);
+            }
+
+            // Vendor baru harus disetujui WH dulu sebelum pengajuannya divalidasi (menolak tetap boleh).
+            $vendorMenunggu = $keputusan === 'approved' ? $pengajuan->vendorMenungguApproval() : null;
+            if ($vendorMenunggu) {
+                $db->rollBack();
+
+                return response()->json(['error' => "Vendor {$vendorMenunggu->nama_perusahaan} masih ".lcfirst($vendorMenunggu->labelStatusPersetujuan()).'. Pengajuan ini baru bisa divalidasi setelah vendornya disetujui WH.'], 400);
             }
 
             $alur = $pengajuan->alurApproval();

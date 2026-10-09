@@ -224,9 +224,13 @@
         <p class="text-xs font-medium uppercase tracking-wide text-gray-500">Alur Approval</p>
         <p class="mt-1 text-sm font-semibold text-gray-800" x-text="alurApprovalEstimasi.join(' → ')"></p>
         <p class="mt-1 text-xs text-gray-500">
-            WM memvalidasi<span x-show="alurApprovalEstimasi.includes('WC')">, WC approve karena tujuan PAC</span><span x-show="alurApprovalEstimasi.includes('WH')">, WH approve karena rasio di atas <span x-text="rasioMaks.toLocaleString('id-ID')"></span>%</span>.
+            Sesuai pengaturan alur untuk tujuan <span x-text="pengajuan.tujuan_penyewaan === 'PAC' ? 'PAC' : 'Toko'"></span><span x-show="pakaiRasio">, rasio <span x-text="rasioDiAtasBatas ? 'di atas' : 'di bawah'"></span> batas <span x-text="rasioMaks.toLocaleString('id-ID')"></span>%</span>.
         </p>
         <p x-show="adaAreaBaru" class="mt-1 text-xs text-blue-600">Info: pengajuan ini menambah area kirim baru.</p>
+        <p x-show="perusahaanTerpilih?.status_approval && perusahaanTerpilih.status_approval !== 'approved'" x-cloak
+            class="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            Vendor ini masih vendor baru yang menunggu persetujuan. Pengajuan baru bisa divalidasi WM setelah vendor disetujui WH.
+        </p>
     </div>
 
     {{-- Rasio Sewa & Kategori — Sewa Truk saja. Kiriman Rutin gak pakai rasio

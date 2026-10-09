@@ -40,6 +40,8 @@
         <x-alur-approval-pill :alur="$alurApproval" :sudah="$peranSudahApprove" :berikutnya="$approverBerikutnya"
             :status="$pengajuan->status_pengajuan" :actingRole="$actingRole" />
 
+        <x-vendor-menunggu-approval :vendor="$vendorMenunggu" class="mt-4" />
+
         {{-- Verdict strip: rasio vs ambang (sewa_truk saja — kiriman rutin gak pakai rasio,
              lihat PengajuanController::hitungAlurApproval()), total, value muatan --}}
         <div class="flex items-stretch flex-wrap mt-5 border-t border-gray-100 pt-4">
@@ -258,74 +260,9 @@
         </div>
     </div>
 
-    {{-- ==================== USULAN PERUBAHAN HARGA MASTER (Part B) ==================== --}}
-    @if($adaUsulan)
-    <div class="rounded-xl bg-white shadow-sm border border-gray-100 p-6">
-        <p class="text-[11px] font-semibold tracking-[0.09em] text-gray-500">USULAN PERUBAHAN HARGA MASTER</p>
-        <p class="text-[13px] text-gray-400 mt-1 mb-4">Usulan KG buat update tabel master tarif — keputusan terpisah dari approve/reject pengajuan ini.</p>
-
-        @if($pengajuan->usulan_harga_sewa)
-            @php
-                $statusLabel = match($pengajuan->usulan_status) {
-                    'approved' => 'Disetujui',
-                    'rejected' => 'Ditolak',
-                    default => 'Menunggu keputusan',
-                };
-                $statusClass = match($pengajuan->usulan_status) {
-                    'approved' => 'bg-avian-green-light text-avian-green',
-                    'rejected' => 'bg-red-50 text-red-600',
-                    default => 'bg-amber-50 text-amber-600',
-                };
-            @endphp
-            <div class="flex items-center justify-between gap-4 py-2.5 border-b border-gray-50" data-usulan-row>
-                <div class="text-sm">
-                    <span class="text-gray-500">Harga Sewa —</span>
-                    <span class="text-gray-400">sekarang</span>
-                    <span class="font-semibold text-gray-700">{{ $usulanSewaTrukVendorSkill?->harga_sewa !== null ? \App\Helpers\FormatHelper::rupiah($usulanSewaTrukVendorSkill->harga_sewa) : 'belum ada' }}</span>
-                    <span class="text-gray-400">→ diusulkan</span>
-                    <span class="font-semibold text-avian-green">{{ \App\Helpers\FormatHelper::rupiah($pengajuan->harga_sewa) }}</span>
-                </div>
-                <div class="flex items-center gap-2 shrink-0">
-                    <span class="rounded-full px-2 py-0.5 text-[11px] font-medium {{ $statusClass }}">{{ $statusLabel }}</span>
-                    @if($isUsulanTerminalTier && $canAct && $pengajuan->usulan_status === 'pending')
-                        <button type="button" class="usulan-decide-btn rounded-lg border border-avian-green px-2.5 py-1 text-xs font-medium text-avian-green hover:bg-avian-green-light" data-decision="approved">Setuju</button>
-                        <button type="button" class="usulan-decide-btn rounded-lg border border-red-300 px-2.5 py-1 text-xs font-medium text-red-600 hover:bg-red-50" data-decision="rejected">Tolak</button>
-                    @endif
-                </div>
-            </div>
-        @endif
-
-        @foreach($usulanDetailKiriman as $detail)
-            @php
-                $statusLabel = match($detail->usulan_status) {
-                    'approved' => 'Disetujui',
-                    'rejected' => 'Ditolak',
-                    default => 'Menunggu keputusan',
-                };
-                $statusClass = match($detail->usulan_status) {
-                    'approved' => 'bg-avian-green-light text-avian-green',
-                    'rejected' => 'bg-red-50 text-red-600',
-                    default => 'bg-amber-50 text-amber-600',
-                };
-            @endphp
-            <div class="flex items-center justify-between gap-4 py-2.5 border-b border-gray-50" data-usulan-row data-detail="{{ $detail->id_detail_kiriman }}">
-                <div class="text-sm">
-                    <span class="text-gray-700 font-medium">{{ $detail->jenisBarang->nama_barang ?? '—' }}</span>
-                    <span class="text-gray-400 mx-1">·</span>
-                    <span class="text-gray-400">diusulkan</span>
-                    <span class="font-semibold text-avian-green">{{ \App\Helpers\FormatHelper::rupiah($detail->harga_satuan) }}</span>
-                </div>
-                <div class="flex items-center gap-2 shrink-0">
-                    <span class="rounded-full px-2 py-0.5 text-[11px] font-medium {{ $statusClass }}">{{ $statusLabel }}</span>
-                    @if($isUsulanTerminalTier && $canAct && $detail->usulan_status === 'pending')
-                        <button type="button" class="usulan-decide-btn rounded-lg border border-avian-green px-2.5 py-1 text-xs font-medium text-avian-green hover:bg-avian-green-light" data-decision="approved" data-detail="{{ $detail->id_detail_kiriman }}">Setuju</button>
-                        <button type="button" class="usulan-decide-btn rounded-lg border border-red-300 px-2.5 py-1 text-xs font-medium text-red-600 hover:bg-red-50" data-decision="rejected" data-detail="{{ $detail->id_detail_kiriman }}">Tolak</button>
-                    @endif
-                </div>
-            </div>
-        @endforeach
-    </div>
-    @endif
+    {{-- ==================== CATATAN PENGAJUAN + USULAN HARGA MASTER ==================== --}}
+    <x-catatan-pengajuan :pengajuan="$pengajuan" :harga-master="$hargaMaster" />
+    <x-usulan-harga-pengajuan :pengajuan="$pengajuan" />
 
     {{-- ==================== DOKUMEN IDENTITAS PERUSAHAAN ==================== --}}
     @php
@@ -584,8 +521,9 @@
                 </svg>
                 Tolak
             </button>
-            <button type="button" id="approve-btn"
-                class="flex items-center gap-2 rounded-lg bg-avian-green px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-90">
+            <button type="button" id="approve-btn" @disabled($vendorMenunggu)
+                @if($vendorMenunggu) title="Vendor masih menunggu approval WH" @endif
+                class="flex items-center gap-2 rounded-lg bg-avian-green px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-90 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:brightness-100">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
                     <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
                 </svg>
@@ -761,41 +699,4 @@
 })();
 </script>
 
-<script>
-(function () {
-    const buttons = document.querySelectorAll('.usulan-decide-btn');
-    if (!buttons.length) return;
-
-    const csrf = document.querySelector('meta[name="csrf-token"]').content;
-    let busy = false;
-
-    buttons.forEach(btn => btn.addEventListener('click', function () {
-        if (busy) return;
-        busy = true;
-        const original = this.textContent;
-        this.disabled = true;
-        this.textContent = 'Memproses…';
-
-        const row = this.closest('[data-usulan-row]');
-        const idDetailKiriman = row?.dataset.detail || null;
-
-        fetch('{{ route("approval.usulan.decide", $pengajuan->id_pengajuan_sewa) }}', {
-            method: 'POST',
-            headers: { 'X-CSRF-TOKEN': csrf, 'Content-Type': 'application/json', 'Accept': 'application/json' },
-            body: JSON.stringify({ decision: this.dataset.decision, id_detail_kiriman: idDetailKiriman }),
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.error) throw new Error(data.error);
-            window.location.reload();
-        })
-        .catch(err => {
-            busy = false;
-            this.disabled = false;
-            this.textContent = original;
-            notify('Terjadi kesalahan: ' + err.message, 'error');
-        });
-    }));
-})();
-</script>
 @endsection

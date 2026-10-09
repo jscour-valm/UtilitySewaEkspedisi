@@ -65,13 +65,18 @@
                 :class="editId ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''">
             {{-- Tabel wewenang : harga terkunci saat edit, perubahan harga lewat pengajuan perubahan harga --}}
             <p x-show="editId" class="mt-1 text-[11px] text-gray-500">Harga sewa tidak bisa diubah saat edit. Untuk mengubah harga, gunakan pengajuan perubahan harga.</p>
-            {{-- Part B — usul harga di atas jadi harga master baru (vendor+cabang+area
-                 ini). Keputusan approve/reject-nya independen dari approve/reject
-                 pengajuan ini sendiri, diputuskan WM/WH di halaman approval. --}}
+            {{-- Usulan harga master (vendor + cabang + area): proses terpisah validasi WM → approval WH,
+                 tidak menahan pengajuan ini. --}}
             <label x-show="!editId && !usulanTerkunci(pengajuan.usulan_status)" class="mt-2 flex items-start gap-2 text-xs text-gray-500">
                 <input type="checkbox" x-model="pengajuan.usulan_harga_sewa" class="mt-0.5 rounded border-gray-300 text-avian-green focus:ring-avian-green">
-                <span>Ajukan perubahan harga master? Kalau disetujui WM/WH, harga sewa cabang+area ini di tabel master akan diupdate ke harga di atas.</span>
+                <span>Ajukan juga sebagai harga master baru? Diproses terpisah (validasi WM → approval WH); kalau disetujui, harga sewa cabang + area ini di tabel master diganti harga di atas.</span>
             </label>
+            <p x-show="!editId && kendaraanTerpilih?.harga_master && pengajuan.harga_sewa && Number(pengajuan.harga_sewa) !== Number(kendaraanTerpilih?.harga_master) && !pengajuan.usulan_harga_sewa" x-cloak
+                class="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-800">
+                Harga sewa beda dari harga master
+                (<span x-text="'Rp ' + Number(kendaraanTerpilih?.harga_master || 0).toLocaleString('id-ID')"></span>).
+                Jelaskan alasannya di kolom Catatan (mis. ada tambahan toko), atau centang usulan di atas kalau harga master memang perlu diubah.
+            </p>
             <p x-show="usulanTerkunci(pengajuan.usulan_status)" class="mt-2 text-[11px] font-medium"
                 :class="pengajuan.usulan_status === 'approved' ? 'text-green-600' : 'text-red-600'"
                 x-text="'Usulan harga master sudah ' + (pengajuan.usulan_status === 'approved' ? 'disetujui' : 'ditolak') + ' — tidak bisa diubah'"></p>

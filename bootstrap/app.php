@@ -29,5 +29,21 @@ return Application::configure(basePath: dirname(__DIR__))
             if ($e->getPrevious() instanceof TokenMismatchException && ! $request->expectsJson() && ! $request->is('api/*')) {
                 return redirect()->route('sesi.habis');
             }
+
+            // Halaman yang tidak boleh dibuka / datanya bukan milik user: kembali ke halaman sebelumnya
+            // (atau dashboard) dengan popup penjelasan, bukan halaman error 403/404 kosong.
+            $status = $e->getStatusCode();
+            if (in_array($status, [403, 404], true) && $request->isMethod('GET') && auth()->check()
+                && ! $request->expectsJson() && ! $request->is('api/*')) {
+                $pesan = $status === 403
+                    ? ($e->getMessage() ?: 'Anda tidak punya akses ke halaman tersebut.')
+                    : 'Halaman atau data yang Anda buka tidak ditemukan, atau bukan untuk cabang/peran Anda.';
+                $sebelumnya = url()->previous();
+                $tujuan = ($sebelumnya && $sebelumnya !== $request->fullUrl() && $sebelumnya !== $request->url())
+                    ? $sebelumnya
+                    : route('dashboard');
+
+                return redirect()->to($tujuan)->with('akses_ditolak', $pesan);
+            }
         });
     })->create();

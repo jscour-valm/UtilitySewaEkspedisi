@@ -44,12 +44,12 @@ class PersetujuanMasterTest extends TestCase
     public static function kasusPenerima(): array
     {
         return [
-            'diajukan' => ['diajukan', null, ['WM'], ['KG']],
-            'diajukan ulang' => ['diajukan_ulang', null, ['WM'], ['KG']],
-            'divalidasi WM' => ['divalidasi', 'WM', ['WH'], ['KG', 'WM']],
-            'disetujui WH' => ['disetujui', 'WH', ['KG'], ['WM', 'WH', 'WC']],
-            'ditolak WM' => ['ditolak', 'WM', ['KG'], ['WM']],
-            'ditolak WH' => ['ditolak', 'WH', ['KG'], ['WM', 'WH']],
+            'diajukan' => ['diajukan', null, ['WM'], ['KG', 'DCI']],
+            'diajukan ulang' => ['diajukan_ulang', null, ['WM'], ['KG', 'DCI']],
+            'divalidasi WM' => ['divalidasi', 'WM', ['WH'], ['KG', 'WM', 'DCI']],
+            'disetujui WH' => ['disetujui', 'WH', ['KG'], ['WM', 'WH', 'WC', 'DCI']],
+            'ditolak WM' => ['ditolak', 'WM', ['KG'], ['WM', 'DCI']],
+            'ditolak WH' => ['ditolak', 'WH', ['KG'], ['WM', 'WH', 'DCI']],
         ];
     }
 

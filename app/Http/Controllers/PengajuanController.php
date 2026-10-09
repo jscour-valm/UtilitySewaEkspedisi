@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\PersetujuanMasterException;
 use App\Helpers\DbHelper;
 use App\Helpers\FormatHelper;
 use App\Http\Controllers\Concerns\BuildsPerusahaanSummary;
 use App\Http\Controllers\Concerns\ManagesVendorMasterData;
+use App\Models\AturanAlur;
 use App\Models\BiayaTambahan;
 use App\Models\DetailKirimanRutin;
 use App\Models\JenisBiaya;
@@ -18,9 +20,11 @@ use App\Models\PerusahaanEkspedisi;
 use App\Models\PerusahaanSkill;
 use App\Models\RasioSewa;
 use App\Models\TarifKirimanRutin;
+use App\Models\UsulanHarga;
 use App\Services\DocumentLinkageService;
-use App\Services\NotifikasiPengajuanService;
 use App\Services\HargaMasterPengajuanService;
+use App\Services\NotifikasiPengajuanService;
+use App\Services\PersetujuanMasterService;
 use App\Services\SnapshotDokumenService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -246,13 +250,20 @@ class PengajuanController extends Controller
             // Branch: add kendaraan or perusahaan based on jenis_pengajuan
             if ($request->jenis_pengajuan === 'sewa_truk') {
                 $pengajuanData['id_kendaraan'] = $request->id_kendaraan;
-                $pengajuanData['usulan_harga_sewa'] = (bool) $request->boolean('usulan_harga_sewa');
-                $pengajuanData['usulan_status'] = $request->boolean('usulan_harga_sewa') ? 'pending' : null;
+                $pengajuanData['usulan_harga_sewa'] = false;
             } else { // pengiriman_rutin
                 $pengajuanData['id_perusahaan_ekspedisi'] = $request->id_perusahaan_ekspedisi;
             }
 
             $pengajuan = PengajuanSewa::create($pengajuanData);
+
+            if ($request->jenis_pengajuan === 'sewa_truk' && $request->boolean('usulan_harga_sewa')) {
+                $ctx = app(HargaMasterPengajuanService::class)->konteksSewaTruk($pengajuan);
+                $idUsulan = $ctx ? $this->usulanDariPengajuan(['jenis' => 'sewa_truk'] + $ctx, (float) $pengajuan->harga_sewa) : null;
+                if ($idUsulan) {
+                    $pengajuan->update(['id_usulan_harga' => $idUsulan, 'usulan_harga_sewa' => true, 'usulan_status' => 'pending']);
+                }
+            }
 
             // Simpan biaya tambahan
             if ($request->biaya_tambahan) {
@@ -274,6 +285,10 @@ class PengajuanController extends Controller
 
                     // Barang tanpa tarif master selalu jadi usulan harga master
                     $usulanBaris = $resolved['id_tarif'] === null || ! empty($detail['usulan_update_master']);
+                    $idUsulan = $usulanBaris
+                        ? $this->usulanDariPengajuan($this->targetTarifRutin($request, $cabangId, $resolved, $detail), $resolved['biaya_per_unit'])
+                        : null;
+                    $usulanBaris = $idUsulan !== null;
 
                     DetailKirimanRutin::create([
                         'id_pengajuan_sewa' => $pengajuan->id_pengajuan_sewa,
@@ -286,6 +301,7 @@ class PengajuanController extends Controller
                         'created_at' => now(),
                         'usulan_update_master' => $usulanBaris,
                         'usulan_status' => $usulanBaris ? 'pending' : null,
+                        'id_usulan_harga' => $idUsulan,
                     ]);
                 }
             }
@@ -312,6 +328,32 @@ class PengajuanController extends Controller
                 'message' => 'Gagal submit pengajuan: '.$e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * Usulan harga master yang ikut diajukan bersama pengajuan (proses terpisah, tidak menahan
+     * pengajuan). null kalau harga sama dengan master. Bentrok dengan usulan lain → 422.
+     */
+    private function usulanDariPengajuan(array $target, float $harga): ?int
+    {
+        try {
+            return app(PersetujuanMasterService::class)
+                ->ajukanUsulan($target, $harga, UsulanHarga::SUMBER_PENGAJUAN, null, auth()->user())
+                ?->id_usulan_harga;
+        } catch (PersetujuanMasterException $e) {
+            throw new \InvalidArgumentException($e->getMessage());
+        }
+    }
+
+    private function targetTarifRutin(Request $request, string $cabangId, array $resolved, array $detail): array
+    {
+        return [
+            'jenis' => UsulanHarga::JENIS_KIRIMAN_RUTIN,
+            'id_perusahaan' => (int) $request->id_perusahaan_ekspedisi,
+            'id_skill' => $resolved['id_skill'],
+            'cabang_code' => $cabangId,
+            'id_jenis_barang' => (int) $detail['id_jenis_barang'],
+        ];
     }
 
     private function resolveHargaKirimanRutin(int $idPerusahaanEkspedisi, string $cabangId, Collection $skillIds, array $detail): array
@@ -342,6 +384,7 @@ class PengajuanController extends Controller
                 return [
                     'id_tarif' => $tarif->id_tarif,
                     'biaya_per_unit' => $pakaiUsulan ? $hargaUsulan : (float) $tarif->biaya_per_unit,
+                    'id_skill' => (int) $skillId,
                 ];
             }
         }
@@ -350,7 +393,7 @@ class PengajuanController extends Controller
             throw new \InvalidArgumentException('Tarif belum terdaftar untuk salah satu jenis barang yang dipilih. Isi harga per unit dulu.');
         }
 
-        return ['id_tarif' => null, 'biaya_per_unit' => (float) $detail['biaya_per_unit']];
+        return ['id_tarif' => null, 'biaya_per_unit' => (float) $detail['biaya_per_unit'], 'id_skill' => (int) $skillIds->first()];
     }
 
     // GET /api/pengajuan/skill-list
@@ -919,6 +962,10 @@ class PengajuanController extends Controller
                     $subtotal = $resolved['biaya_per_unit'] * $detail['quantity'];
                     // Barang baru tanpa tarif master selalu jadi usulan harga master
                     $usulanBaru = ! $lama && ($resolved['id_tarif'] === null || ! empty($detail['usulan_update_master']));
+                    $idUsulanBaru = $usulanBaru
+                        ? $this->usulanDariPengajuan($this->targetTarifRutin($request, $cabangId, $resolved, $detail), $resolved['biaya_per_unit'])
+                        : null;
+                    $usulanBaru = $idUsulanBaru !== null;
 
                     DetailKirimanRutin::create([
                         'id_pengajuan_sewa' => $pengajuan->id_pengajuan_sewa,
@@ -933,6 +980,7 @@ class PengajuanController extends Controller
                         'usulan_status' => $lama ? $lama->usulan_status : ($usulanBaru ? 'pending' : null),
                         'usulan_decided_by' => $lama?->usulan_decided_by,
                         'usulan_decided_at' => $lama?->usulan_decided_at,
+                        'id_usulan_harga' => $lama ? $lama->id_usulan_harga : $idUsulanBaru,
                     ]);
                 }
             }
@@ -1039,6 +1087,7 @@ class PengajuanController extends Controller
             'pengajuan' => $pengajuan,
             'dokumen' => app(SnapshotDokumenService::class)->ambil($pengajuan),
             'hargaMaster' => app(HargaMasterPengajuanService::class)->ambil($pengajuan),
+            'vendorMenunggu' => strtolower($pengajuan->status_pengajuan) === 'pending' ? $pengajuan->vendorMenungguApproval() : null,
             'timeline' => $timeline,
             'ambangRasio' => $ambangRasio,
             'alurApproval' => $pengajuan->alurApproval(),
@@ -1105,7 +1154,8 @@ class PengajuanController extends Controller
     }
 
     /**
-     * Create perusahaan baru + upload identitas owner
+     * Vendor baru dari KG (wizard atau halaman Perusahaan) + upload identitas owner.
+     * Langsung bisa dipakai di pengajuan, tapi masuk antrian validasi WM → approval WH.
      */
     public function storePerusahaan(Request $request)
     {
@@ -1137,13 +1187,15 @@ class PengajuanController extends Controller
                 $perusahaan->save();
             }
 
+            app(PersetujuanMasterService::class)->ajukanVendor($perusahaan, auth()->user());
+
             $idVendorSkillList = $this->vendorSkillIdsDiCabang($perusahaan->id_perusahaan, auth()->user()->getCabangId());
 
             DB::connection('sqlsrv')->commit();
 
             return response()->json([
                 'success' => true,
-                'message' => 'Perusahaan berhasil disimpan',
+                'message' => 'Vendor baru diajukan dan menunggu validasi WM & approval WH.',
                 'perusahaan' => $perusahaan,
                 'id_vendor_skill_list' => $idVendorSkillList,
             ], 201);
@@ -1251,6 +1303,7 @@ class PengajuanController extends Controller
                     'sesi_unit_kendaraan.jenis_kendaraan as kendaraan',
                     'sesi_unit_kendaraan.plat_nomor_truk',
                     'sesi_unit_kendaraan.muatan_maksimal as muatan_raw',
+                    'sesi_unit_kendaraan.id_cabang',
                     DB::raw("FORMAT(sesi_unit_kendaraan.updated_at, 'dd MMM yyyy') as updated")
                 )
                 ->where('sesi_unit_kendaraan.id_perusahaan', $request->perusahaan_id)
@@ -1262,16 +1315,25 @@ class PengajuanController extends Controller
                 $query->whereIn('sesi_unit_kendaraan.id_cabang', $cabangIds ?: ['__none__']);
             }
 
-            $kendaraan = $query
-                ->orderByDesc('sesi_unit_kendaraan.updated_at')
-                ->get()
-                ->map(function ($a) {
-                    return [
-                        ...(array) $a,
-                        'skill' => $this->resolveSkillNames($a->skill),
-                        'muatan' => FormatHelper::ton($a->muatan_raw),
-                    ];
-                });
+            $rows = $query->orderByDesc('sesi_unit_kendaraan.updated_at')->get();
+
+            // Harga master Sewa Truk per unit (vendor + cabang unit + area pertama) — dipakai
+            // wizard untuk memperingatkan harga sewa yang beda dari master.
+            $hargaMaster = PerusahaanSkill::where('id_perusahaan', $request->perusahaan_id)
+                ->whereNotNull('harga_sewa')
+                ->get(['id_skill', 'cabang_code', 'harga_sewa'])
+                ->mapWithKeys(fn ($v) => [$v->cabang_code.'|'.(int) $v->id_skill => (float) $v->harga_sewa]);
+
+            $kendaraan = $rows->map(function ($a) use ($hargaMaster) {
+                $skillPertama = (int) collect(explode(',', (string) $a->skill))->map(fn ($t) => trim($t))->first(fn ($t) => ctype_digit($t));
+
+                return [
+                    ...(array) $a,
+                    'skill' => $this->resolveSkillNames($a->skill),
+                    'muatan' => FormatHelper::ton($a->muatan_raw),
+                    'harga_master' => $hargaMaster->get($a->id_cabang.'|'.$skillPertama),
+                ];
+            });
 
             return response()->json(['data' => $kendaraan]);
         } catch (\Exception $e) {
@@ -1314,17 +1376,14 @@ class PengajuanController extends Controller
     }
 
     /**
-     * Urutan approver pengajuan sewa. WH ikut kalau rasio sewa truk di atas batas;
-     * WC kalau PAC (lihat PengajuanSewa::hitungAlur). Kiriman rutin tidak pakai rasio.
-     * Area baru dan vendor/harga baru tidak memengaruhi alur.
+     * Urutan approver pengajuan sewa sesuai pengaturan DCI (AturanAlur): kondisi jenis × tujuan ×
+     * rasio di atas/bawah batas. Kiriman Rutin ke Toko tidak memakai rasio.
      */
     private function hitungAlurApproval(string $jenisPengajuan, float $rasioSewa, string $tujuanPenyewaan): string
     {
         $rasioMaks = RasioSewa::aktif()?->persentase_maksimal ?? 2.5;
 
-        $butuhWh = PengajuanSewa::pakaiRasioUntuk($jenisPengajuan, $tujuanPenyewaan) && $rasioSewa > $rasioMaks;
-
-        return PengajuanSewa::hitungAlur($tujuanPenyewaan === 'PAC', $butuhWh);
+        return AturanAlur::alurUntuk($jenisPengajuan, $tujuanPenyewaan, $rasioSewa > $rasioMaks);
     }
 
     /**

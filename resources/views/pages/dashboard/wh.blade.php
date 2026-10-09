@@ -4,7 +4,7 @@
 
 @section('content')
 <div class="space-y-4">
-    <x-filter-tanggal-dashboard />
+<x-tab-dashboard :filter="true">
 
     {{-- Summary Cards (Stat Cards) - Clickable filters --}}
     <x-dashboard-stat-filters
@@ -33,6 +33,7 @@
         </div>
     </div>
 
+</x-tab-dashboard>
 </div>
 
 @endsection

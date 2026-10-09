@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Concerns;
 
 use App\Helpers\FormatHelper;
+use App\Models\PerusahaanEkspedisi;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -18,6 +19,10 @@ trait BuildsPerusahaanSummary
         return array_values(array_unique($user->getCabangIds() ?: array_filter([$user->getCabangId()])));
     }
 
+    /**
+     * SQL "vendor milik cabang user": punya tarif/unit kendaraan di cabang user, atau
+     * diajukan sebagai vendor baru oleh cabang user (walau belum punya tarif/unit).
+     */
     protected function mineCompanySql(array $own): array
     {
         if (! $own) {
@@ -28,11 +33,16 @@ trait BuildsPerusahaanSummary
         return [
             "CASE WHEN EXISTS (SELECT 1 FROM sesi_perusahaan_skill mv WHERE mv.id_perusahaan = pe.id_perusahaan AND mv.flag = 1 AND mv.cabang_code IN ({$in}))"
             ." OR EXISTS (SELECT 1 FROM sesi_unit_kendaraan mu WHERE mu.id_perusahaan = pe.id_perusahaan AND mu.flag = 1 AND mu.id_cabang IN ({$in}))"
+            ." OR pe.id_cabang_pengaju IN ({$in})"
             .' THEN 1 ELSE 0 END',
-            array_merge($own, $own),
+            array_merge($own, $own, $own),
         ];
     }
 
+    /**
+     * Vendor yang boleh dilihat user non-global: milik cabangnya, atau belum terhubung ke
+     * cabang mana pun. Vendor baru yang belum disetujui hanya terlihat oleh cabang pengajunya.
+     */
     protected function ownOrUnclaimedScope(array $own): ?\Closure
     {
         $user = auth()->user();
@@ -49,12 +59,38 @@ trait BuildsPerusahaanSummary
         return function ($q) use ($mineSql, $mineBindings) {
             $q->whereRaw(
                 "({$mineSql} = 1) OR (
-                    NOT EXISTS (SELECT 1 FROM sesi_perusahaan_skill vs WHERE vs.id_perusahaan = pe.id_perusahaan AND vs.flag = 1)
+                    pe.status_approval = 'approved'
+                    AND NOT EXISTS (SELECT 1 FROM sesi_perusahaan_skill vs WHERE vs.id_perusahaan = pe.id_perusahaan AND vs.flag = 1)
                     AND NOT EXISTS (SELECT 1 FROM sesi_unit_kendaraan uk WHERE uk.id_perusahaan = pe.id_perusahaan AND uk.flag = 1)
                 )",
                 $mineBindings
             );
         };
+    }
+
+    /**
+     * Vendor baru yang belum disetujui (menunggu / ditolak) cuma boleh dilihat cabang pengajunya
+     * dan user global (WH, WC, DCI). $query memakai alias `pe` untuk sesi_perusahaan_ekspedisi.
+     */
+    protected function hanyaVendorTerlihat($query, array $own): void
+    {
+        if (auth()->user()->isGlobalAccess()) {
+            return;
+        }
+        if (! $own) {
+            $query->where('pe.status_approval', 'approved');
+
+            return;
+        }
+        $in = implode(',', array_fill(0, count($own), '?'));
+        $query->whereRaw("(pe.status_approval = 'approved' OR pe.id_cabang_pengaju IN ({$in}))", $own);
+    }
+
+    protected function bolehLihatVendor(PerusahaanEkspedisi $vendor): bool
+    {
+        return $vendor->sudahDisetujui()
+            || auth()->user()->isGlobalAccess()
+            || in_array($vendor->id_cabang_pengaju, $this->ownCabang(), true);
     }
 
     /** Urutan default query vendor_skill (`ps`): baris di cabang user dulu. No-op kalau user global. */
@@ -184,6 +220,7 @@ trait BuildsPerusahaanSummary
 
         $query = $db->table('sesi_perusahaan_ekspedisi as pe')->where('pe.flag', true);
         $this->applySemuaSearch($query, $search);
+        $this->hanyaVendorTerlihat($query, $own);
         if ($extraScope) {
             $extraScope($query);
         }
@@ -195,7 +232,7 @@ trait BuildsPerusahaanSummary
         ) AS t(d))';
         [$mineSql, $mineBindings] = $this->mineCompanySql($own);
 
-        $query->select('pe.id_perusahaan', 'pe.nama_perusahaan', 'pe.badan_usaha', 'pe.no_telepon', 'pe.alamat_kantor')
+        $query->select('pe.id_perusahaan', 'pe.nama_perusahaan', 'pe.badan_usaha', 'pe.no_telepon', 'pe.alamat_kantor', 'pe.status_approval')
             ->selectRaw("{$lastUpdate} as last_update")
             ->selectRaw("{$mineSql} as is_mine", $mineBindings);
 

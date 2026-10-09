@@ -37,6 +37,9 @@
                 @click="pilihPerusahaan(p)">
                 <td class="relative group px-4 py-3 font-medium text-gray-800">
                     <span x-text="p.nama_perusahaan || '—'"></span>
+                    <span x-show="p.status_approval && p.status_approval !== 'approved'" x-cloak
+                        class="mt-1 block w-fit whitespace-nowrap rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700"
+                        x-text="p.status_approval === 'menunggu_approval' ? 'Vendor baru · menunggu WH' : 'Vendor baru · menunggu WM'"></span>
                     <template x-if="pengajuan.jenis_pengajuan === 'pengiriman_rutin' && p.tarif_breakdown?.length > 0">
                         <div class="hidden absolute left-0 top-full z-20 max-h-80 w-72 overflow-y-auto
                             rounded-lg border border-gray-200 bg-white p-3 text-xs font-normal

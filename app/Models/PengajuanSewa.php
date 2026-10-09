@@ -166,19 +166,6 @@ class PengajuanSewa extends Model
     }
 
     /**
-     * Urutan approver: WM selalu validasi; lalu WH kalau rasio sewa truk di atas batas
-     * (termasuk PAC), WC kalau PAC dengan rasio di bawah batas.
-     */
-    public static function hitungAlur(bool $isPac, bool $butuhWh): string
-    {
-        if ($butuhWh) {
-            return 'WM,WH';
-        }
-
-        return $isPac ? 'WM,WC' : 'WM';
-    }
-
-    /**
      * Nama area pengajuan ini yang baru didaftarkan ke cabang lewat pengajuan ini
      * (baris sesi_cabang_skill dibuat di sekitar waktu pengajuan dibuat/diajukan ulang).
      * Hanya informasi; tidak memengaruhi alur approval.
@@ -302,16 +289,5 @@ class PengajuanSewa extends Model
     public function sudahDisetujuiOleh(string $peran): bool
     {
         return in_array($peran, $this->peranSudahApprove(), true);
-    }
-
-    /**
-     * Part B — usulan harga master diputuskan di tier TERAKHIR alur pengajuan
-     * (atau WH). Sementara sampai Fase 4 memisahkan usulan harga jadi proses sendiri.
-     */
-    public function isUsulanTerminalTierFor(string $role): bool
-    {
-        $alur = $this->alurApproval();
-
-        return $role === 'WH' || $role === end($alur);
     }
 }

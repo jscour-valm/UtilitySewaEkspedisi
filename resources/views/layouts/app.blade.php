@@ -60,5 +60,12 @@
         </div>
 
         <x-photo-lightbox />
+
+        {{-- Dialihkan dari halaman yang tidak boleh dibuka (lihat bootstrap/app.php) --}}
+        @if(session('akses_ditolak'))
+            <script>
+                document.addEventListener('DOMContentLoaded', () => window.notify(@js(session('akses_ditolak')), 'warning', 'Tidak bisa dibuka'));
+            </script>
+        @endif
     </body>
 </html>

@@ -19,6 +19,19 @@
 <div class="space-y-4 pb-4">
     <x-alert-success />
 
+    @if($perusahaan->status_approval && ! $perusahaan->sudahDisetujui())
+        <div class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            <p>
+                Vendor baru — <strong>{{ $perusahaan->labelStatusPersetujuan() }}</strong>.
+                Pengajuan sewa yang memakai vendor ini baru bisa divalidasi WM setelah vendor disetujui WH.
+            </p>
+            @if(in_array($role, ['KG', 'WM', 'WH', 'DCI'], true))
+                <a href="{{ route('persetujuan.vendor.show', $perusahaan->id_perusahaan) }}"
+                    class="font-semibold text-amber-800 underline hover:text-amber-950">Lihat proses vendor →</a>
+            @endif
+        </div>
+    @endif
+
     {{-- ==================== HERO + INFO PERUSAHAAN + DOKUMEN ==================== --}}
     <div class="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
         <div class="h-1 w-full bg-avian-green"></div>
@@ -146,16 +159,26 @@
                 </thead>
                 <tbody>
                     @foreach($tarifSewa as $t)
-                        @php $diupdate = $t->update_date_source ?? $t->updated_at; @endphp
+                        @php
+                            $diupdate = $t->update_date_source ?? $t->updated_at;
+                            $usulanRow = $usulanBerjalan->get('sewa_truk|' . $t->cabang_code . '|' . $t->id_skill . '|');
+                        @endphp
                         <tr class="border-b border-gray-50 hover:bg-gray-50">
                             <td class="px-3.5 py-2.5 text-gray-600">{{ $t->cabang_code }} &mdash; {{ $t->nama_cabang ?? '—' }}</td>
                             <td class="px-3.5 py-2.5 font-medium text-gray-800">{{ $t->nama_skill }}</td>
-                            <td class="px-3.5 py-2.5 text-right font-semibold tabular-nums text-gray-900">{{ \App\Helpers\FormatHelper::rupiah($t->harga_sewa) }}</td>
+                            <td class="px-3.5 py-2.5 text-right font-semibold tabular-nums text-gray-900">
+                                {{ \App\Helpers\FormatHelper::rupiah($t->harga_sewa) }}
+                                <x-penanda-usulan-harga :usulan="$usulanRow" />
+                            </td>
                             <td class="px-3.5 py-2.5 text-gray-500">{{ $diupdate ? \Carbon\Carbon::parse($diupdate)->translatedFormat('d M Y') : '—' }}</td>
                             @if($isKg || $isDci)
                                 <td class="px-3.5 py-2.5 text-right whitespace-nowrap">
                                     @if($isDci)
                                         <a href="{{ route('perusahaan.sewa-truk.edit', $t->id_vendor_skill) }}" class="{{ $editBtn }}">Edit</a>
+                                    @endif
+                                    @if($isKg && ! $usulanRow)
+                                        <button type="button" class="{{ $editBtn }}"
+                                            @click="$dispatch('usulkan-harga', @js(['jenis' => 'sewa_truk', 'id_skill' => (int) $t->id_skill, 'cabang_code' => $t->cabang_code, 'label' => $t->nama_skill . ' · Cab. ' . $t->cabang_code, 'harga_sekarang' => (float) $t->harga_sewa]))">Usulkan Harga</button>
                                     @endif
                                     @if($t->pengajuan_url)
                                         <a href="{{ $t->pengajuan_url }}" class="whitespace-nowrap rounded-lg bg-avian-green px-2.5 py-1 text-xs font-medium text-white hover:bg-avian-green-dark">Buat Pengajuan</a>
@@ -199,12 +222,17 @@
                             @foreach($jenisBarangCols as $jb)
                                 <td class="px-3.5 py-2.5 text-right tabular-nums text-gray-700">
                                     {{ isset($hargaByVs[$t->id_vendor_skill][$jb->id_jenis_barang]) ? number_format($hargaByVs[$t->id_vendor_skill][$jb->id_jenis_barang], 0, ',', '.') : '—' }}
+                                    <x-penanda-usulan-harga :usulan="$usulanBerjalan->get('pengiriman_rutin|' . $t->cabang_code . '|' . $t->id_skill . '|' . $jb->id_jenis_barang)" />
                                 </td>
                             @endforeach
                             @if($isKg || $isDci)
                                 <td class="px-3.5 py-2.5 text-right whitespace-nowrap">
                                     @if($isDci)
                                         <a href="{{ route('perusahaan.kiriman-rutin.edit', $t->id_vendor_skill) }}" class="{{ $editBtn }}">Edit</a>
+                                    @endif
+                                    @if($isKg)
+                                        <button type="button" class="{{ $editBtn }}"
+                                            @click="$dispatch('usulkan-harga', @js(['jenis' => 'pengiriman_rutin', 'id_skill' => (int) $t->id_skill, 'cabang_code' => $t->cabang_code, 'label' => $t->nama_skill . ' · Cab. ' . $t->cabang_code, 'harga_per_barang' => (object) ($hargaByVs[$t->id_vendor_skill] ?? [])]))">Usulkan Harga</button>
                                     @endif
                                     @if($t->pengajuan_url)
                                         <a href="{{ $t->pengajuan_url }}" class="whitespace-nowrap rounded-lg bg-avian-green px-2.5 py-1 text-xs font-medium text-white hover:bg-avian-green-dark">Buat Pengajuan</a>
@@ -237,6 +265,10 @@
                 @endforeach
             </div>
         </div>
+    @endif
+
+    @if($isKg)
+        <x-modal-usulan-harga :perusahaan="$perusahaan" :jenis-barang="$jenisBarangSemua" />
     @endif
 </div>
 @endsection

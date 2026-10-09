@@ -385,10 +385,12 @@ Alpine.data('pengajuanSewa', () => ({
             && this.rasioSewaEstimasi !== null && this.rasioSewaEstimasi > this.rasioMaks
     },
 
-    // Pratinjau alur approval, sama dengan PengajuanSewa::hitungAlur().
+    // Pratinjau alur approval dari pengaturan DCI (window.__aturanAlur, sama dengan AturanAlur::alurUntuk()).
     get alurApprovalEstimasi() {
-        if (this.rasioDiAtasBatas) return ['WM', 'WH']
-        return this.pengajuan.tujuan_penyewaan === 'PAC' ? ['WM', 'WC'] : ['WM']
+        const tujuan = this.pengajuan.tujuan_penyewaan === 'PAC' ? 'PAC' : 'Toko'
+        const rasio = this.pakaiRasio ? (this.rasioDiAtasBatas ? 'atas' : 'bawah') : '-'
+        const alur = (window.__aturanAlur ?? {})[`${this.pengajuan.jenis_pengajuan}|${tujuan}|${rasio}`]
+        return (alur ?? 'WM').split(',')
     },
 
     get adaAreaBaru() {
@@ -1780,7 +1782,7 @@ Alpine.data('pengajuanSewa', () => ({
             if (this.pengajuan.jenis_pengajuan === 'sewa_truk') {
                 this.fetchKendaraanByPerusahaan(json.perusahaan.id_perusahaan)
             }
-            notify('Perusahaan berhasil disimpan!', 'success')
+            notify(json.message + ' Pengajuan sewa tetap bisa dibuat, tapi baru bisa divalidasi WM setelah vendor disetujui.', 'success', 'Vendor diajukan')
         } catch (e) {
             notify('Error: ' + e.message, 'error')
         }
@@ -1998,6 +2000,218 @@ Alpine.data('filterTanggalDashboard', (dari, sampai, maksHari) => {
         },
     }
 })
+
+// Keputusan WM/WH atas vendor baru / usulan harga. setuju=false minta alasan (wajib).
+window.putuskanPersetujuan = async function (url, setuju, { label = 'Setujui', objek = 'pengajuan ini' } = {}) {
+    let alasan = null
+    if (setuju) {
+        if (!await window.confirmDialog(`${label} ${objek}?`, { confirmText: label, icon: 'question', title: label })) return
+    } else {
+        const hasil = await Swal.fire({
+            title: `Tolak ${objek}?`,
+            icon: 'warning',
+            input: 'textarea',
+            inputPlaceholder: 'Alasan penolakan',
+            inputAttributes: { maxlength: 500 },
+            showCancelButton: true,
+            confirmButtonText: 'Tolak',
+            cancelButtonText: 'Kembali',
+            confirmButtonColor: '#dc2626',
+            reverseButtons: true,
+            inputValidator: v => (!v || !v.trim()) ? 'Alasan penolakan wajib diisi' : undefined,
+        })
+        if (!hasil.isConfirmed) return
+        alasan = hasil.value.trim()
+    }
+
+    try {
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+            },
+            body: JSON.stringify({ keputusan: setuju ? 'setuju' : 'tolak', alasan }),
+        })
+        const json = await res.json()
+        if (!res.ok) {
+            window.notify(json.error || json.message || 'Gagal menyimpan keputusan', 'error')
+            return
+        }
+        await window.notify(json.message, 'success')
+        window.location.reload()
+    } catch (e) {
+        window.notify('Gagal menyimpan keputusan', 'error')
+    }
+}
+
+// Tab dashboard (components/tab-dashboard). Tab terakhir diingat per role di browser.
+Alpine.data('tabDashboard', (peran) => ({
+    tab: 'sewa',
+
+    init() {
+        try {
+            const tersimpan = localStorage.getItem('dashboard:tab:' + peran)
+            if (['sewa', 'vendor', 'harga'].includes(tersimpan)) this.tab = tersimpan
+        } catch (e) {}
+    },
+
+    pilih(tab) {
+        this.tab = tab
+        try { localStorage.setItem('dashboard:tab:' + peran, tab) } catch (e) {}
+    },
+}))
+
+// Form "Usulkan Harga" di detail perusahaan (components/modal-usulan-harga).
+Alpine.data('formUsulanHarga', (url, idPerusahaan) => ({
+    terbuka: false,
+    menyimpan: false,
+    ctx: {},
+    form: { id_jenis_barang: '', harga: '', catatan: '' },
+
+    buka(ctx) {
+        this.ctx = ctx
+        this.form = { id_jenis_barang: '', harga: '', catatan: '' }
+        this.terbuka = true
+    },
+
+    tutup() {
+        this.terbuka = false
+    },
+
+    get hargaSekarang() {
+        if (this.ctx.jenis === 'sewa_truk') return this.ctx.harga_sekarang ?? null
+        const h = (this.ctx.harga_per_barang ?? {})[this.form.id_jenis_barang]
+        return h === undefined ? null : Number(h)
+    },
+
+    get selisihTeks() {
+        const harga = Number(this.form.harga)
+        const lama = this.hargaSekarang
+        if (!harga || lama === null || harga === lama) return ''
+        const selisih = harga - lama
+        const persen = lama > 0 ? ` (${(Math.abs(selisih) / lama * 100).toLocaleString('id-ID', { maximumFractionDigits: 1 })}%)` : ''
+        return `${selisih > 0 ? '▲ +' : '▼ −'}${this.rupiah(Math.abs(selisih))}${persen} dari master`
+    },
+
+    rupiah(n) {
+        return 'Rp ' + Number(n).toLocaleString('id-ID')
+    },
+
+    async simpan() {
+        if (this.menyimpan) return
+        if (this.ctx.jenis === 'pengiriman_rutin' && !this.form.id_jenis_barang) {
+            notify('Pilih jenis barang dulu.', 'warning')
+            return
+        }
+        if (!Number(this.form.harga)) {
+            notify('Isi harga usulan dulu.', 'warning')
+            return
+        }
+
+        this.menyimpan = true
+        try {
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                },
+                body: JSON.stringify({
+                    jenis: this.ctx.jenis,
+                    id_perusahaan: idPerusahaan,
+                    id_skill: this.ctx.id_skill,
+                    cabang_code: this.ctx.cabang_code,
+                    id_jenis_barang: this.ctx.jenis === 'pengiriman_rutin' ? Number(this.form.id_jenis_barang) : null,
+                    harga: Number(this.form.harga),
+                    catatan: this.form.catatan || null,
+                }),
+            })
+            const json = await res.json()
+            if (!res.ok) {
+                const pesan = json.errors ? Object.values(json.errors).flat().join('\n') : (json.error || json.message)
+                notify(pesan || 'Gagal mengajukan usulan', 'error')
+                return
+            }
+            await notify(json.message, 'success')
+            window.location.reload()
+        } catch (e) {
+            notify('Gagal mengajukan usulan', 'error')
+        } finally {
+            this.menyimpan = false
+        }
+    },
+}))
+
+// Form vendor baru (modal di halaman Perusahaan) & form ajukan ulang vendor yang ditolak.
+// `awal` = data vendor yang sudah ada (ajukan ulang); identitas lama dipertahankan kalau tidak upload baru.
+Alpine.data('formVendor', (url, awal = {}) => ({
+    form: {
+        nama_perusahaan: awal.nama_perusahaan ?? '',
+        badan_usaha: awal.badan_usaha ?? '',
+        no_telepon: awal.no_telepon ?? '',
+        alamat_kantor: awal.alamat_kantor ?? '',
+    },
+    files: [],
+    previews: [],
+    wajibIdentitas: !awal.nama_perusahaan,
+    menyimpan: false,
+
+    pilihFile(e) {
+        const files = Array.from(e.target.files || [])
+        if (files.length > 3) {
+            notify('Maksimal 3 file saja!', 'warning')
+            e.target.value = ''
+            return
+        }
+        this.files = files
+        this.previews = files.map(f => URL.createObjectURL(f))
+    },
+
+    hapusFile(i) {
+        this.files.splice(i, 1)
+        this.previews.splice(i, 1)
+        if (this.$refs.fileInput) this.$refs.fileInput.value = ''
+    },
+
+    async simpan() {
+        if (this.menyimpan) return
+        if (this.wajibIdentitas && this.files.length === 0) {
+            notify('Mohon upload minimal 1 file identitas owner (KTP/NPWP/SIM)!', 'warning')
+            return
+        }
+
+        const data = new FormData()
+        Object.entries(this.form).forEach(([k, v]) => data.append(k, v ?? ''))
+        this.files.forEach(f => data.append('identitas_owner[]', f))
+
+        this.menyimpan = true
+        try {
+            const res = await fetch(url, {
+                method: 'POST',
+                body: data,
+                headers: {
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                },
+            })
+            const json = await res.json()
+            if (!res.ok) {
+                const pesan = json.errors ? Object.values(json.errors).flat().join('\n') : (json.error || json.message)
+                notify(pesan || 'Gagal menyimpan vendor', 'error')
+                return
+            }
+            await notify(json.message, 'success')
+            window.location.reload()
+        } catch (e) {
+            notify('Gagal menyimpan vendor', 'error')
+        } finally {
+            this.menyimpan = false
+        }
+    },
+}))
 
 // Ikon duluan, baru Alpine.start() — createIcons() gak butuh Alpine selesai
 // hydrate, dan halaman yang lagi hydrate banyak komponen x-data (mis. /perusahaan

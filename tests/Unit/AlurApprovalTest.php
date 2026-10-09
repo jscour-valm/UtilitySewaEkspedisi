@@ -2,26 +2,31 @@
 
 namespace Tests\Unit;
 
+use App\Models\AturanAlur;
 use App\Models\PengajuanSewa;
 use PHPUnit\Framework\Attributes\DataProvider;
-use PHPUnit\Framework\TestCase;
+use Tests\TestCase;
 
 class AlurApprovalTest extends TestCase
 {
     public static function kasusAlur(): array
     {
         return [
-            'rasio di bawah batas' => [false, false, 'WM'],
-            'PAC' => [true, false, 'WM,WC'],
-            'rasio di atas batas' => [false, true, 'WM,WH'],
-            'PAC + rasio di atas batas' => [true, true, 'WM,WH'],
+            'sewa truk toko, rasio di bawah batas' => ['sewa_truk', 'Toko', false, 'WM'],
+            'sewa truk toko, rasio di atas batas' => ['sewa_truk', 'Toko', true, 'WM,WH'],
+            'sewa truk PAC' => ['sewa_truk', 'PAC', false, 'WM,WC'],
+            'sewa truk PAC + rasio di atas batas' => ['sewa_truk', 'PAC', true, 'WM,WH'],
+            'kiriman rutin toko (tanpa rasio)' => ['pengiriman_rutin', 'Toko', true, 'WM'],
+            'kiriman rutin PAC' => ['pengiriman_rutin', 'PAC', false, 'WM,WC'],
+            'kiriman rutin PAC + rasio di atas batas' => ['pengiriman_rutin', 'PAC', true, 'WM,WH'],
         ];
     }
 
     #[DataProvider('kasusAlur')]
-    public function test_hitung_alur(bool $isPac, bool $butuhWh, string $harapan): void
+    public function test_alur_bawaan(string $jenis, string $tujuan, bool $rasioDiAtas, string $harapan): void
     {
-        $this->assertSame($harapan, PengajuanSewa::hitungAlur($isPac, $butuhWh));
+        AturanAlur::lupakanCache();
+        $this->assertSame($harapan, AturanAlur::alurUntuk($jenis, $tujuan, $rasioDiAtas));
     }
 
     public static function kasusPakaiRasio(): array

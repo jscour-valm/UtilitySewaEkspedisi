@@ -19,6 +19,34 @@
                 <h1 class="text-2xl font-bold text-gray-900">Perusahaan</h1>
                 <p class="text-sm text-gray-500">Vendor ekspedisi beserta tarif dan kendaraannya.</p>
             </div>
+            @if($isKg)
+                <div x-data="{ buka: false }" @keydown.escape.window="buka = false">
+                    <button type="button" @click="buka = true"
+                        class="rounded-lg bg-avian-green px-4 py-2 text-sm font-medium text-white hover:bg-avian-green-dark">
+                        + Ajukan Vendor Baru
+                    </button>
+
+                    <div x-show="buka" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4">
+                        <div class="absolute inset-0 bg-black/45" @click="buka = false"></div>
+                        <div class="relative z-10 max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl"
+                            x-data="formVendor(@js(route('pengajuan.store-perusahaan')))">
+                            <h3 class="text-[17px] font-bold text-gray-900">Ajukan Vendor Baru</h3>
+                            <p class="mb-4 mt-1 text-sm text-gray-500">
+                                Vendor langsung bisa dipakai di pengajuan sewa, tapi pengajuannya baru bisa divalidasi WM setelah vendor disetujui (validasi WM → approval WH).
+                            </p>
+                            <x-form-vendor />
+                            <div class="mt-5 flex justify-end gap-3">
+                                <button type="button" @click="buka = false"
+                                    class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50">Batal</button>
+                                <button type="button" @click="simpan()" :disabled="menyimpan"
+                                    class="rounded-lg bg-avian-green px-4 py-2 text-sm font-medium text-white hover:bg-avian-green-dark disabled:opacity-50">
+                                    <span x-text="menyimpan ? 'Mengajukan…' : 'Ajukan Vendor'"></span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            @endif
             {{-- KG: 1 halaman aja (nggak ada gunanya split 3 tab, datanya udah disempitkan
                  ke cabang sendiri) — WM/WH/DCI tetap lihat switcher 3 tab. --}}
             @unless($isKg)
@@ -125,7 +153,7 @@
                     <tbody class="divide-y divide-gray-200">
                         @forelse($rows as $r)
                         <tr class="group hover:bg-gray-50 transition">
-                            <td class="sticky z-10 bg-white group-hover:bg-gray-50 px-3 py-3 font-medium text-gray-800 border-r border-gray-200 truncate" style="left: 0px" title="{{ $r->nama_perusahaan }}">{{ $r->nama_perusahaan }}</td>
+                            <td class="sticky z-10 bg-white group-hover:bg-gray-50 px-3 py-3 font-medium text-gray-800 border-r border-gray-200 truncate" style="left: 0px" title="{{ $r->nama_perusahaan }}"><div class="truncate">{{ $r->nama_perusahaan }}</div><x-badge-vendor-baru :status="$r->status_approval ?? null" :id="$r->id_perusahaan" class="mt-1" /></td>
                             <td class="px-3 py-3 text-gray-600 truncate">{{ $r->badan_usaha ?: '—' }}</td>
                             <td class="px-3 py-3">
                                 @if(count($r->identitas_owner_src))
@@ -229,7 +257,7 @@
                 <tbody class="divide-y divide-gray-200">
                     @forelse($rows as $r)
                     <tr class="group hover:bg-gray-50 transition">
-                        <td class="sticky z-10 bg-white group-hover:bg-gray-50 px-3 py-3 font-medium text-gray-800 border-r border-gray-200 truncate" style="left: 0px" title="{{ $r->nama_perusahaan }}">{{ $r->nama_perusahaan }}</td>
+                        <td class="sticky z-10 bg-white group-hover:bg-gray-50 px-3 py-3 font-medium text-gray-800 border-r border-gray-200 truncate" style="left: 0px" title="{{ $r->nama_perusahaan }}"><div class="truncate">{{ $r->nama_perusahaan }}</div><x-badge-vendor-baru :status="$r->status_approval ?? null" :id="$r->id_perusahaan" class="mt-1" /></td>
                         <td class="px-3 py-3 text-gray-600 truncate">{{ $r->badan_usaha ?: '—' }}</td>
                         <x-cakupan-popover mode="server" :row="$r" padding="px-3 py-3" />
                         <td class="px-3 py-3">

@@ -3,11 +3,12 @@
 namespace App\Services;
 
 use App\Mail\NotifikasiPengajuanMail;
+use App\Models\AturanEmail;
 use App\Models\PengajuanSewa;
 
 /**
- * Email notifikasi alur approval pengajuan sewa (dokumentasi_alursistem.md sec 2.2-2.5).
- * Pengiriman (defer, mode tes, CC DCI) lewat PengirimEmail.
+ * Email notifikasi alur approval pengajuan sewa. Penerima per kejadian diatur DCI (AturanEmail);
+ * pengiriman (defer, mode tes) lewat PengirimEmail.
  */
 class NotifikasiPengajuanService
 {
@@ -17,28 +18,23 @@ class NotifikasiPengajuanService
         private PengirimEmail $pengirim,
     ) {}
 
-    /** Pengajuan baru (atau diajukan ulang) masuk: To WM cabang, CC KG pengaju. Snapshot dokumen diperbarui. */
+    /** Pengajuan baru (atau diajukan ulang) masuk. Snapshot dokumen diperbarui. */
     public function pengajuanBaru(PengajuanSewa $p, bool $ulang = false): void
     {
-        $this->kirim($p, 'baru', $this->penerima->wm($p->id_cabang), $this->emailKg($p), $ulang, true);
+        $aturan = AturanEmail::penerima('pengajuan_masuk');
+
+        $this->kirim($p, 'baru', $this->emailPeran($aturan['to'], $p), $this->emailPeran($aturan['cc'], $p), $ulang, true);
     }
 
-    /**
-     * Satu email per keputusan (validasi/approval/tolak), To KG pengaju:
-     * - lanjut WC        → CC WM, WC
-     * - lanjut WH        → CC WM, WH (+WC kalau tujuan PAC)
-     * - final approved   → CC WM, WC, KA (+WH kalau alur punya tahap approval)
-     * - ditolak          → CC WM + WC/WH yang ada di alur (tanpa KA)
-     * DCI selalu di-CC lewat kirim().
-     */
+    /** Satu email per keputusan (validasi / approval / tolak), penerima sesuai kejadiannya. */
     public function keputusan(PengajuanSewa $p, string $peranPemutus, ?string $berikutnya, ?string $alasanPenolakan = null): void
     {
-        [$tipe, $peranCc] = self::penerimaKeputusan($p, $peranPemutus, $berikutnya);
+        [$tipe, $peranTo, $peranCc] = self::penerimaKeputusan($p, $peranPemutus, $berikutnya);
 
         $this->kirim(
             $p,
             $tipe,
-            $this->emailKg($p),
+            $this->emailPeran($peranTo, $p),
             $this->emailPeran($peranCc, $p),
             false,
             false,
@@ -49,13 +45,13 @@ class NotifikasiPengajuanService
 
     /**
      * Pengajuan dibatalkan pengaju: To peran yang sedang giliran (fallback WM),
-     * CC KG pengaju + peran yang sudah approve. Alasan ikut di badan email.
+     * CC KG pengaju + peran yang sudah approve + DCI. Alasan ikut di badan email.
      */
     public function dibatalkan(PengajuanSewa $p, ?string $peranGiliran): void
     {
         [$to, $cc] = self::penerimaPembatalan($p, $peranGiliran);
 
-        $this->kirim($p, 'dibatalkan', $this->emailPeran($to, $p), array_merge($this->emailKg($p), $this->emailPeran($cc, $p)), alasan: $p->alasan_pembatalan);
+        $this->kirim($p, 'dibatalkan', $this->emailPeran($to, $p), $this->emailPeran(array_merge(['KG', 'DCI'], $cc), $p), alasan: $p->alasan_pembatalan);
     }
 
     /** @return array{0: string[], 1: string[]} [peran To, peran CC selain KG & DCI] */
@@ -66,27 +62,36 @@ class NotifikasiPengajuanService
         return [[$peranGiliran ?? 'WM'], $sudah];
     }
 
-    /** @return array{0: string, 1: string[]} [tipe email, peran yang di-CC selain DCI] */
+    /**
+     * Kejadian email untuk keputusan ini. Pada penolakan, WC/WH hanya dikirimi kalau ada di alur pengajuan.
+     *
+     * @return array{0: string, 1: string[], 2: string[]} [tipe email, peran To, peran CC]
+     */
     public static function penerimaKeputusan(PengajuanSewa $p, string $peranPemutus, ?string $berikutnya): array
     {
         $alur = $p->alurApproval();
 
         if (strtolower($p->status_pengajuan) === 'rejected') {
-            return ['rejected', array_merge(['WM'], array_values(array_intersect(['WC', 'WH'], $alur)))];
+            $aturan = AturanEmail::penerima('ditolak');
+            $buang = array_diff(['WC', 'WH'], $alur);
+
+            return ['rejected', array_values(array_diff($aturan['to'], $buang)), array_values(array_diff($aturan['cc'], $buang))];
         }
 
         if ($berikutnya !== null) {
-            $cc = ['WM', $peranPemutus, $berikutnya];
-            if ($p->tujuan_penyewaan === 'PAC') {
-                $cc[] = 'WC';
-            }
+            $kejadian = match (true) {
+                $berikutnya === 'WC' => 'menunggu_wc',
+                $p->tujuan_penyewaan === 'PAC' => 'menunggu_wh_pac',
+                default => 'menunggu_wh_toko',
+            };
+            $aturan = AturanEmail::penerima($kejadian);
 
-            return ['menunggu_approval', array_values(array_unique($cc))];
+            return ['menunggu_approval', $aturan['to'], $aturan['cc']];
         }
 
-        // Final di WM saja (sewa ≤ batas rasio / rutin tanpa PAC): WM, WC, KA.
-        // Final setelah approval WC/WH: WM, WC, WH, KA.
-        return ['approved', $alur === ['WM'] ? ['WM', 'WC', 'KA'] : ['WM', 'WC', 'WH', 'KA']];
+        $aturan = AturanEmail::penerima($alur === ['WM'] ? 'final_wm' : 'final_tahap2');
+
+        return ['approved', $aturan['to'], $aturan['cc']];
     }
 
     private function kirim(PengajuanSewa $p, string $tipe, array $to, array $ccTambahan = [], bool $ulang = false, bool $perbaruiSnapshot = false, ?string $peranBerikutnya = null, ?string $alasan = null): void
@@ -101,15 +106,14 @@ class NotifikasiPengajuanService
         });
     }
 
-    /** KG = pengaju saja (bukan semua KG cabang). */
-    private function emailKg(PengajuanSewa $p): array
-    {
-        return $this->penerima->user($p->submitted_by);
-    }
-
-    /** Email untuk daftar peran: WM/KA = cabang pengajuan, WH = approver global, WC = semua user role WC. */
+    /** Email untuk daftar peran: KG = pengaju saja; WM/KA = cabang pengajuan; WH, WC, DCI lihat PenerimaEmail. */
     private function emailPeran(array $peran, PengajuanSewa $p): array
     {
-        return $this->penerima->peran($peran, $p->id_cabang);
+        $emails = in_array('KG', $peran, true) ? $this->penerima->user($p->submitted_by) : [];
+
+        return array_values(array_unique(array_merge(
+            $emails,
+            $this->penerima->peran(array_values(array_diff($peran, ['KG'])), $p->id_cabang),
+        )));
     }
 }

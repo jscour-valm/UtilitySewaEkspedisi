@@ -5,7 +5,8 @@
 @section('content')
 
 <div class="space-y-2">
-    {{-- Card: Pengajuan Sewa (filter periode hanya berlaku untuk tabel ini) --}}
+    {{-- Tab Pengajuan Sewa | Vendor Baru | Perubahan Harga; Daftar Ekspedisi di luar tab --}}
+    <x-tab-dashboard>
     <div class="rounded-xl">
         <div class="rounded-xl bg-white shadow  mb-4">
             <div class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-6 py-4">
@@ -24,7 +25,9 @@
         </div>
     </div>
 
-    {{-- Card: Daftar Kendaraan --}}
+    </x-tab-dashboard>
+
+    {{-- Card: Daftar Ekspedisi --}}
     <div class="rounded-xl bg-white shadow">
         <div class="flex items-center justify-between border-b border-gray-100 px-6 py-4">
             <h2 class="text-sm font-semibold text-gray-700">Daftar Ekspedisi</h2>

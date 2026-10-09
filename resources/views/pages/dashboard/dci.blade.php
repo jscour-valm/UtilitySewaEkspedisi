@@ -4,7 +4,7 @@
 
 @section('content')
 <div class="space-y-4">
-    <x-filter-tanggal-dashboard />
+<x-tab-dashboard :filter="true">
 
     {{-- Summary Cards — read-only, klik buat filter tabel di bawah --}}
     <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
@@ -78,6 +78,7 @@
         </div>
     </div>
 
+</x-tab-dashboard>
 </div>
 
 <script>

@@ -7,6 +7,7 @@ use App\Http\Controllers\Concerns\BuildsPerusahaanSummary;
 use App\Models\JenisBarangKiriman;
 use App\Models\PerusahaanEkspedisi;
 use App\Models\TarifKirimanRutin;
+use App\Models\UsulanHarga;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -203,6 +204,7 @@ class PerusahaanController extends Controller
 
         $query = $db->table('sesi_perusahaan_ekspedisi as pe')->where('pe.flag', true);
         $this->applySemuaSearch($query, $search);
+        $this->hanyaVendorTerlihat($query, $own);
 
         if ($f['cabang']) {
             $query->where(function ($w) use ($f) {
@@ -290,7 +292,7 @@ class PerusahaanController extends Controller
         ) t)';
         $kendaraanCountSql = '(SELECT COUNT(*) FROM sesi_unit_kendaraan WHERE id_perusahaan = pe.id_perusahaan AND flag = 1)';
 
-        $query->select('pe.id_perusahaan', 'pe.nama_perusahaan', 'pe.badan_usaha', 'pe.identitas_owner')
+        $query->select('pe.id_perusahaan', 'pe.nama_perusahaan', 'pe.badan_usaha', 'pe.identitas_owner', 'pe.status_approval')
             ->selectRaw("{$lastUpdate} as last_update")
             ->selectRaw("{$mineSql} as is_mine", $mineBindings)
             ->selectRaw("{$cabangCountSql} as cakupan_sort")
@@ -619,6 +621,7 @@ class PerusahaanController extends Controller
     public function show($id)
     {
         $perusahaan = PerusahaanEkspedisi::findOrFail($id);
+        abort_unless($this->bolehLihatVendor($perusahaan), 404);
         $own = $this->ownCabang();
 
         $db = DB::connection('sqlsrv');
@@ -702,9 +705,21 @@ class PerusahaanController extends Controller
             'title' => $perusahaan->nama_perusahaan,
         ];
 
+        // Usulan harga master yang masih berjalan, key "jenis|cabang|skill|barang" (penanda per baris tarif).
+        $usulanBerjalan = UsulanHarga::where('id_perusahaan', $perusahaan->id_perusahaan)
+            ->sedangBerjalan()
+            ->when(! auth()->user()->isGlobalAccess(), fn ($q) => $q->whereIn('cabang_code', $own ?: ['__none__']))
+            ->get()
+            ->keyBy(fn ($u) => $u->jenis.'|'.$u->cabang_code.'|'.$u->id_skill.'|'.($u->id_jenis_barang ?? ''));
+        // Pilihan barang di form "Usulkan Harga" Kiriman Rutin (termasuk barang yang belum punya tarif).
+        $jenisBarangSemua = $isKg
+            ? JenisBarangKiriman::where('flag', true)->orderBy('nama_barang')->get(['id_jenis_barang', 'nama_barang'])
+            : collect();
+
         return view('pages.perusahaan.show', compact(
             'perusahaan', 'kendaraan', 'tarifSewa', 'tarifKiriman', 'hargaByVs',
-            'jenisBarangCols', 'belumAdaTarif', 'cabangCount', 'areaCount', 'breadcrumb'
+            'jenisBarangCols', 'belumAdaTarif', 'cabangCount', 'areaCount', 'breadcrumb',
+            'usulanBerjalan', 'jenisBarangSemua'
         ) + ['ownCabang' => $own]);
     }
 

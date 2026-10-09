@@ -45,6 +45,8 @@
         <x-alur-approval-pill :alur="$alurApproval" :sudah="$peranSudahApprove" :berikutnya="$approverBerikutnya"
             :status="$pengajuan->status_pengajuan" :actingRole="auth()->user()->userUtility?->role" />
 
+        <x-vendor-menunggu-approval :vendor="$vendorMenunggu" class="mt-4" />
+
         {{-- Verdict strip: rasio vs ambang (sewa_truk saja — kiriman rutin gak pakai
              rasio sbg trigger over_threshold), total, value muatan --}}
         <div class="flex items-stretch flex-wrap mt-5 border-t border-gray-100 pt-4">
@@ -280,13 +282,9 @@
         </div>
     </div>
 
-    {{-- ==================== CATATAN PENGAJUAN ==================== --}}
-    @if($pengajuan->catatan_pengajuan)
-    <div class="rounded-xl bg-white shadow-sm border border-gray-100 p-6">
-        <p class="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-3">Catatan</p>
-        <p class="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{{ $pengajuan->catatan_pengajuan }}</p>
-    </div>
-    @endif
+    {{-- ==================== CATATAN PENGAJUAN + USULAN HARGA MASTER ==================== --}}
+    <x-catatan-pengajuan :pengajuan="$pengajuan" :harga-master="$hargaMaster" />
+    <x-usulan-harga-pengajuan :pengajuan="$pengajuan" />
 
     {{-- ==================== DOKUMEN IDENTITAS PERUSAHAAN (Sewa Truk only) ==================== --}}
     @if(!$isKirimanRutin)
