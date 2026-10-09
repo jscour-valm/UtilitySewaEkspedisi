@@ -7,10 +7,10 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 /**
- * CRUD Jenis Kendaraan (Master Data, role DCI/WH/WM — lihat routes/web.php).
+ * Master Jenis Kendaraan: halaman lihat untuk WM/WC/WH/DCI, CRUD hanya DCI (lihat routes/web.php).
  * Sebelumnya `sesi_unit_kendaraan.jenis_kendaraan` cuma teks bebas + muatan
  * diisi manual sendiri-sendiri; sekarang jenis kendaraan jadi lookup dan
- * muatan_maksimal ikut ter-lock per entri (review mentor 28 Sept, item 4).
+ * muatan_maksimal ikut ter-lock per entri.
  */
 class JenisKendaraanController extends Controller
 {

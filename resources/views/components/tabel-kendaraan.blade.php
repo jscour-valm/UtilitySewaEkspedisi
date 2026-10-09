@@ -55,7 +55,7 @@ $result = DbHelper::safeQuery(function () use ($limit, $noLimit, $sortBy, $sortO
     }
     // Kendaraan tanpa plat_nomor_truk (rate-card placeholder, belum ditempel plat
     // fisik) tetap ditampilkan di semua mode - plat dianggap info opsional, bukan
-    // syarat tampil (lihat Batch Fix 4).
+    // syarat tampil.
 
     $query->orderByDesc('sesi_unit_kendaraan.updated_at');
 
@@ -117,7 +117,7 @@ $result = DbHelper::safeQuery(function () use ($limit, $noLimit, $sortBy, $sortO
     // Badge "area cabang lain": skill/area kadang namanya kebetulan sama kayak nama kota
     // cabang LAIN (mis. "MEULABOH" = nama kota cabang 01C), padahal itu cuma area TUJUAN
     // pengantaran vendor cabang 01A - bukan berarti datanya nyasar. Tandai biar gak
-    // disalahartikan (lihat Batch Fix 12).
+    // disalahartikan.
     $cabangMaster = DB::connection('sqlsrv')->table('sesi_master_cabang')
         ->get(['Code', 'Name'])
         ->filter(fn ($c) => !empty($c->Name));

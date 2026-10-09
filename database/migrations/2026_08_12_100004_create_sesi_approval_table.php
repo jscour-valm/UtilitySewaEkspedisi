@@ -7,18 +7,15 @@ use Illuminate\Support\Facades\Schema;
 /**
  * sesi_approval — Konfigurasi rule approval per cabang/tingkat.
  *
- * Riwayat: `id_cabang` awalnya unsignedBigInteger, diubah ke string(50)
- * (cabang_code) 26 Aug 2026 di migration yang sama dengan penambahan
- * `id_approver` dan penghapusan kolom `kategori_approval` (WH approval
- * otomatis over_threshold, jadi kolom itu tidak diperlukan lagi).
- * Migration ini sudah di-squash sehingga langsung mencerminkan schema
- * final.
+ * `id_cabang` = cabang_code (string). Baris role WM + `id_approver` juga dipakai sebagai override
+ * cabang yang dikelola WM (ApproverController / UserCabangResolver). Migration ini sudah di-squash
+ * (schema final).
  */
 return new class extends Migration
 {
     public function up(): void
     {
-        if (!Schema::connection('sqlsrv')->hasTable('sesi_approval')) {
+        if (! Schema::connection('sqlsrv')->hasTable('sesi_approval')) {
             Schema::connection('sqlsrv')->create('sesi_approval', function (Blueprint $table) {
                 $table->id('id_approval_rule');
                 $table->string('id_cabang', 50)->nullable()->comment('cabang_code; NULL = global rule');

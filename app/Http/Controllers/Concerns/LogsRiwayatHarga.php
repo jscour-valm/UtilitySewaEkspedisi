@@ -6,11 +6,10 @@ use App\Models\RiwayatHargaSewaTruk;
 use App\Models\RiwayatTarifKirimanRutin;
 
 /**
- * Catat histori harga master (mentor review item 11) — dipakai dari 5 titik
- * update harga: ApprovalController (usulan Part B, 2 titik) & TarifKirimanRutinController
- * (Kelola Tarif manual, 3 titik). Cuma insert kalau harga BENERAN berubah, biar
- * log gak penuh baris "berubah" ke nilai yang sama (misal submit form tanpa
- * ubah harga).
+ * Catat histori harga master — dipakai PersetujuanMasterService (usulan harga disetujui WH)
+ * & TarifKirimanRutinController (edit tarif langsung oleh DCI). Ditampilkan di popup Riwayat
+ * pada detail perusahaan (PerusahaanController::riwayatHarga). Cuma insert kalau harga
+ * benar-benar berubah.
  */
 trait LogsRiwayatHarga
 {

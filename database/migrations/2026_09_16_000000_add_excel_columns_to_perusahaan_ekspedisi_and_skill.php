@@ -6,8 +6,7 @@ use Illuminate\Support\Facades\Schema;
 
 /**
  * Tambah kolom yang ada di CSV Sewa Truk asli tapi sebelumnya didiskon
- * pas import (KTP/NPWP, Revisi, Tanggal Revisi, Update Date) — Jo minta
- * halaman Kelola Tarif nampilin kolom yang persis sama kayak Excel sumbernya.
+ * pas import (KTP/NPWP, Revisi, Tanggal Revisi, Update Date), supaya data sumber tersimpan utuh.
  *
  * Kolom "No", "Kode Area", "Nama Cabang" TIDAK ditambahkan ke sini:
  * - "No" cuma nomor urut baris file sumber, ga ada makna bisnis, disepakati
@@ -20,13 +19,13 @@ return new class extends Migration
 {
     public function up(): void
     {
-        if (!Schema::connection('sqlsrv')->hasColumn('sesi_perusahaan_ekspedisi', 'ktp_npwp')) {
+        if (! Schema::connection('sqlsrv')->hasColumn('sesi_perusahaan_ekspedisi', 'ktp_npwp')) {
             Schema::connection('sqlsrv')->table('sesi_perusahaan_ekspedisi', function (Blueprint $table) {
                 $table->string('ktp_npwp', 100)->nullable()->after('badan_usaha')->comment('Dari CSV Sewa Truk — identitas vendor, cuma ada di sumber Sewa Truk');
             });
         }
 
-        if (!Schema::connection('sqlsrv')->hasColumn('sesi_perusahaan_skill', 'revisi')) {
+        if (! Schema::connection('sqlsrv')->hasColumn('sesi_perusahaan_skill', 'revisi')) {
             Schema::connection('sqlsrv')->table('sesi_perusahaan_skill', function (Blueprint $table) {
                 $table->string('revisi', 50)->nullable()->comment('Kolom "Revisi" dari CSV Sewa Truk');
                 $table->date('tanggal_revisi')->nullable()->comment('Kolom "Tanggal Revisi" dari CSV Sewa Truk');

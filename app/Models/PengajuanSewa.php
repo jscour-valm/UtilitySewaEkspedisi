@@ -232,8 +232,8 @@ class PengajuanSewa extends Model
     }
 
     /**
-     * KG pengaju cuma boleh edit selama masih menunggu validasi WM (tabel wewenang,
-     * 2 Okt 2026). Setelah WM validasi, pengajuan terkunci.
+     * KG pengaju cuma boleh edit selama masih menunggu validasi WM. Setelah WM validasi,
+     * pengajuan terkunci.
      */
     public function bisaDieditPengaju(): bool
     {

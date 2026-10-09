@@ -8,23 +8,15 @@ use Illuminate\Support\Facades\Schema;
 /**
  * sesi_unit_kendaraan — Armada/kendaraan milik perusahaan ekspedisi.
  *
- * Riwayat: tabel ini awalnya bernama `sesi_armada` dengan PK `id_armada`,
- * kolom `nama_kendaraan` & `plat_nomor`. Di-rename total (tabel + 3 kolom)
- * tanggal 3 Sept 2026 untuk selaras dengan dokumentasi. Migration ini sudah
- * di-squash sehingga langsung mencerminkan schema final — riwayat rename
- * bertahapnya ada di git history, bukan di file migration lagi.
- *
- * 8 Sept 2026: kolom `ktp_supir`/`sim_supir` DIHAPUS dari sini. Sudah ga
- * dipakai UI sejak 1 Sept (waktu `identitas_owner` ditambah ke
- * sesi_perusahaan_ekspedisi), dan datanya sudah dipindah ke situ lewat
- * migration `2026_09_08_000002_...`. Dokumen identitas sekarang disimpan
- * per-perusahaan (identitas_owner), bukan per-kendaraan.
+ * Dulu bernama `sesi_armada` (PK `id_armada`, kolom `nama_kendaraan` / `plat_nomor`). Dokumen
+ * identitas disimpan per perusahaan (`sesi_perusahaan_ekspedisi.identitas_owner`), bukan per
+ * kendaraan. Migration ini sudah di-squash (schema final).
  */
 return new class extends Migration
 {
     public function up(): void
     {
-        if (!Schema::connection('sqlsrv')->hasTable('sesi_unit_kendaraan')) {
+        if (! Schema::connection('sqlsrv')->hasTable('sesi_unit_kendaraan')) {
             Schema::connection('sqlsrv')->create('sesi_unit_kendaraan', function (Blueprint $table) {
                 $table->id('id_kendaraan');
                 $table->unsignedBigInteger('id_perusahaan');

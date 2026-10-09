@@ -7,6 +7,9 @@
     $role = auth()->user()?->userUtility?->role;
     $isDci = $role === 'DCI';
     $isKg = $role === 'KG';
+    // Riwayat harga: semua role kecuali KG. Kendaraan milik cabang lain hanya bisa diedit user global.
+    $lihatRiwayat = ! $isKg;
+    $isGlobal = auth()->user()?->isGlobalAccess();
 
     $docs = $perusahaan->identitas_owner ?? [];
     $docSrcs = collect($docs)->map(fn ($item) => \App\Helpers\FormatHelper::identitasOwnerSrc($item))->values();
@@ -38,7 +41,12 @@
         <div class="grid grid-cols-1 gap-x-6 gap-y-5 p-5 lg:grid-cols-[1.3fr_1px_1fr]">
 
             <div class="min-w-0">
-                <h1 class="text-[22px] font-bold tracking-tight text-gray-900">{{ $namaLengkap }}</h1>
+                <div class="flex flex-wrap items-start justify-between gap-2">
+                    <h1 class="text-[22px] font-bold tracking-tight text-gray-900">{{ $namaLengkap }}</h1>
+                    @if($bolehKelola)
+                        <button type="button" @click="$dispatch('edit-profil-vendor')" class="{{ $editBtn }}">Edit Profil</button>
+                    @endif
+                </div>
                 <p class="mt-1 text-[13px] text-gray-500">
                     {{ $cabangCount }} cabang &middot; {{ $areaCount }} area &middot; {{ count($kendaraan) }} unit kendaraan
                 </p>
@@ -89,12 +97,20 @@
     {{-- Section disembunyikan total kalau kosong (bukan cuma nunjukin "Belum ada...") —
     konsisten sama pola yang udah dipakai di section "Area Terdaftar, Belum Ada Tarif"
     di bawah, biar Detail Perusahaan nggak makan tempat percuma buat data yang nggak ada. --}}
-    @if(count($kendaraan) > 0)
-    <div class="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
-        <div class="mb-3 flex items-center justify-between">
+    @if(count($kendaraan) > 0 || $bolehKelola)
+    <div class="rounded-xl border border-gray-100 bg-white p-5 shadow-sm"
+        @if($bolehKelola) x-data="kelolaKendaraan({{ (int) $perusahaan->id_perusahaan }}, @js($jenisKendaraanList), @js($cabangKelola->count() === 1 ? $cabangKelola->first()->Code : ''))" @endif>
+        <div class="mb-3 flex items-center justify-between gap-3">
             <p class="{{ $sectionLabel }}">KENDARAAN</p>
-            <span class="text-xs text-gray-400">{{ count($kendaraan) }} unit</span>
+            <div class="flex items-center gap-3">
+                <span class="text-xs text-gray-400">{{ count($kendaraan) }} unit</span>
+                @if($bolehKelola)
+                    <button type="button" @click="bukaTambah()"
+                        class="rounded-lg bg-avian-green px-2.5 py-1 text-xs font-medium text-white hover:bg-avian-green-dark">+ Tambah Kendaraan</button>
+                @endif
+            </div>
         </div>
+        @if(count($kendaraan) > 0)
         <div class="overflow-x-auto rounded-lg border border-gray-100">
             <table class="w-full text-sm">
                 <thead>
@@ -104,7 +120,7 @@
                         <th class="px-3.5 py-2.5 text-left">PLAT NOMOR</th>
                         <th class="px-3.5 py-2.5 text-right">MUATAN</th>
                         <th class="px-3.5 py-2.5 text-left">AREA / SKILL</th>
-                        @if($isKg)
+                        @if($isKg || $bolehKelola)
                             <th class="px-3.5 py-2.5 text-right">AKSI</th>
                         @endif
                     </tr>
@@ -128,12 +144,29 @@
                                         </a>
                                     @endif
                                 </td>
+                            @elseif($bolehKelola)
+                                <td class="px-3.5 py-2.5 text-right whitespace-nowrap">
+                                    @if($isGlobal || $k['mine'])
+                                        <button type="button" class="{{ $editBtn }}" @click="bukaEdit(@js($k))">Edit</button>
+                                    @endif
+                                    @if($isDci)
+                                        <button type="button" class="ml-1 rounded-lg border border-red-200 px-2.5 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
+                                            @click="hapus({{ (int) $k['id'] }})">Hapus</button>
+                                    @endif
+                                </td>
                             @endif
                         </tr>
                     @endforeach
                 </tbody>
             </table>
         </div>
+        @else
+            <p class="rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 py-6 text-center text-xs text-gray-400">Belum ada unit kendaraan.</p>
+        @endif
+
+        @if($bolehKelola)
+            @include('pages.perusahaan.partials.modal-kendaraan')
+        @endif
     </div>
     @endif
 
@@ -152,9 +185,7 @@
                         <th class="px-3.5 py-2.5 text-left">AREA KIRIM</th>
                         <th class="px-3.5 py-2.5 text-right">HARGA SEWA</th>
                         <th class="px-3.5 py-2.5 text-left">DIUPDATE</th>
-                        @if($isKg || $isDci)
-                            <th class="px-3.5 py-2.5 text-right">AKSI</th>
-                        @endif
+                        <th class="px-3.5 py-2.5 text-right">AKSI</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -171,8 +202,11 @@
                                 <x-penanda-usulan-harga :usulan="$usulanRow" />
                             </td>
                             <td class="px-3.5 py-2.5 text-gray-500">{{ $diupdate ? \Carbon\Carbon::parse($diupdate)->translatedFormat('d M Y') : '—' }}</td>
-                            @if($isKg || $isDci)
                                 <td class="px-3.5 py-2.5 text-right whitespace-nowrap">
+                                    @if($lihatRiwayat)
+                                        <button type="button" class="{{ $editBtn }}"
+                                            @click="$dispatch('riwayat-harga', @js(['url' => route('perusahaan.riwayat-harga', ['sewa-truk', $t->id_vendor_skill]), 'judul' => 'Sewa Truk · '.$t->nama_skill.' · Cab. '.$t->cabang_code, 'barang' => false]))">Riwayat</button>
+                                    @endif
                                     @if($isDci)
                                         <a href="{{ route('perusahaan.sewa-truk.edit', $t->id_vendor_skill) }}" class="{{ $editBtn }}">Edit</a>
                                     @endif
@@ -184,7 +218,6 @@
                                         <a href="{{ $t->pengajuan_url }}" class="whitespace-nowrap rounded-lg bg-avian-green px-2.5 py-1 text-xs font-medium text-white hover:bg-avian-green-dark">Buat Pengajuan</a>
                                     @endif
                                 </td>
-                            @endif
                         </tr>
                     @endforeach
                 </tbody>
@@ -209,9 +242,7 @@
                         @foreach($jenisBarangCols as $jb)
                             <th class="px-3.5 py-2.5 text-right whitespace-nowrap uppercase" title="{{ $jb->nama_barang }}">{{ $jb->nama_barang }}</th>
                         @endforeach
-                        @if($isKg || $isDci)
-                            <th class="px-3.5 py-2.5 text-right">AKSI</th>
-                        @endif
+                        <th class="px-3.5 py-2.5 text-right">AKSI</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -225,8 +256,11 @@
                                     <x-penanda-usulan-harga :usulan="$usulanBerjalan->get('pengiriman_rutin|' . $t->cabang_code . '|' . $t->id_skill . '|' . $jb->id_jenis_barang)" />
                                 </td>
                             @endforeach
-                            @if($isKg || $isDci)
                                 <td class="px-3.5 py-2.5 text-right whitespace-nowrap">
+                                    @if($lihatRiwayat)
+                                        <button type="button" class="{{ $editBtn }}"
+                                            @click="$dispatch('riwayat-harga', @js(['url' => route('perusahaan.riwayat-harga', ['kiriman-rutin', $t->id_vendor_skill]), 'judul' => 'Kiriman Rutin · '.$t->nama_skill.' · Cab. '.$t->cabang_code, 'barang' => true]))">Riwayat</button>
+                                    @endif
                                     @if($isDci)
                                         <a href="{{ route('perusahaan.kiriman-rutin.edit', $t->id_vendor_skill) }}" class="{{ $editBtn }}">Edit</a>
                                     @endif
@@ -238,7 +272,6 @@
                                         <a href="{{ $t->pengajuan_url }}" class="whitespace-nowrap rounded-lg bg-avian-green px-2.5 py-1 text-xs font-medium text-white hover:bg-avian-green-dark">Buat Pengajuan</a>
                                     @endif
                                 </td>
-                            @endif
                         </tr>
                     @endforeach
                 </tbody>
@@ -269,6 +302,32 @@
 
     @if($isKg)
         <x-modal-usulan-harga :perusahaan="$perusahaan" :jenis-barang="$jenisBarangSemua" />
+    @endif
+
+    @if($bolehKelola)
+        {{-- Edit profil vendor: nama perusahaan hanya bisa diubah DCI --}}
+        <div x-data="{ buka: false }" @edit-profil-vendor.window="buka = true" @keydown.escape.window="buka = false">
+            <div x-show="buka" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4">
+                <div class="absolute inset-0 bg-black/45" @click="buka = false"></div>
+                <div class="relative z-10 max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl"
+                    x-data="formVendor(@js(route('pengajuan.update-vendor', $perusahaan->id_perusahaan)), @js($perusahaan->only(['nama_perusahaan', 'badan_usaha', 'no_telepon', 'alamat_kantor'])))">
+                    <h3 class="mb-4 text-[17px] font-bold text-gray-900">Edit Profil Vendor</h3>
+                    <x-form-vendor :foto-lama="$docSrcs->all()" :nama-terkunci="! $isDci" />
+                    <div class="mt-5 flex justify-end gap-3">
+                        <button type="button" @click="buka = false"
+                            class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50">Batal</button>
+                        <button type="button" @click="simpan()" :disabled="menyimpan"
+                            class="rounded-lg bg-avian-green px-4 py-2 text-sm font-medium text-white hover:bg-avian-green-dark disabled:opacity-50">
+                            <span x-text="menyimpan ? 'Menyimpan…' : 'Simpan'"></span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    @if($lihatRiwayat)
+        @include('pages.perusahaan.partials.modal-riwayat-harga')
     @endif
 </div>
 @endsection

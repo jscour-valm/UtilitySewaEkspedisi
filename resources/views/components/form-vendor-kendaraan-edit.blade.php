@@ -1,20 +1,16 @@
 {{--
-    Seksi "Profil Perusahaan" & "Kendaraan" — ditambahkan ke halaman edit
-    Sewa Truk & Kiriman Rutin (16 Sept, keputusan Jo: digabung ke halaman yang
-    sudah ada, bukan halaman Master Data terpisah). Edit data vendor via wizard
-    Pengajuan Sewa (form terpisah di situ) sudah dihapus (1 Okt 2026, keputusan
-    Jo: KaGud bukan tempatnya koreksi data master) — partial ini satu-satunya
-    jalur edit sekarang, x-data LOKAL sendiri, langsung commit ke DB tiap submit
-    (lihat PengajuanController::updateVendor() & KendaraanController::store()/update()).
+    Seksi "Profil Perusahaan" & "Kendaraan" di halaman edit tarif Sewa Truk & Kiriman Rutin (DCI).
+    x-data lokal, langsung simpan ke DB tiap submit (PengajuanController::updateVendor(),
+    KendaraanController::store()/update()/destroy()). Role lain mengelola profil & kendaraan dari
+    detail perusahaan (pages/perusahaan/show).
 
     Props:
     - vendorSkill: PerusahaanSkill (with('perusahaan'))
     - kendaraanList: Collection<Kendaraan> milik perusahaan ini DI CABANG yang sama
     - skillList: Collection {id_skill, nama_skill} — semua area aktif
-    - cabangList: Collection {Code, Name} — dropdown "Cabang" (16 Sept, round 8)
+    - cabangList: Collection {Code, Name} — dropdown "Cabang"
 
-    Field "Cabang" (16 Sept, round 8): dipindah render-nya ke sini secara
-    VISUAL saja (Jo mau digrupkan bareng Profil Perusahaan) — tapi cabang_code
+    Field "Cabang" dirender di sini hanya secara visual (dikelompokkan dengan Profil Perusahaan) — cabang_code
     tetap kepemilikan baris tarif (sesi_perusahaan_skill), BUKAN perusahaan.
     Makanya select-nya nggak dimasukkan ke x-data="vendorProfilEdit(...)" &
     nggak ikut submitProfil() (yang PATCH ke sesi_perusahaan_ekspedisi) — dia
@@ -176,7 +172,7 @@
             </div>
             <div>
                 <label class="mb-1 block text-xs font-medium text-gray-600">Muatan Maksimal (Ton) <span class="text-red-500">*</span></label>
-                {{-- Readonly: auto-fill dari master begitu Jenis Kendaraan dipilih (review mentor item 4). --}}
+                {{-- Readonly: auto-fill dari master begitu Jenis Kendaraan dipilih. --}}
                 <input type="number" step="0.01" min="0.01" x-model="form.muatan_maksimal" readonly
                     class="w-full rounded-lg border border-gray-300 bg-gray-100 px-3 py-2 text-sm text-gray-600 focus:border-avian-green focus:outline-none">
             </div>
@@ -423,7 +419,7 @@ function kendaraanManager({ idPerusahaan, idCabang, skillList, jenisKendaraanLis
         },
 
         // Muatan Maksimal ke-lock dari master jenis kendaraan begitu dipilih —
-        // dipakai form tambah & baris edit inline (review mentor item 4).
+        // dipakai form tambah & baris edit inline.
         muatanFromJenis(idJenisKendaraan) {
             const found = this.jenisKendaraanList.find(j => String(j.id_jenis_kendaraan) === String(idJenisKendaraan));
             return found ? found.muatan_maksimal_ton : '';

@@ -7,6 +7,7 @@ use App\Models\PerusahaanEkspedisi;
 use App\Models\PerusahaanSkill;
 use App\Models\TarifKirimanRutin;
 use Illuminate\Console\Command;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -23,7 +24,7 @@ use Illuminate\Support\Facades\DB;
  *
  * Data disimpan sebagai row `sesi_perusahaan_skill` — 1 baris per kombinasi
  * vendor+skill/area+cabang, bukan lagi digabung comma-CSV dalam 1 baris
- * `sesi_unit_kendaraan` (rate-card lama, direfactor 14 Sept — lihat migration
+ * `sesi_unit_kendaraan` (rate-card lama — lihat migration
  * `2026_09_03_000006_create_sesi_perusahaan_skill_table.php`). Kalau 1 baris
  * CSV punya beberapa area sekaligus (Area Kirim isinya beberapa nama dipisah
  * koma), masing2 area jadi baris `sesi_perusahaan_skill` sendiri — tarif per
@@ -58,9 +59,13 @@ class ImportTarifKirimanRutinWideCommand extends Command
     protected $description = 'Import tarif Kiriman Rutin dari file CSV format wide (header 2 baris: grup + jenis barang per kolom), ditulis per vendor+skill/area+cabang (sesi_perusahaan_skill)';
 
     private const BASE_COLUMNS = ['No', 'Kode Area', 'Kode Cabang', 'Nama Cabang', 'Nama Ekspedisi', 'Area Kirim'];
+
     private const BIAYA_MAX_DIGITS = 10; // sesuai kolom sesi_tarif_kiriman_rutin.biaya_per_unit decimal(12,2) — 10 digit di depan koma
+
     private const PLACEHOLDER = '-';
+
     private const AREA_KIRIM_RAW_MAX_LENGTH = 200; // cell "Area Kirim" mentah di atas ini dianggap garbage/campur kalimat, bukan daftar area bersih
+
     private const NAMA_SKILL_MAX_LENGTH = 100; // sesuai kolom sesi_master_skill.nama_skill (varchar 100)
 
     public function handle(): int
@@ -69,14 +74,16 @@ class ImportTarifKirimanRutinWideCommand extends Command
         $dryRun = (bool) $this->option('dry-run');
         $groupWanted = trim((string) $this->option('group-column'));
 
-        if (!is_readable($path)) {
+        if (! is_readable($path)) {
             $this->error("File tidak ditemukan atau tidak bisa dibaca: {$path}");
+
             return self::FAILURE;
         }
 
         $handle = fopen($path, 'r');
         if ($handle === false) {
             $this->error("Gagal membuka file: {$path}");
+
             return self::FAILURE;
         }
 
@@ -102,6 +109,7 @@ class ImportTarifKirimanRutinWideCommand extends Command
         if ($groupRow === null) {
             $this->error('Ga ketemu baris header (yang punya "Kode Cabang" & "Nama Ekspedisi") dalam 15 baris pertama file ini.');
             fclose($handle);
+
             return self::FAILURE;
         }
 
@@ -109,6 +117,7 @@ class ImportTarifKirimanRutinWideCommand extends Command
         if ($subRow === false) {
             $this->error('File CSV harus punya baris sub-header (nama jenis barang) tepat sesudah baris header grup.');
             fclose($handle);
+
             return self::FAILURE;
         }
         // Nama sub-kolom di file asli sering punya newline di tengah (hasil word-wrap
@@ -137,9 +146,10 @@ class ImportTarifKirimanRutinWideCommand extends Command
             }
         }
         $missingBase = array_diff(['Kode Cabang', 'Nama Ekspedisi'], array_keys($baseIndex));
-        if (!empty($missingBase)) {
-            $this->error('Kolom dasar wajib ga ketemu di baris header 1: ' . implode(', ', $missingBase));
+        if (! empty($missingBase)) {
+            $this->error('Kolom dasar wajib ga ketemu di baris header 1: '.implode(', ', $missingBase));
             fclose($handle);
+
             return self::FAILURE;
         }
         $areaIdx = $baseIndex['Area Kirim'] ?? null;
@@ -159,6 +169,7 @@ class ImportTarifKirimanRutinWideCommand extends Command
             if ($groupWanted === '') {
                 $this->error('Ga ketemu nama grup kolom harga otomatis. Coba isi manual pakai --group-column="nama grup persis".');
                 fclose($handle);
+
                 return self::FAILURE;
             }
             $this->info("Grup kolom harga otomatis terdeteksi: \"{$groupWanted}\" (override pakai --group-column kalau salah).");
@@ -181,6 +192,7 @@ class ImportTarifKirimanRutinWideCommand extends Command
             $group = $filledGroup[$i] ?? '';
             if (strcasecmp($group, $groupWanted) !== 0) {
                 $ignoredGroups[$group] = ($ignoredGroups[$group] ?? 0) + 1;
+
                 continue;
             }
             $barangId = $barangMap->get($this->normalize($subName));
@@ -188,11 +200,11 @@ class ImportTarifKirimanRutinWideCommand extends Command
                 // Nama kolom ga cocok sama master manapun — daripada datanya hilang,
                 // daftarkan otomatis sbg jenis barang baru (nama dirapihin dulu:
                 // whitespace/newline internal diseragamkan jadi 1 spasi). Ditandai
-                // di ringkasan akhir biar Jo bisa cek/rapihin manual kalau perlu.
+                // di ringkasan akhir supaya bisa dicek/dirapikan manual kalau perlu.
                 $namaBersih = preg_replace('/\s+/u', ' ', $subName);
                 if ($dryRun) {
                     // Jangan nulis apapun di dry-run — id palsu cukup buat hitungan laporan.
-                    $barangId = 'DRYRUN:' . $namaBersih;
+                    $barangId = 'DRYRUN:'.$namaBersih;
                 } else {
                     $barang = JenisBarangKiriman::create(['nama_barang' => $namaBersih, 'flag' => true]);
                     $barangId = $barang->id_jenis_barang;
@@ -206,21 +218,24 @@ class ImportTarifKirimanRutinWideCommand extends Command
         if (empty($priceColumns)) {
             $this->error("Ga ada kolom harga yang ke-mapping di bawah grup '{$groupWanted}'. Cek nama grup di --group-column atau isi baris header 2.");
             fclose($handle);
+
             return self::FAILURE;
         }
 
-        $this->info('Kolom harga yang dipakai (' . count($priceColumns) . '): ' . implode(', ', array_map(
+        $this->info('Kolom harga yang dipakai ('.count($priceColumns).'): '.implode(', ', array_map(
             fn ($idx) => preg_replace('/\s+/u', ' ', $subRow[$idx]),
             array_keys($priceColumns)
         )));
-        if (!empty($ignoredGroups)) {
+        if (! empty($ignoredGroups)) {
             foreach ($ignoredGroups as $group => $count) {
-                if ($group === '') continue;
+                if ($group === '') {
+                    continue;
+                }
                 $this->warn("Grup kolom '{$group}' ({$count} kolom) DIABAIKAN — ga ditulis ke database.");
             }
         }
-        if (!empty($autoCreatedBarang)) {
-            $this->warn('Jenis barang BARU didaftarkan otomatis ke master (nama kolom ga cocok ke yang sudah ada) — cek/rapihin manual lewat halaman Kelola Tarif kalau perlu: ' . implode(', ', array_unique($autoCreatedBarang)));
+        if (! empty($autoCreatedBarang)) {
+            $this->warn('Jenis barang BARU didaftarkan otomatis ke master (nama kolom ga cocok ke yang sudah ada) — cek/rapihin manual lewat halaman Kelola Tarif kalau perlu: '.implode(', ', array_unique($autoCreatedBarang)));
         }
         if ($areaIdx === null) {
             $this->warn('Kolom "Area Kirim" ga ketemu — semua tarif akan ditulis dgn skill placeholder "-" (area belum diketahui).');
@@ -263,10 +278,10 @@ class ImportTarifKirimanRutinWideCommand extends Command
             if ($vendorId === null) {
                 // Vendor ga ketemu (belum pernah diimport lewat file Sewa Truk /
                 // import:perusahaan-ekspedisi) — daripada datanya hilang, daftarkan
-                // otomatis dgn data placeholder. Ditandai di ringkasan biar Jo bisa
+                // otomatis dgn data placeholder. Ditandai di ringkasan supaya bisa
                 // lengkapi manual (badan usaha/telepon/alamat) belakangan.
                 if ($dryRun) {
-                    $vendorId = 'DRYRUN:' . $namaVendor;
+                    $vendorId = 'DRYRUN:'.$namaVendor;
                 } else {
                     $vendor = PerusahaanEkspedisi::create([
                         'nama_perusahaan' => $namaVendor,
@@ -304,14 +319,14 @@ class ImportTarifKirimanRutinWideCommand extends Command
             // bikin baris dobel.
             $idVendorSkillList = [];
             foreach ($idSkillIds as $skillId) {
-                $vendorSkillKey = $vendorId . '|' . $idCabang . '|' . $skillId;
-                if (!isset($vendorSkillCache[$vendorSkillKey])) {
+                $vendorSkillKey = $vendorId.'|'.$idCabang.'|'.$skillId;
+                if (! isset($vendorSkillCache[$vendorSkillKey])) {
                     $isNewCombo = str_starts_with((string) $vendorId, 'DRYRUN:') || (is_string($skillId) && str_starts_with($skillId, 'DRYRUN:'));
 
                     if ($isNewCombo) {
                         // Vendor atau skill-nya sendiri belum ada di DB (dry-run) —
                         // baris vendor-skill pasti baru juga, ga perlu/ga bisa di-query.
-                        $idVendorSkill = 'DRYRUN:' . $vendorSkillKey;
+                        $idVendorSkill = 'DRYRUN:'.$vendorSkillKey;
                         $vendorSkillBaru++;
                     } elseif ($dryRun) {
                         $exists = DB::connection('sqlsrv')->table('sesi_perusahaan_skill')
@@ -326,7 +341,7 @@ class ImportTarifKirimanRutinWideCommand extends Command
                                 ->where('cabang_code', $idCabang)
                                 ->value('id_vendor_skill');
                         } else {
-                            $idVendorSkill = 'DRYRUN:' . $vendorSkillKey;
+                            $idVendorSkill = 'DRYRUN:'.$vendorSkillKey;
                             $vendorSkillBaru++;
                         }
                     } else {
@@ -353,6 +368,7 @@ class ImportTarifKirimanRutinWideCommand extends Command
                 $digits = preg_replace('/[^0-9]/', '', $raw);
                 if ($digits === '') {
                     $errors[] = "Baris {$rowNumber}: nilai '{$raw}' di kolom '{$subRow[$idx]}' bukan angka, dilewati.";
+
                     continue;
                 }
                 if (strlen($digits) > self::BIAYA_MAX_DIGITS) {
@@ -361,6 +377,7 @@ class ImportTarifKirimanRutinWideCommand extends Command
                     // yang overflow kolom decimal(12,2). Dilewati (bukan error keras)
                     // drpd bikin baris gagal — nilai aslinya tetap ditulis di laporan.
                     $errors[] = "Baris {$rowNumber}: nilai '{$raw}' di kolom '{$subRow[$idx]}' kelihatannya gabungan beberapa angka (kelebihan digit), dilewati.";
+
                     continue;
                 }
                 $biaya = (float) $digits;
@@ -377,12 +394,14 @@ class ImportTarifKirimanRutinWideCommand extends Command
                         if ($dryRun) {
                             if ($isNewCombo) {
                                 $created++;
+
                                 continue;
                             }
                             $exists = TarifKirimanRutin::withInactive()->where('id_vendor_skill', $idVendorSkill)
                                 ->where('id_jenis_barang', $barangId)
                                 ->exists();
                             $exists ? $updated++ : $created++;
+
                             continue;
                         }
 
@@ -397,7 +416,7 @@ class ImportTarifKirimanRutinWideCommand extends Command
 
                         $existed ? $updated++ : $created++;
                     } catch (\Throwable $e) {
-                        $errors[] = "Baris {$rowNumber}, vendor {$namaVendor}: gagal menyimpan tarif — " . $e->getMessage();
+                        $errors[] = "Baris {$rowNumber}, vendor {$namaVendor}: gagal menyimpan tarif — ".$e->getMessage();
                     }
                 }
             }
@@ -405,7 +424,7 @@ class ImportTarifKirimanRutinWideCommand extends Command
         fclose($handle);
 
         $this->newLine();
-        if (!empty($errors)) {
+        if (! empty($errors)) {
             $this->error('Baris/data bermasalah:');
             foreach ($errors as $err) {
                 $this->line("  - {$err}");
@@ -417,13 +436,13 @@ class ImportTarifKirimanRutinWideCommand extends Command
             $prefixVendorSkill = $dryRun ? 'akan dibuat' : 'dibuat';
             $this->warn("{$vendorSkillBaru} baris vendor+skill/area+cabang baru {$prefixVendorSkill} di sesi_perusahaan_skill.");
         }
-        if (!empty($autoCreatedVendor)) {
+        if (! empty($autoCreatedVendor)) {
             $prefixVendor = $dryRun ? 'akan didaftarkan' : 'didaftarkan';
-            $this->warn(count(array_unique($autoCreatedVendor)) . " vendor BARU {$prefixVendor} otomatis (belum ada di sesi_perusahaan_ekspedisi sebelumnya) dgn data placeholder (badan_usaha/telepon/alamat=\"-\") — lengkapi manual lewat form vendor: " . implode(', ', array_unique($autoCreatedVendor)));
+            $this->warn(count(array_unique($autoCreatedVendor))." vendor BARU {$prefixVendor} otomatis (belum ada di sesi_perusahaan_ekspedisi sebelumnya) dgn data placeholder (badan_usaha/telepon/alamat=\"-\") — lengkapi manual lewat form vendor: ".implode(', ', array_unique($autoCreatedVendor)));
         }
-        if (!empty($autoCreatedSkill)) {
+        if (! empty($autoCreatedSkill)) {
             $prefixSkill = $dryRun ? 'akan didaftarkan' : 'didaftarkan';
-            $this->warn(count(array_unique($autoCreatedSkill)) . " skill/area BARU {$prefixSkill} ke sesi_master_skill (nama Area Kirim ga cocok ke master yang ada) — cek/rapihin manual kalau perlu: " . implode(', ', array_unique($autoCreatedSkill)));
+            $this->warn(count(array_unique($autoCreatedSkill))." skill/area BARU {$prefixSkill} ke sesi_master_skill (nama Area Kirim ga cocok ke master yang ada) — cek/rapihin manual kalau perlu: ".implode(', ', array_unique($autoCreatedSkill)));
         }
         if ($areaTidakValidCount > 0) {
             $this->warn("{$areaTidakValidCount} baris Area Kirim-nya ga valid — ditandai skill '-' (sentinel di sesi_master_skill), perlu dicek & di-assign ulang manual lewat halaman Kelola Tarif Kiriman Rutin.");
@@ -431,7 +450,7 @@ class ImportTarifKirimanRutinWideCommand extends Command
 
         $total = $created + $updated + count($errors);
         $prefix = $dryRun ? '[DRY-RUN] ' : '';
-        $this->info("{$prefix}Selesai: {$created} tarif dibuat, {$updated} tarif diperbarui, " . count($errors) . " error, dari {$total} kombinasi vendor-skill+barang.");
+        $this->info("{$prefix}Selesai: {$created} tarif dibuat, {$updated} tarif diperbarui, ".count($errors)." error, dari {$total} kombinasi vendor-skill+barang.");
 
         return empty($errors) ? self::SUCCESS : self::FAILURE;
     }
@@ -447,6 +466,7 @@ class ImportTarifKirimanRutinWideCommand extends Command
     private function normalize(string $value): string
     {
         $value = preg_replace('/\s+/u', ' ', $value) ?? $value;
+
         return mb_strtolower(trim($value));
     }
 
@@ -463,7 +483,7 @@ class ImportTarifKirimanRutinWideCommand extends Command
      *
      * @return array<int, int|string> array kosong kalau ga ada satupun token yg valid
      */
-    private function resolveAreaKirimToSkillIds(string $rawAreaKirim, \Illuminate\Support\Collection $skillCache, array &$autoCreatedSkill, bool $dryRun): array
+    private function resolveAreaKirimToSkillIds(string $rawAreaKirim, Collection $skillCache, array &$autoCreatedSkill, bool $dryRun): array
     {
         if (mb_strlen($rawAreaKirim) > self::AREA_KIRIM_RAW_MAX_LENGTH) {
             return [];
@@ -485,15 +505,15 @@ class ImportTarifKirimanRutinWideCommand extends Command
             if ($id === null) {
                 $id = DB::connection('sqlsrv')->table('sesi_master_skill')->where('nama_skill', $nama)->value('id_skill');
 
-                if (!$id) {
+                if (! $id) {
                     if ($dryRun) {
                         // Jangan nulis apapun di dry-run — id palsu (unik per nama) cukup
                         // buat preview laporan, tanpa collapse ke 1 nilai yg sama.
-                        $id = 'DRYRUN:' . $nama;
+                        $id = 'DRYRUN:'.$nama;
                     } else {
                         $id = DB::connection('sqlsrv')->table('sesi_master_skill')->insertGetId([
                             'nama_skill' => $nama,
-                            'flag'       => true,
+                            'flag' => true,
                             'created_at' => now(),
                             'updated_at' => now(),
                         ]);
@@ -515,7 +535,7 @@ class ImportTarifKirimanRutinWideCommand extends Command
      * biar gampang dicari & dibenerin manual. Pola sama persis kayak
      * `ImportTarifSewaTrukCommand::resolvePlaceholderSkillId()`.
      */
-    private function resolvePlaceholderSkillId(\Illuminate\Support\Collection $skillCache, bool $dryRun): int|string
+    private function resolvePlaceholderSkillId(Collection $skillCache, bool $dryRun): int|string
     {
         $cacheKey = '__PLACEHOLDER__';
         $id = $skillCache->get($cacheKey);
@@ -525,13 +545,13 @@ class ImportTarifKirimanRutinWideCommand extends Command
 
         $id = DB::connection('sqlsrv')->table('sesi_master_skill')->where('nama_skill', self::PLACEHOLDER)->value('id_skill');
 
-        if (!$id) {
+        if (! $id) {
             if ($dryRun) {
-                $id = 'DRYRUN:' . self::PLACEHOLDER;
+                $id = 'DRYRUN:'.self::PLACEHOLDER;
             } else {
                 $id = DB::connection('sqlsrv')->table('sesi_master_skill')->insertGetId([
                     'nama_skill' => self::PLACEHOLDER,
-                    'flag'       => false,
+                    'flag' => false,
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]);
@@ -539,6 +559,7 @@ class ImportTarifKirimanRutinWideCommand extends Command
         }
 
         $skillCache->put($cacheKey, $id);
+
         return $id;
     }
 
@@ -554,6 +575,7 @@ class ImportTarifKirimanRutinWideCommand extends Command
             return $value;
         }
         $converted = @mb_convert_encoding($value, 'UTF-8', 'Windows-1252');
+
         return $converted !== false ? $converted : $value;
     }
 }

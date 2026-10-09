@@ -4,6 +4,7 @@
 
 @section('content')
 <x-crud-simple-master
+    :bolehKelola="auth()->user()?->userUtility?->role === 'DCI'"
     title="Daftar Jenis Barang Kiriman"
     description="Master jenis barang untuk fitur Kiriman Rutin — dipakai sbg dasar tarif per jenis barang di halaman Kelola Tarif."
     addLabel="+ Tambah Jenis Barang"

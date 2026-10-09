@@ -9,9 +9,9 @@ use Illuminate\Support\Facades\Schema;
  * "CDD", "Pickup"), tiap entri sekalian nge-lock muatan_maksimal-nya (ton).
  * Sebelumnya `sesi_unit_kendaraan.jenis_kendaraan` cuma teks bebas + muatan
  * diisi manual sendiri-sendiri per kendaraan — rawan typo/nggak konsisten &
- * gampang salah isi muatan (review mentor 28 Sept, item 4).
+ * gampang salah isi muatan.
  *
- * Yang boleh nambah/kelola entri: DCI, WH, WM (lihat routes/web.php).
+ * CRUD entri: DCI; WM/WC/WH hanya melihat (lihat routes/web.php).
  */
 return new class extends Migration
 {

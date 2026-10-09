@@ -19,20 +19,25 @@
                 <h1 class="text-2xl font-bold text-gray-900">Perusahaan</h1>
                 <p class="text-sm text-gray-500">Vendor ekspedisi beserta tarif dan kendaraannya.</p>
             </div>
-            @if($isKg)
+            @if($isKg || $bolehKelola)
+                {{-- KG: vendor baru masuk proses validasi WM → approval WH. WM/WC/WH/DCI: langsung aktif di master. --}}
                 <div x-data="{ buka: false }" @keydown.escape.window="buka = false">
                     <button type="button" @click="buka = true"
                         class="rounded-lg bg-avian-green px-4 py-2 text-sm font-medium text-white hover:bg-avian-green-dark">
-                        + Ajukan Vendor Baru
+                        {{ $isKg ? '+ Ajukan Vendor Baru' : '+ Tambah Vendor' }}
                     </button>
 
                     <div x-show="buka" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4">
                         <div class="absolute inset-0 bg-black/45" @click="buka = false"></div>
                         <div class="relative z-10 max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl"
-                            x-data="formVendor(@js(route('pengajuan.store-perusahaan')))">
-                            <h3 class="text-[17px] font-bold text-gray-900">Ajukan Vendor Baru</h3>
+                            x-data="formVendor(@js(route($isKg ? 'pengajuan.store-perusahaan' : 'perusahaan.store')))">
+                            <h3 class="text-[17px] font-bold text-gray-900">{{ $isKg ? 'Ajukan Vendor Baru' : 'Tambah Vendor' }}</h3>
                             <p class="mb-4 mt-1 text-sm text-gray-500">
-                                Vendor langsung bisa dipakai di pengajuan sewa, tapi pengajuannya baru bisa divalidasi WM setelah vendor disetujui (validasi WM → approval WH).
+                                @if($isKg)
+                                    Vendor langsung bisa dipakai di pengajuan sewa, tapi pengajuannya baru bisa divalidasi WM setelah vendor disetujui (validasi WM → approval WH).
+                                @else
+                                    Vendor langsung aktif di master. Unit kendaraan ditambahkan dari halaman detail vendor.
+                                @endif
                             </p>
                             <x-form-vendor />
                             <div class="mt-5 flex justify-end gap-3">
@@ -40,7 +45,7 @@
                                     class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50">Batal</button>
                                 <button type="button" @click="simpan()" :disabled="menyimpan"
                                     class="rounded-lg bg-avian-green px-4 py-2 text-sm font-medium text-white hover:bg-avian-green-dark disabled:opacity-50">
-                                    <span x-text="menyimpan ? 'Mengajukan…' : 'Ajukan Vendor'"></span>
+                                    <span x-text="menyimpan ? 'Menyimpan…' : @js($isKg ? 'Ajukan Vendor' : 'Simpan Vendor')"></span>
                                 </button>
                             </div>
                         </div>
@@ -89,8 +94,7 @@
 
         {{-- Penjelas level agregasi — tab "Semua" 1 baris = 1 vendor (ringkasan), tab Sewa
         Truk/Kiriman Rutin 1 baris = 1 kombinasi vendor+cabang+area (rate card). Dua level
-        beda ini disengaja (tujuan beda), tapi bikin bingung tanpa keterangan (review mentor
-        item 3) — cukup 1 baris teks, tanpa ubah query apapun. --}}
+        beda ini disengaja, jadi diberi 1 baris keterangan. --}}
         <p class="mb-4 text-xs text-gray-400">
             @if($tab === 'semua')
                 Menampilkan 1 baris per vendor (ringkasan seluruh cabang &amp; area).

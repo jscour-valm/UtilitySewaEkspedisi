@@ -2,25 +2,25 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\BuildsPerusahaanSummary;
 use App\Http\Controllers\Concerns\ManagesVendorMasterData;
 use App\Models\Kendaraan;
 use App\Models\MasterJenisKendaraan;
+use App\Models\PerusahaanEkspedisi;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class KendaraanController extends Controller
 {
+    use BuildsPerusahaanSummary;
     use ManagesVendorMasterData;
 
-    // Halaman list & detail kendaraan sudah digantikan halaman Perusahaan
-    // (PerusahaanController) — controller ini tinggal API CRUD kendaraan dari
-    // halaman edit tarif (DCI).
+    // API kelola unit kendaraan dari detail perusahaan & halaman edit tarif.
+    // Tambah/edit: WM (cabang sendiri), WC, WH, DCI. Hapus: DCI (lihat routes/web.php).
 
     /**
-     * Tambah kendaraan baru dari halaman Kelola Perusahaan (Master Data, DCI) —
-     * beda dari PengajuanController::storeKendaraan() (wizard, id_cabang implisit
-     * dari auth()->user()->getCabangId()): di sini id_cabang WAJIB dikirim
-     * eksplisit dari form, karena DCI itu global access (getCabangId() null).
+     * Tambah kendaraan — beda dari PengajuanController::storeKendaraan() (wizard KG, cabang dari
+     * user login): id_cabang dikirim eksplisit dari form dan harus cabang yang boleh diakses user.
      * POST /api/kendaraan
      */
     public function store(Request $request)
@@ -45,10 +45,17 @@ class KendaraanController extends Controller
             ], 422);
         }
 
+        $idCabang = strtoupper(trim($request->id_cabang));
+        if (! auth()->user()->canAccessCabang($idCabang)) {
+            return response()->json(['success' => false, 'message' => 'Anda tidak punya akses ke cabang ini.'], 403);
+        }
+        $vendor = PerusahaanEkspedisi::find($request->id_perusahaan);
+        if (! $vendor || ! $this->bolehLihatVendor($vendor)) {
+            return response()->json(['success' => false, 'message' => 'Vendor tidak ditemukan.'], 404);
+        }
+
         try {
             DB::connection('sqlsrv')->beginTransaction();
-
-            $idCabang = strtoupper(trim($request->id_cabang));
 
             $skillIds = collect($request->id_skill ?? [])->map(fn ($s) => (int) $s);
             foreach (collect($request->skill_baru ?? [])->filter() as $nama) {
@@ -92,14 +99,15 @@ class KendaraanController extends Controller
     }
 
     /**
-     * Edit kendaraan yang sudah ada — dari halaman Kelola Perusahaan (Master
-     * Data, DCI). Belum pernah ada endpoint update kendaraan sebelum ini
-     * (cuma create via wizard).
+     * Edit kendaraan; hanya kendaraan di cabang yang boleh diakses user. Cabang kendaraan tetap.
      * PUT /api/kendaraan/{id}
      */
     public function update(Request $request, $id)
     {
         $kendaraan = Kendaraan::where('flag', true)->findOrFail($id);
+        if (! auth()->user()->canAccessCabang($kendaraan->id_cabang)) {
+            return response()->json(['success' => false, 'message' => 'Anda tidak punya akses ke cabang kendaraan ini.'], 403);
+        }
 
         $request->validate([
             'id_skill' => 'nullable|array',

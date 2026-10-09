@@ -64,7 +64,7 @@
         </a>
 
         {{-- Perusahaan (master vendor & tarif) — KG/WM/WH/DCI, WC read-only --}}
-        @if(in_array($role, ['KG', 'WM', 'WH', 'WC', 'DCI']))
+        @if(in_array($role, ['KG', 'KA', 'WM', 'WH', 'WC', 'DCI']))
         <a href="{{ route('perusahaan.index') }}"
             class="flex items-center gap-3 py-3 px-4 rounded-lg mx-2 transition text-sm
             {{ request()->is('perusahaan*')
@@ -106,24 +106,19 @@
         @endif
 
         {{--
-            Master Data — hanya DCI — parent expandable, child: Jenis Barang
-            Kiriman, Jenis Biaya Tambahan. (Sewa Truk & Kiriman Rutin sudah
-            pindah jadi tab di halaman Perusahaan, lihat nav item di atas.)
+            Master Data — WM, WC, WH, DCI. Jenis Barang / Biaya Tambahan / Kendaraan: CRUD DCI,
+            role lain lihat saja. Master Skill: WM (cabang sendiri), WC, WH, DCI kelola; hapus DCI.
         --}}
         @php
             $onMasterOrTarif = request()->is('master*');
-            // Jenis Barang Kiriman & Jenis Biaya Tambahan tetap khusus DCI (nggak berubah).
-            // Jenis Kendaraan beda — boleh dikelola DCI/WH/WM juga (review mentor item 4),
-            // jadi ditambahkan buat ketiga role itu, bukan cuma DCI.
-            $masterLinks = $role === 'DCI' ? [
+            $masterLinks = [
                 ['route' => 'master.jenis-barang-kiriman', 'match' => 'master/jenis-barang-kiriman*', 'label' => 'Jenis Barang Kiriman'],
                 ['route' => 'master.jenis-biaya-tambahan', 'match' => 'master/jenis-biaya-tambahan*', 'label' => 'Jenis Biaya Tambahan'],
-            ] : [];
-            if (in_array($role, ['DCI', 'WH', 'WM'], true)) {
-                $masterLinks[] = ['route' => 'master.jenis-kendaraan', 'match' => 'master/jenis-kendaraan*', 'label' => 'Jenis Kendaraan'];
-            }
+                ['route' => 'master.jenis-kendaraan', 'match' => 'master/jenis-kendaraan*', 'label' => 'Jenis Kendaraan'],
+                ['route' => 'master.skill', 'match' => 'master/skill*', 'label' => 'Master Skill'],
+            ];
         @endphp
-        @if(in_array($role, ['DCI', 'WH', 'WM'], true))
+        @if(in_array($role, ['DCI', 'WH', 'WC', 'WM'], true))
         {{--
             relative + @mouseenter/@mouseleave: pas sidebar collapsed, hover ke
             icon munculin flyout melayang ala referensi Taurus — beda dari mode

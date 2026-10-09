@@ -14,9 +14,8 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // Dummy IT tables (lntrn_*, sesi_master_cabang, Q_CustomerLocusAtribute)
-        // untuk local dev SEKARANG di-setup manual via file .sql terpisah (Task
-        // 19, 2 Okt 2026) — bukan lagi lewat seeder Laravel.
+        // Tabel dummy IT (lntrn_*, sesi_master_cabang, Q_CustomerLocusAtribute) untuk local dev
+        // disiapkan manual lewat file .sql terpisah, bukan seeder Laravel.
 
         // Seed master data
         $this->call([

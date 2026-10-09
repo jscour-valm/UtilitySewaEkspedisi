@@ -5,16 +5,9 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Part B — "usulan harga master via pengajuan" (23 Sept 2026, konsep dibahas 18 Sept):
- * KG bisa mengusulkan perubahan harga master (sesi_perusahaan_skill.harga_sewa /
- * sesi_tarif_kiriman_rutin.biaya_per_unit) SAMBIL submit pengajuan sewa, lalu WM/WH
- * (approver TERAKHIR/final di pengajuan itu) memutuskan usulan itu SECARA TERPISAH
- * dari approve/reject pengajuannya sendiri.
- *
- * Storage: TIDAK perlu tabel log baru (dikonfirmasi 18 Sept) — cukup kolom flat kayak
- * pola `revisi`/`tanggal_revisi`/`update_date_source` yang udah ada di
- * sesi_perusahaan_skill (migration 2026_09_16_000000), yang juga cuma "nilai
- * terakhir", bukan log bertumpuk.
+ * Kolom usulan harga master versi awal (flag & status usulan di pengajuan / detail barang, harga
+ * sebelumnya di master). Proses usulan sekarang memakai tabel `sesi_usulan_harga`
+ * (migration 2026_10_09_000002); kolom `usulan_status` di sini hanya disinkronkan untuk tampilan lama.
  *
  * `usulan_decided_by` TANPA FK constraint ke lntrn_users — pola sama kayak
  * `submitted_by`/`id_approver` di tabel lain (tabel users itu external/IT-owned).

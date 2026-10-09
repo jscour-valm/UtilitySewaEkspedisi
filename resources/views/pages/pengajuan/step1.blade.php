@@ -338,8 +338,7 @@
                     <div>
                         <x-form-label required>Muatan Maksimal (Ton)</x-form-label>
                         {{-- Readonly: ke-lock otomatis dari master begitu Jenis Kendaraan dipilih
-                        (onJenisKendaraanChange di atas), biar KaGud nggak bisa salah isi manual
-                        (review mentor item 4). --}}
+                        (onJenisKendaraanChange di atas), biar KaGud nggak bisa salah isi manual. --}}
                         <input type="number" x-model="kendaraanBaru.muatan_maksimal" step="0.01" min="0.01" readonly
                             @wheel="$event.target.blur()"
                             class="w-full rounded-lg border border-gray-300 bg-gray-100 px-3 py-2 text-sm text-gray-600 focus:border-avian-green focus:outline-none">

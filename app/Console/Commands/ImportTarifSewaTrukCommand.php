@@ -3,7 +3,9 @@
 namespace App\Console\Commands;
 
 use App\Models\PerusahaanEkspedisi;
+use Carbon\Carbon;
 use Illuminate\Console\Command;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -24,7 +26,7 @@ use Illuminate\Support\Facades\DB;
  *
  * Data disimpan sebagai row `sesi_perusahaan_skill` — 1 baris per kombinasi
  * vendor+skill/area+cabang, bukan lagi digabung comma-CSV dalam 1 baris
- * `sesi_unit_kendaraan` (rate-card lama, direfactor 14 Sept — lihat migration
+ * `sesi_unit_kendaraan` (rate-card lama — lihat migration
  * 2026_09_14_100000_create_sesi_perusahaan_skill_table.php). Kalau "Area
  * Kirim" 1 baris CSV punya beberapa nama area, masing2 jadi baris
  * sesi_perusahaan_skill sendiri (unique per vendor+skill+cabang), semua
@@ -54,11 +56,17 @@ class ImportTarifSewaTrukCommand extends Command
     protected $description = 'Import data rate Sewa Truk (histori per cabang+area+vendor) dari file CSV ke sesi_perusahaan_skill (1 baris per vendor+skill/area+cabang)';
 
     private const REQUIRED_HEADERS = ['Kode Cabang', 'Nama Ekspedisi', 'Badan Usaha', 'Area Kirim', 'Harga Sewa'];
+
     private const BADAN_USAHA_VALID = ['PT', 'CV', 'UD', 'Perseorangan'];
+
     private const PLACEHOLDER = '-';
+
     private const BADAN_USAHA_DEFAULT = self::PLACEHOLDER; // ditambah ke enum lewat migration 2026_09_09_000001, khusus placeholder impor
+
     private const AREA_KIRIM_RAW_MAX_LENGTH = 200; // cell "Area Kirim" mentah di atas ini dianggap garbage/campur kalimat, bukan daftar area bersih
+
     private const NAMA_SKILL_MAX_LENGTH = 100; // sesuai kolom sesi_master_skill.nama_skill (varchar 100)
+
     private const HARGA_SEWA_MAX_DIGITS = 13; // sesuai kolom sesi_perusahaan_skill.harga_sewa decimal(15,2) — 13 digit di depan koma
 
     public function handle(): int
@@ -66,22 +74,25 @@ class ImportTarifSewaTrukCommand extends Command
         $path = $this->argument('path');
         $dryRun = (bool) $this->option('dry-run');
 
-        if (!is_readable($path)) {
+        if (! is_readable($path)) {
             $this->error("File tidak ditemukan atau tidak bisa dibaca: {$path}");
+
             return self::FAILURE;
         }
 
         $handle = fopen($path, 'r');
         if ($handle === false) {
             $this->error("Gagal membuka file: {$path}");
+
             return self::FAILURE;
         }
 
         $header = $this->readHeader($handle);
         if ($header === null) {
             $this->error('Ga ketemu baris header yang punya semua kolom wajib dalam 15 baris pertama file ini.');
-            $this->error('Kolom wajib: ' . implode(', ', self::REQUIRED_HEADERS));
+            $this->error('Kolom wajib: '.implode(', ', self::REQUIRED_HEADERS));
             fclose($handle);
+
             return self::FAILURE;
         }
 
@@ -111,7 +122,8 @@ class ImportTarifSewaTrukCommand extends Command
             }
 
             if (count($row) !== count($header)) {
-                $errors[] = "Baris {$rowNumber}: jumlah kolom (" . count($row) . ") tidak sama dengan header (" . count($header) . ").";
+                $errors[] = "Baris {$rowNumber}: jumlah kolom (".count($row).') tidak sama dengan header ('.count($header).').';
+
                 continue;
             }
 
@@ -127,6 +139,7 @@ class ImportTarifSewaTrukCommand extends Command
             // baris kosong/pemisah di file Excel — skip diam2, ga dianggap error.
             if ($rawKodeCabang === '' && $rawNamaEkspedisi === '' && $rawAreaKirim === '' && $hargaSewaDigits === null) {
                 $blankSkipped++;
+
                 continue;
             }
 
@@ -136,7 +149,9 @@ class ImportTarifSewaTrukCommand extends Command
             $incompleteFields = [];
 
             $idCabang = $rawKodeCabang !== '' ? strtoupper($rawKodeCabang) : self::PLACEHOLDER;
-            if ($rawKodeCabang === '') $incompleteFields[] = 'Kode Cabang';
+            if ($rawKodeCabang === '') {
+                $incompleteFields[] = 'Kode Cabang';
+            }
 
             // Cell "Nama Ekspedisi" kadang ke-wrap 2 baris di Excel (nama vendor
             // di baris 1, no. telp/nama kontak dlm kurung di baris 2) — hasil
@@ -147,7 +162,9 @@ class ImportTarifSewaTrukCommand extends Command
             // CSV lain nge-wrap baris yang sama dgn cara beda).
             $namaEkspedisiNormalized = $rawNamaEkspedisi !== '' ? preg_replace('/\s+/u', ' ', $rawNamaEkspedisi) : '';
             $namaEkspedisi = $namaEkspedisiNormalized !== '' ? $namaEkspedisiNormalized : self::PLACEHOLDER;
-            if ($rawNamaEkspedisi === '') $incompleteFields[] = 'Nama Ekspedisi';
+            if ($rawNamaEkspedisi === '') {
+                $incompleteFields[] = 'Nama Ekspedisi';
+            }
 
             $idSkillIds = $rawAreaKirim !== '' ? $this->resolveAreaKirimToSkillIds($rawAreaKirim, $skillCache, $autoCreatedSkill, $dryRun) : [];
             $areaTidakValid = $rawAreaKirim !== '' && empty($idSkillIds);
@@ -182,10 +199,10 @@ class ImportTarifSewaTrukCommand extends Command
             }
 
             $badanUsaha = $this->normalizeBadanUsaha($record['Badan Usaha'] ?? '');
-            $badanUsahaWasDefaulted = !in_array($badanUsaha, self::BADAN_USAHA_VALID, true);
+            $badanUsahaWasDefaulted = ! in_array($badanUsaha, self::BADAN_USAHA_VALID, true);
             if ($badanUsahaWasDefaulted) {
                 // Data sumber ga selalu bener (misal isinya "Ekspedisi", bukan bentuk
-                // badan hukum) — dikonfirmasi Jo, dianggap data ga akurat. Default ke
+                // badan hukum) — dianggap data tidak akurat. Default ke
                 // "-" (placeholder, bukan nilai asli PT/CV/UD/Perseorangan manapun)
                 // biar tetap ke-import TAPI jelas kelihatan butuh dibenerin manual,
                 // ga ketuker sama vendor yang beneran berbadan hukum PT.
@@ -193,8 +210,8 @@ class ImportTarifSewaTrukCommand extends Command
                 $badanUsahaDefaulted++;
             }
 
-            if (!empty($incompleteFields)) {
-                $incomplete[] = "Baris {$rowNumber}: " . implode(', ', $incompleteFields);
+            if (! empty($incompleteFields)) {
+                $incomplete[] = "Baris {$rowNumber}: ".implode(', ', $incompleteFields);
             }
 
             // KTP/NPWP: identitas vendor, kolom baru (migration 2026_09_16_000000).
@@ -230,13 +247,13 @@ class ImportTarifSewaTrukCommand extends Command
                 // withInactive(): import boleh match & reactivate vendor yang pernah di-soft-delete
                 $vendor = PerusahaanEkspedisi::withInactive()->where('nama_perusahaan', $namaEkspedisi)->first();
                 $vendorIsNew = $vendor === null;
-                $vendorBadanUsahaAkanDiupdate = $vendor && !$badanUsahaWasDefaulted && $vendor->badan_usaha !== $data['badan_usaha'];
+                $vendorBadanUsahaAkanDiupdate = $vendor && ! $badanUsahaWasDefaulted && $vendor->badan_usaha !== $data['badan_usaha'];
                 // KTP/NPWP boleh diisi belakangan lewat CSV lain — jangan timpa jadi
                 // NULL kalau baris ini kosong tapi vendor udah punya nilai tersimpan.
                 $vendorKtpNpwpAkanDiupdate = $vendor && $ktpNpwp !== null && $vendor->ktp_npwp !== $ktpNpwp;
 
                 if ($dryRun) {
-                    $vendorId = $vendor->id_perusahaan ?? ('DRYRUN:' . $namaEkspedisi);
+                    $vendorId = $vendor->id_perusahaan ?? ('DRYRUN:'.$namaEkspedisi);
                 } elseif ($vendor) {
                     // Jangan timpa badan_usaha existing pakai nilai yang di-default —
                     // itu tebakan, bukan data asli. Cuma update kalau nilai CSV-nya
@@ -280,6 +297,7 @@ class ImportTarifSewaTrukCommand extends Command
                     if ($dryRun) {
                         if ($isNewCombo) {
                             $created++;
+
                             continue;
                         }
                         $exists = DB::connection('sqlsrv')->table('sesi_perusahaan_skill')
@@ -288,6 +306,7 @@ class ImportTarifSewaTrukCommand extends Command
                             ->where('cabang_code', $idCabang)
                             ->exists();
                         $exists ? $updated++ : $created++;
+
                         continue;
                     }
 
@@ -323,14 +342,14 @@ class ImportTarifSewaTrukCommand extends Command
                     }
                 }
             } catch (\Throwable $e) {
-                $errors[] = "Baris {$rowNumber}: gagal menyimpan — " . $e->getMessage();
+                $errors[] = "Baris {$rowNumber}: gagal menyimpan — ".$e->getMessage();
             }
         }
 
         fclose($handle);
 
         $this->newLine();
-        if (!empty($errors)) {
+        if (! empty($errors)) {
             $this->error('Baris gagal disimpan (bukan soal data ga lengkap, tapi error teknis):');
             foreach ($errors as $err) {
                 $this->line("  - {$err}");
@@ -338,8 +357,8 @@ class ImportTarifSewaTrukCommand extends Command
             $this->newLine();
         }
 
-        if (!empty($incomplete)) {
-            $this->warn('Baris dengan data ga lengkap — tetap diimport, kolom yang kosong diganti "' . self::PLACEHOLDER . '" (cek & benerin manual lewat form vendor/kendaraan kalau perlu):');
+        if (! empty($incomplete)) {
+            $this->warn('Baris dengan data ga lengkap — tetap diimport, kolom yang kosong diganti "'.self::PLACEHOLDER.'" (cek & benerin manual lewat form vendor/kendaraan kalau perlu):');
             foreach ($incomplete as $note) {
                 $this->line("  - {$note}");
             }
@@ -347,29 +366,29 @@ class ImportTarifSewaTrukCommand extends Command
         }
 
         if ($badanUsahaDefaulted > 0) {
-            $this->warn("{$badanUsahaDefaulted} baris punya nilai Badan Usaha yang ga valid (bukan PT/CV/UD/Perseorangan) — di-default ke \"" . self::BADAN_USAHA_DEFAULT . "\". Cek & benerin manual lewat form vendor kalau perlu.");
+            $this->warn("{$badanUsahaDefaulted} baris punya nilai Badan Usaha yang ga valid (bukan PT/CV/UD/Perseorangan) — di-default ke \"".self::BADAN_USAHA_DEFAULT.'". Cek & benerin manual lewat form vendor kalau perlu.');
         }
 
         if ($blankSkipped > 0) {
             $this->info("{$blankSkipped} baris kosong total (bukan data, kemungkinan sisa baris pemisah/footer di file) dilewati diam-diam.");
         }
 
-        if (!empty($vendorBaru)) {
+        if (! empty($vendorBaru)) {
             $prefixVendor = $dryRun ? 'akan didaftarkan' : 'didaftarkan';
-            $this->warn(count(array_unique($vendorBaru)) . " vendor BARU {$prefixVendor} (belum ada di sesi_perusahaan_ekspedisi sebelumnya): " . implode(', ', array_unique($vendorBaru)));
+            $this->warn(count(array_unique($vendorBaru))." vendor BARU {$prefixVendor} (belum ada di sesi_perusahaan_ekspedisi sebelumnya): ".implode(', ', array_unique($vendorBaru)));
         }
-        if (!empty($autoCreatedSkill)) {
+        if (! empty($autoCreatedSkill)) {
             $prefixSkill = $dryRun ? 'akan didaftarkan' : 'didaftarkan';
-            $this->warn(count(array_unique($autoCreatedSkill)) . " skill/area BARU {$prefixSkill} ke sesi_master_skill (nama Area Kirim ga cocok ke master yang ada) — cek/rapihin manual kalau perlu: " . implode(', ', array_unique($autoCreatedSkill)));
+            $this->warn(count(array_unique($autoCreatedSkill))." skill/area BARU {$prefixSkill} ke sesi_master_skill (nama Area Kirim ga cocok ke master yang ada) — cek/rapihin manual kalau perlu: ".implode(', ', array_unique($autoCreatedSkill)));
         }
-        if (!empty($vendorBadanUsahaDiupdate)) {
+        if (! empty($vendorBadanUsahaDiupdate)) {
             $prefixUpdate = $dryRun ? 'akan diupdate' : 'diupdate';
-            $this->warn(count($vendorBadanUsahaDiupdate) . " vendor existing badan_usaha-nya {$prefixUpdate}: " . implode(', ', $vendorBadanUsahaDiupdate));
+            $this->warn(count($vendorBadanUsahaDiupdate)." vendor existing badan_usaha-nya {$prefixUpdate}: ".implode(', ', $vendorBadanUsahaDiupdate));
         }
 
         $total = $created + $updated + count($errors);
         $prefix = $dryRun ? '[DRY-RUN] ' : '';
-        $this->info("{$prefix}Selesai: {$created} baris rate dibuat, {$updated} diperbarui (1 baris CSV bisa hasilin >1 baris rate kalau Area Kirim isi >1 skill), " . count($incomplete) . " ga lengkap (ditandai '-'), {$areaTidakValidCount} di antaranya Area Kirim-nya ga valid (skill disimpan sbg '-', perlu dicek manual), " . count($errors) . " error teknis, {$blankSkipped} baris kosong dilewati, dari {$total} baris diproses.");
+        $this->info("{$prefix}Selesai: {$created} baris rate dibuat, {$updated} diperbarui (1 baris CSV bisa hasilin >1 baris rate kalau Area Kirim isi >1 skill), ".count($incomplete)." ga lengkap (ditandai '-'), {$areaTidakValidCount} di antaranya Area Kirim-nya ga valid (skill disimpan sbg '-', perlu dicek manual), ".count($errors)." error teknis, {$blankSkipped} baris kosong dilewati, dari {$total} baris diproses.");
 
         if ($areaTidakValidCount > 0) {
             $this->warn("Cari baris dengan skill '-' lewat halaman Kelola Tarif Kiriman Rutin atau query: SELECT * FROM sesi_perusahaan_skill WHERE id_skill = (SELECT id_skill FROM sesi_master_skill WHERE nama_skill = '-')");
@@ -391,6 +410,7 @@ class ImportTarifSewaTrukCommand extends Command
             return $value;
         }
         $converted = @mb_convert_encoding($value, 'UTF-8', 'Windows-1252');
+
         return $converted !== false ? $converted : $value;
     }
 
@@ -407,7 +427,7 @@ class ImportTarifSewaTrukCommand extends Command
      *
      * @return array<int, int|string> array kosong kalau ga ada satupun token yg valid
      */
-    private function resolveAreaKirimToSkillIds(string $rawAreaKirim, \Illuminate\Support\Collection $skillCache, array &$autoCreatedSkill, bool $dryRun): array
+    private function resolveAreaKirimToSkillIds(string $rawAreaKirim, Collection $skillCache, array &$autoCreatedSkill, bool $dryRun): array
     {
         if (mb_strlen($rawAreaKirim) > self::AREA_KIRIM_RAW_MAX_LENGTH) {
             return [];
@@ -429,15 +449,15 @@ class ImportTarifSewaTrukCommand extends Command
             if ($id === null) {
                 $id = DB::connection('sqlsrv')->table('sesi_master_skill')->where('nama_skill', $nama)->value('id_skill');
 
-                if (!$id) {
+                if (! $id) {
                     if ($dryRun) {
                         // Jangan nulis apapun di dry-run — id palsu (unik per nama) cukup
                         // buat preview laporan, tanpa collapse ke 1 nilai yg sama.
-                        $id = 'DRYRUN:' . $nama;
+                        $id = 'DRYRUN:'.$nama;
                     } else {
                         $id = DB::connection('sqlsrv')->table('sesi_master_skill')->insertGetId([
                             'nama_skill' => $nama,
-                            'flag'       => true,
+                            'flag' => true,
                             'created_at' => now(),
                             'updated_at' => now(),
                         ]);
@@ -465,7 +485,7 @@ class ImportTarifSewaTrukCommand extends Command
      * khusus '__PLACEHOLDER__', ga akan collide sama nama skill asli krn
      * nama skill asli udah di-uppercase & di-trim sebelum jadi cache key).
      */
-    private function resolvePlaceholderSkillId(\Illuminate\Support\Collection $skillCache, bool $dryRun): int|string
+    private function resolvePlaceholderSkillId(Collection $skillCache, bool $dryRun): int|string
     {
         $cacheKey = '__PLACEHOLDER__';
         $id = $skillCache->get($cacheKey);
@@ -475,13 +495,13 @@ class ImportTarifSewaTrukCommand extends Command
 
         $id = DB::connection('sqlsrv')->table('sesi_master_skill')->where('nama_skill', self::PLACEHOLDER)->value('id_skill');
 
-        if (!$id) {
+        if (! $id) {
             if ($dryRun) {
-                $id = 'DRYRUN:' . self::PLACEHOLDER;
+                $id = 'DRYRUN:'.self::PLACEHOLDER;
             } else {
                 $id = DB::connection('sqlsrv')->table('sesi_master_skill')->insertGetId([
                     'nama_skill' => self::PLACEHOLDER,
-                    'flag'       => false,
+                    'flag' => false,
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]);
@@ -489,6 +509,7 @@ class ImportTarifSewaTrukCommand extends Command
         }
 
         $skillCache->put($cacheKey, $id);
+
         return $id;
     }
 
@@ -499,12 +520,14 @@ class ImportTarifSewaTrukCommand extends Command
         if (strcasecmp($value, 'Perorangan') === 0) {
             return 'Perseorangan';
         }
+
         return $value;
     }
 
     private function parseRupiah(string $value): ?string
     {
         $digits = preg_replace('/[^0-9]/', '', $value);
+
         return $digits === '' ? null : $digits;
     }
 
@@ -519,14 +542,14 @@ class ImportTarifSewaTrukCommand extends Command
         // salah nebak "31/12/2026" sebagai m/d/Y (bulan 31 invalid) dan gagal diam-diam.
         foreach (['d/m/Y', 'd-m-Y', 'd/m/y', 'Y-m-d'] as $format) {
             try {
-                return \Carbon\Carbon::createFromFormat($format, $value)->startOfDay()->toDateTimeString();
+                return Carbon::createFromFormat($format, $value)->startOfDay()->toDateTimeString();
             } catch (\Throwable) {
                 // coba format berikutnya
             }
         }
 
         try {
-            return \Carbon\Carbon::parse($value)->toDateTimeString();
+            return Carbon::parse($value)->toDateTimeString();
         } catch (\Throwable) {
             return null;
         }

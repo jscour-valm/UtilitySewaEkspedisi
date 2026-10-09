@@ -70,14 +70,15 @@ trait BuildsPerusahaanSummary
 
     /**
      * Vendor baru yang belum disetujui (menunggu / ditolak) cuma boleh dilihat cabang pengajunya
-     * dan user global (WH, WC, DCI). $query memakai alias `pe` untuk sesi_perusahaan_ekspedisi.
+     * dan user global (WH, WC, DCI); KA tidak pernah melihatnya.
+     * $query memakai alias `pe` untuk sesi_perusahaan_ekspedisi.
      */
     protected function hanyaVendorTerlihat($query, array $own): void
     {
         if (auth()->user()->isGlobalAccess()) {
             return;
         }
-        if (! $own) {
+        if (! $own || auth()->user()->userUtility?->role === 'KA') {
             $query->where('pe.status_approval', 'approved');
 
             return;
@@ -90,7 +91,7 @@ trait BuildsPerusahaanSummary
     {
         return $vendor->sudahDisetujui()
             || auth()->user()->isGlobalAccess()
-            || in_array($vendor->id_cabang_pengaju, $this->ownCabang(), true);
+            || (auth()->user()->userUtility?->role !== 'KA' && in_array($vendor->id_cabang_pengaju, $this->ownCabang(), true));
     }
 
     /** Urutan default query vendor_skill (`ps`): baris di cabang user dulu. No-op kalau user global. */
@@ -119,7 +120,7 @@ trait BuildsPerusahaanSummary
         $units = $db->table('sesi_unit_kendaraan')
             ->whereIn('id_perusahaan', $ids)->where('flag', true)
             ->orderBy('id_cabang')->orderBy('jenis_kendaraan')->orderBy('id_kendaraan')
-            ->get(['id_kendaraan', 'id_perusahaan', 'id_cabang', 'id_skill', 'jenis_kendaraan', 'plat_nomor_truk', 'muatan_maksimal']);
+            ->get(['id_kendaraan', 'id_perusahaan', 'id_cabang', 'id_skill', 'jenis_kendaraan', 'id_jenis_kendaraan', 'plat_nomor_truk', 'muatan_maksimal']);
         // Unit di cabang user naik ke atas (sortBy stabil, urutan lainnya tetap).
         if ($own) {
             $units = $units->sortBy(fn ($u) => in_array($u->id_cabang, $own, true) ? 0 : 1)->values();
@@ -173,6 +174,9 @@ trait BuildsPerusahaanSummary
                 'plat' => $u->plat_nomor_truk,
                 'muatan' => $muatan,
                 'skills' => $skills,
+                'id_skills' => array_map('intval', $skillIds),
+                'id_jenis_kendaraan' => $u->id_jenis_kendaraan ?? null,
+                'muatan_raw' => $u->muatan_maksimal !== null ? (float) $u->muatan_maksimal : null,
                 'mine' => in_array($u->id_cabang, $own, true),
                 // Shortcut pengajuan cuma buat unit di cabang KG sendiri.
                 'pengajuan_url' => ($isKg && in_array($u->id_cabang, $own, true)) ? route('pengajuan.kg', [

@@ -248,7 +248,7 @@ Alpine.data('pengajuanSewa', () => ({
     kendaraanTerpilih: null,
     subStepKendaraan: 1, // 1=Perusahaan, 2=Kendaraan, 3=Ringkasan
     perusahaanList: [],
-    loadingPerusahaan: false, // beda "masih fetch" vs "udah selesai & beneran kosong" (Jo, 30 Sept)
+    loadingPerusahaan: false, // bedakan "masih memuat" dari "hasil kosong"
     perusahaanStep: 'pilih', // 'pilih' | 'form_baru'
     perusahaanTerpilih: null, // { id_perusahaan, nama_perusahaan, ... }
     kendaraanByPerusahaan: [],
@@ -273,7 +273,7 @@ Alpine.data('pengajuanSewa', () => ({
         muatan_maksimal: '',
     },
     skillList: [],
-    loadingSkillList: false, // beda "masih fetch" vs "udah selesai & beneran kosong" (Jo, 30 Sept)
+    loadingSkillList: false, // bedakan "masih memuat" dari "hasil kosong"
     jenisKendaraanList: [], // [{id_jenis_kendaraan, nama_jenis, muatan_maksimal_ton}] — dropdown "Jenis Kendaraan"
     cabangList: [], // [{Code, Name}] — dropdown "Cabang Tujuan" (PAC)
     kategoriTokoList: [],
@@ -289,7 +289,7 @@ Alpine.data('pengajuanSewa', () => ({
         value_muatan: '',
         catatan: '',
         usulan_status: null, // status keputusan usulan sewa_truk (mode edit): pending/approved/rejected/null
-        usulan_harga_sewa: false, // Part B — usul harga_sewa jadi harga master baru (sewa_truk only)
+        usulan_harga_sewa: false, // ajukan harga_sewa jadi usulan harga master (sewa_truk saja)
     },
     biayaTambahan: [],
     skillBaru: [],
@@ -302,7 +302,7 @@ Alpine.data('pengajuanSewa', () => ({
     submitting: false,
     savingKendaraan: false, // guard submit ganda di saveKendaraan()
     dummyDokumen: [],  // Will be populated by fetchDokumenList()
-    loadingDokumen: false, // beda "masih fetch" vs "udah selesai & beneran kosong" (Jo, 30 Sept)
+    loadingDokumen: false, // bedakan "masih memuat" dari "hasil kosong"
 
     // Kiriman Rutin specific state
     detailKirimanRutin: [], // [{id_jenis_barang, id_tarif_kiriman_rutin, jenis_barang, quantity, harga_satuan, subtotal, tarif_baru}]
@@ -316,11 +316,9 @@ Alpine.data('pengajuanSewa', () => ({
     jenisBarangList: [], // [{id_jenis_barang, nama_barang}] — semua master jenis barang (selalu ditampilkan di dropdown)
     loadingTarif: false,
 
-    // Master list dokumen (difilter tujuan SAJA, TANPA search) — dipakai buat resolve
-    // dokumen yang SUDAH DIPILIH (total/ringkasan/rasio). Beda dari dokumenList di bawah
-    // (buat picker table) yang juga kena filter search — dulu semua total/ringkasan salah
-    // pakai dokumenList utk resolve, jadi dokumen terpilih yang lagi ga match search term
-    // seolah "hilang" dari hitungan meski dokumenDipilih sendiri ga berubah. Lihat Batch Fix 12.
+    // Daftar dokumen per tujuan TANPA filter search — dipakai untuk menghitung dokumen terpilih
+    // (total/ringkasan/rasio). dokumenList di bawah (tabel pilihan) ikut filter search, jadi tidak
+    // boleh dipakai untuk total: dokumen terpilih yang tidak cocok search akan ikut hilang.
     get dokumenMaster() {
         if (this.pengajuan.tujuan_penyewaan === 'PAC') {
             return this.dummyDokumen.filter(d => d.tipe === 'TO-ACB')
@@ -409,7 +407,7 @@ Alpine.data('pengajuanSewa', () => ({
     // Nomor halaman yang ditampilin di pagination dokumen: kalau totalnya banyak
     // (puluhan halaman), render semua tombol bikin baris pagination meluber ke
     // kanan - jadi di-windowing kayak pagination Laravel standar (halaman pertama,
-    // halaman terakhir, current±1, sisanya "…"). Lihat Batch Fix 16.
+    // halaman terakhir, current±1, sisanya "…").
     get dokumenPageWindow() {
         const total = this.dokumenTotalPages
         const current = this.dokumenPage
@@ -504,8 +502,7 @@ Alpine.data('pengajuanSewa', () => ({
 
     // Validasi Daftar Barang (Kiriman Rutin): minimal 1 baris TERISI (qty > 0) & valid
     // (jenis barang + harga). Baris yang qty-nya masih kosong (mis. sisa prefill dari
-    // tarif terdaftar yang nggak jadi diajukan) DIABAIKAN, bukan ikut ngeblok validasi
-    // (Jo, 1 Okt 2026 — biarin aja baris kosong, nggak usah dihapus manual).
+    // tarif terdaftar yang nggak jadi diajukan) diabaikan, tidak memblok validasi.
     get detailKirimanRutinValid() {
         if (this.pengajuan.jenis_pengajuan !== 'pengiriman_rutin') return true
         const terisi = this.detailKirimanRutin.filter(d => Number(d.quantity) > 0)
@@ -827,7 +824,7 @@ Alpine.data('pengajuanSewa', () => ({
     },
 
     // Begitu KaGud pilih jenis kendaraan di dropdown, muatan_maksimal auto-fill dari
-    // master (readonly di form) — biar nggak bisa salah isi manual (review mentor item 4).
+    // master (readonly di form) supaya tidak salah isi manual.
     onJenisKendaraanChange(target, idJenisKendaraan) {
         const found = this.jenisKendaraanList.find(j => String(j.id_jenis_kendaraan) === String(idJenisKendaraan))
         target.muatan_maksimal = found ? found.muatan_maksimal_ton : ''
@@ -864,10 +861,8 @@ Alpine.data('pengajuanSewa', () => ({
         }
     },
 
-    // Revisi 8: hasil sekarang dibatasi 5 data TERCOCOK di server (proyeksi dashboard
-    // ala tab Semua /perusahaan) — `searchPerusahaan` (state Alpine yang di-bind ke
-    // input search di tabel-perusahaan.blade.php) dikirim sbg query param `search`,
-    // bukan cuma filter array di client lagi (percuma kalau hasil server udah dibatasi 5).
+    // Server membatasi hasil ke 5 data paling cocok, jadi `searchPerusahaan` (input search
+    // di tabel-perusahaan.blade.php) dikirim sebagai query param `search`, bukan difilter di client.
     async fetchPerusahaanList() {
         this.loadingPerusahaan = true
         try {
@@ -1009,7 +1004,7 @@ Alpine.data('pengajuanSewa', () => ({
             // Fetch dokumen dari backend (SJ + TO-ACB) berdasarkan tujuan & cabang.
             // Skill dikirim juga (bukan cuma cabang) biar backend nandain "skill cocok"
             // ke skill yang beneran dipilih di step2 utk pengajuan ini, bukan ke semua
-            // skill yang dilayani cabang - lihat Batch Fix 16.
+            // skill yang dilayani cabang.
             const cabang = this.pengajuan.id_cabang || 'default'
             const tujuan = this.pengajuan.tujuan_penyewaan || 'Umum'
             const skill = encodeURIComponent(this.skillGabunganLabel.join(','))
@@ -1435,7 +1430,7 @@ Alpine.data('pengajuanSewa', () => ({
             harga_satuan: '',
             subtotal: '',
             tarif_baru: false, // true kalau vendor ini belum punya tarif utk jenis barang ini
-            usulan_update_master: false, // Part B — usul biaya_per_unit baris ini jadi harga master
+            usulan_update_master: false, // ajukan biaya_per_unit baris ini jadi usulan harga master
             harga_custom: false, // mode edit: pertahankan/isi harga sendiri (bukan harga master)
         })
     },
@@ -1619,8 +1614,7 @@ Alpine.data('pengajuanSewa', () => ({
         // Branch: add jenis-specific fields
         if (this.pengajuan.jenis_pengajuan === 'sewa_truk') {
             payload.id_kendaraan = this.kendaraanTerpilih.id
-            // Part B — usul harga_sewa jadi harga master baru (independen dari approve/
-            // reject pengajuan ini, diputuskan WM/WH di halaman approval).
+            // Usulan harga master (proses terpisah WM → WH; tidak memengaruhi keputusan pengajuan ini).
             payload.usulan_harga_sewa = this.pengajuan.usulan_harga_sewa
         } else { // pengiriman_rutin
             payload.id_perusahaan_ekspedisi = this.pengajuanIdPerusahaanEkspedisi
@@ -1632,7 +1626,7 @@ Alpine.data('pengajuanSewa', () => ({
                 // (tarif baru) ATAU KG mencentang usulan harga master (harga usulan dipakai)
                 biaya_per_unit: (d.tarif_baru || d.usulan_update_master || d.harga_custom) ? d.harga_satuan : null,
                 harga_custom: !!d.harga_custom,
-                // Part B — usul per baris (independen, bukan all-or-nothing per pengajuan).
+                // Usulan harga master per baris barang.
                 usulan_update_master: !!(d.usulan_update_master || d.tarif_baru),
             }))
         }
@@ -2213,13 +2207,221 @@ Alpine.data('formVendor', (url, awal = {}) => ({
     },
 }))
 
-// Ikon duluan, baru Alpine.start() — createIcons() gak butuh Alpine selesai
-// hydrate, dan halaman yang lagi hydrate banyak komponen x-data (mis. /perusahaan
-// tab Semua dgn banyak baris) bikin Alpine.start() lumayan makan waktu di thread
-// yang sama; kalau createIcons() nunggu di belakang, ikon (termasuk sidebar)
-// kelihatan kosong lebih lama/lebih kentara di halaman yang "ramai" itu (Jo, 30
-// Sept 2026). Dua-duanya independen, jadi urutan dibalik + gak perlu nunggu
-// DOMContentLoaded sama sekali (module script Vite udah jalan setelah DOM ke-parse).
+// fetch JSON + CSRF untuk komponen kelola master. Balikin { ok, json }; pesan error validasi digabung.
+async function kirimJson(url, method, body) {
+    const res = await fetch(url, {
+        method,
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+        },
+        body: body === undefined ? undefined : JSON.stringify(body),
+    })
+    const json = await res.json().catch(() => ({}))
+    const ok = res.ok && json.success !== false
+    if (!ok) {
+        json.message = json.errors ? Object.values(json.errors).flat().join('\n') : (json.message || 'Gagal menyimpan')
+    }
+    return { ok, json }
+}
+
+// Halaman Master Skill: tambah area ke cabang, ganti nama area, hapus (DCI).
+Alpine.data('masterSkill', (cabangDefault = '') => ({
+    buka: false,
+    menyimpan: false,
+    idEdit: null,
+    form: { cabang_code: cabangDefault, nama_skill: '' },
+
+    bukaTambah() {
+        this.idEdit = null
+        this.form = { cabang_code: cabangDefault, nama_skill: '' }
+        this.buka = true
+    },
+
+    bukaEdit(id, nama) {
+        this.idEdit = id
+        this.form = { cabang_code: '', nama_skill: nama }
+        this.buka = true
+    },
+
+    async simpan() {
+        if (this.menyimpan) return
+        if (!this.form.nama_skill.trim() || (!this.idEdit && !this.form.cabang_code)) {
+            notify('Lengkapi cabang dan nama area.', 'warning')
+            return
+        }
+        this.menyimpan = true
+        try {
+            const { ok, json } = this.idEdit
+                ? await kirimJson(`/api/master-skill/${this.idEdit}`, 'PUT', { nama_skill: this.form.nama_skill })
+                : await kirimJson('/api/master-skill', 'POST', this.form)
+            if (!ok) return notify(json.message, 'error')
+            await notify(json.message, 'success')
+            window.location.reload()
+        } catch (e) {
+            notify('Gagal menyimpan area', 'error')
+        } finally {
+            this.menyimpan = false
+        }
+    },
+
+    async hapus(id, cabang, nama) {
+        if (!(await confirmDialog(`Hapus area ${nama} dari cabang ${cabang}? Tarif & kendaraan yang sudah memakainya tidak berubah.`, { danger: true }))) return
+        const { ok, json } = await kirimJson(`/api/master-skill/${id}?cabang_code=${encodeURIComponent(cabang)}`, 'DELETE')
+        if (!ok) return notify(json.message, 'error')
+        window.location.reload()
+    },
+}))
+
+// Detail perusahaan: tambah / edit / hapus unit kendaraan (WM/WC/WH/DCI; hapus DCI).
+// Area dipilih dari area terdaftar di cabang (/api/master-skill/by-cabang) + area baru (dipisah koma).
+Alpine.data('kelolaKendaraan', (idPerusahaan, jenisKendaraanList, cabangDefault = '') => ({
+    buka: false,
+    menyimpan: false,
+    idEdit: null,
+    skillOpsi: [],
+    namaSkillAwal: {}, // id_skill => nama, area unit yang diedit (bisa saja tidak terdaftar lagi di cabang)
+    cariSkill: '',
+    skillBaru: '',
+    form: {},
+
+    init() {
+        this.form = this.formKosong()
+    },
+
+    formKosong() {
+        return { id_cabang: cabangDefault, id_jenis_kendaraan: '', plat_nomor_truk: '', muatan_maksimal: '', id_skill: [] }
+    },
+
+    async muatSkill() {
+        this.skillOpsi = []
+        if (!this.form.id_cabang) return
+        try {
+            const res = await fetch(`/api/master-skill/by-cabang/${encodeURIComponent(this.form.id_cabang)}`, { headers: { 'Accept': 'application/json' } })
+            this.skillOpsi = res.ok ? await res.json() : []
+        } catch (e) {
+            this.skillOpsi = []
+        }
+    },
+
+    get skillTampil() {
+        const q = this.cariSkill.trim().toLowerCase()
+        const dipilih = new Set(this.form.id_skill.map(Number))
+        const adaDiOpsi = new Set(this.skillOpsi.map(s => Number(s.id_skill)))
+        const tambahan = [...dipilih]
+            .filter(id => !adaDiOpsi.has(id))
+            .map(id => ({ id_skill: id, nama_skill: this.namaSkillAwal[id] ?? `#${id}` }))
+        return [...tambahan, ...this.skillOpsi]
+            .filter(s => dipilih.has(Number(s.id_skill)) || (q !== '' && s.nama_skill.toLowerCase().includes(q)))
+            .slice(0, 100)
+    },
+
+    pilihJenis() {
+        const j = jenisKendaraanList.find(x => String(x.id_jenis_kendaraan) === String(this.form.id_jenis_kendaraan))
+        this.form.muatan_maksimal = j ? j.muatan_maksimal_ton : ''
+    },
+
+    bukaTambah() {
+        this.idEdit = null
+        this.form = this.formKosong()
+        this.namaSkillAwal = {}
+        this.cariSkill = ''
+        this.skillBaru = ''
+        this.buka = true
+        this.muatSkill()
+    },
+
+    bukaEdit(k) {
+        this.idEdit = k.id
+        this.form = {
+            id_cabang: k.cabang,
+            id_jenis_kendaraan: k.id_jenis_kendaraan ?? '',
+            plat_nomor_truk: k.plat ?? '',
+            muatan_maksimal: k.muatan_raw ?? '',
+            id_skill: [...(k.id_skills ?? [])],
+        }
+        this.namaSkillAwal = Object.fromEntries((k.id_skills ?? []).map((id, i) => [id, (k.skills ?? [])[i] ?? `#${id}`]))
+        this.cariSkill = ''
+        this.skillBaru = ''
+        this.buka = true
+        this.muatSkill()
+    },
+
+    async simpan() {
+        if (this.menyimpan) return
+        const skillBaru = this.skillBaru.split(',').map(s => s.trim()).filter(Boolean)
+        if (!this.form.id_cabang || !this.form.id_jenis_kendaraan || !this.form.muatan_maksimal) {
+            notify('Pilih cabang dan jenis kendaraan dulu.', 'warning')
+            return
+        }
+        if (this.form.id_skill.length === 0 && skillBaru.length === 0) {
+            notify('Pilih atau tambahkan minimal 1 area.', 'warning')
+            return
+        }
+        const body = {
+            id_jenis_kendaraan: this.form.id_jenis_kendaraan,
+            plat_nomor_truk: this.form.plat_nomor_truk || null,
+            muatan_maksimal: this.form.muatan_maksimal,
+            id_skill: this.form.id_skill.map(Number),
+            skill_baru: skillBaru,
+        }
+        this.menyimpan = true
+        try {
+            const { ok, json } = this.idEdit
+                ? await kirimJson(`/api/kendaraan/${this.idEdit}`, 'PUT', body)
+                : await kirimJson('/api/kendaraan', 'POST', { ...body, id_perusahaan: idPerusahaan, id_cabang: this.form.id_cabang })
+            if (!ok) return notify(json.message, 'error')
+            await notify(json.message, 'success')
+            window.location.reload()
+        } catch (e) {
+            notify('Gagal menyimpan kendaraan', 'error')
+        } finally {
+            this.menyimpan = false
+        }
+    },
+
+    async hapus(id) {
+        if (!(await confirmDialog('Hapus kendaraan ini?', { danger: true }))) return
+        const { ok, json } = await kirimJson(`/api/kendaraan/${id}`, 'DELETE')
+        if (!ok) return notify(json.message, 'error')
+        window.location.reload()
+    },
+}))
+
+// Detail perusahaan: popup riwayat harga 1 baris tarif (dipicu event `riwayat-harga`).
+Alpine.data('riwayatHarga', () => ({
+    buka: false,
+    memuat: false,
+    judul: '',
+    barisBarang: false,
+    riwayat: [],
+
+    async tampilkan({ url, judul, barang }) {
+        this.judul = judul
+        this.barisBarang = !!barang
+        this.riwayat = []
+        this.buka = true
+        this.memuat = true
+        try {
+            const res = await fetch(url, { headers: { 'Accept': 'application/json' } })
+            const json = await res.json()
+            this.riwayat = json.riwayat ?? []
+        } catch (e) {
+            notify('Gagal memuat riwayat harga', 'error')
+        } finally {
+            this.memuat = false
+        }
+    },
+
+    rupiah(n) {
+        return n === null || n === undefined ? '—' : 'Rp ' + Number(n).toLocaleString('id-ID')
+    },
+}))
+
+// Ikon dirender sebelum Alpine.start(): di halaman dengan banyak komponen x-data, start()
+// cukup lama dan ikon (termasuk sidebar) sempat kosong kalau menunggu. Keduanya independen;
+// module script Vite sudah jalan setelah DOM ter-parse, jadi tidak perlu DOMContentLoaded.
 createIcons({ icons })
 
 window.Alpine = Alpine;

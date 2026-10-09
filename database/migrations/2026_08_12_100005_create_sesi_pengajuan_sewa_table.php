@@ -7,24 +7,15 @@ use Illuminate\Support\Facades\Schema;
 /**
  * sesi_pengajuan_sewa — Master pengajuan sewa (Sewa Truk & Kiriman Rutin).
  *
- * Riwayat: `id_armada` di-rename ke `id_kendaraan` (ikut rename tabel
- * sesi_armada→sesi_unit_kendaraan), `id_skill` diperlebar ke varchar(100)
- * untuk multi-skill comma-separated, dan `jenis_pengajuan` ditambahkan
- * untuk membedakan alur Sewa Truk vs Kiriman Rutin (3 Sept 2026).
- *
- * Kolom `id_perusahaan_ekspedisi` (dipakai flow Kiriman Rutin) sudah ada
- * di database sejak fitur Kiriman Rutin dibuat, tapi sempat tidak
- * tercatat lewat migration file (ter-ALTER manual). Dimasukkan di sini
- * supaya fresh install ke depannya konsisten dengan DB yang sudah jalan.
- *
- * Migration ini sudah di-squash sehingga langsung mencerminkan schema
- * final; riwayat perubahan bertahapnya ada di git history.
+ * `jenis_pengajuan` = sewa_truk | pengiriman_rutin. `id_kendaraan` dipakai Sewa Truk,
+ * `id_perusahaan_ekspedisi` dipakai Kiriman Rutin. `id_skill` = id area dipisah koma.
+ * Migration ini sudah di-squash (schema final).
  */
 return new class extends Migration
 {
     public function up(): void
     {
-        if (!Schema::connection('sqlsrv')->hasTable('sesi_pengajuan_sewa')) {
+        if (! Schema::connection('sqlsrv')->hasTable('sesi_pengajuan_sewa')) {
             Schema::connection('sqlsrv')->create('sesi_pengajuan_sewa', function (Blueprint $table) {
                 $table->id('id_pengajuan_sewa');
                 $table->unsignedBigInteger('id_kendaraan')->nullable()->comment('diisi kalau jenis_pengajuan = sewa_truk');

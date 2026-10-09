@@ -1,12 +1,16 @@
-{{-- Isian vendor (nama, badan usaha, kontak, identitas owner). Dipakai di dalam x-data="formVendor(...)". --}}
-@props(['fotoLama' => []])
+{{-- Isian vendor (nama, badan usaha, kontak, identitas owner). Dipakai di dalam x-data="formVendor(...)".
+     namaTerkunci: nama perusahaan tampil read-only (edit profil oleh selain DCI). --}}
+@props(['fotoLama' => [], 'namaTerkunci' => false])
 
 <div class="space-y-4">
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
             <x-form-label required>Nama Perusahaan</x-form-label>
-            <input type="text" x-model="form.nama_perusahaan" maxlength="255"
-                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-avian-green focus:outline-none">
+            <input type="text" x-model="form.nama_perusahaan" maxlength="255" @readonly($namaTerkunci)
+                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-avian-green focus:outline-none read-only:bg-gray-100 read-only:text-gray-500">
+            @if($namaTerkunci)
+                <p class="mt-1 text-xs text-gray-400">Nama perusahaan hanya bisa diubah DCI.</p>
+            @endif
         </div>
         <div>
             <x-form-label required>Badan Usaha</x-form-label>

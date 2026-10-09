@@ -5,15 +5,10 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Histori harga master (mentor review item 11, 29 Sept 2026) — 2 tabel log
- * terpisah krn sumbernya beda tabel master (Sewa Truk vs Kiriman Rutin).
- *
- * Sebelum ini, snapshot "harga sebelumnya" cuma ada di kolom flat
- * `harga_sewa_sebelumnya`/`harga_sebelumnya` (migration 2026_09_23_000000) yang
- * cuma nyimpen NILAI TERAKHIR — bukan log bertumpuk, dan cuma keisi lewat jalur
- * usulan Part B. Tabel ini melengkapi itu jadi log APPEND-ONLY yang keisi dari
- * SEMUA jalur update harga (usulan Part B + Kelola Tarif manual), lihat 5 titik
- * insert-nya di ApprovalController & TarifKirimanRutinController.
+ * Histori harga master — 2 tabel log terpisah krn sumbernya beda tabel master (Sewa Truk vs
+ * Kiriman Rutin). Append-only, diisi setiap harga master berubah: usulan harga yang disetujui WH
+ * (PersetujuanMasterService) dan edit tarif langsung oleh DCI (TarifKirimanRutinController).
+ * Kolom flat `harga_sewa_sebelumnya` / `harga_sebelumnya` hanya menyimpan nilai terakhir.
  *
  * `diubah_oleh` TANPA FK constraint ke lntrn_users — pola sama kayak
  * `submitted_by`/`usulan_decided_by` di tabel lain (users itu external/IT-owned).

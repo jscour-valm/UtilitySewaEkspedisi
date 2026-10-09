@@ -1110,8 +1110,8 @@ class PengajuanController extends Controller
         $search = $request->get('search');
         $own = $this->ownCabang();
 
-        // Opsi B (keputusan Jo 28 Sept — sebelumnya perusahaan baru selalu hilang dari
-        // list ini setelah pindah pilihan/refresh): lihat ownOrUnclaimedScope() di trait.
+        // Vendor milik cabang user + vendor yang belum terhubung ke cabang mana pun (supaya vendor
+        // baru tidak hilang dari daftar setelah refresh) — lihat ownOrUnclaimedScope().
         $extraScope = $this->ownOrUnclaimedScope($own);
 
         $perusahaan = $this->summaryRows($own, $search, 5, $extraScope);
@@ -1154,8 +1154,10 @@ class PengajuanController extends Controller
     }
 
     /**
-     * Vendor baru dari KG (wizard atau halaman Perusahaan) + upload identitas owner.
-     * Langsung bisa dipakai di pengajuan, tapi masuk antrian validasi WM → approval WH.
+     * Vendor baru + upload identitas owner.
+     * - KG (wizard / halaman Perusahaan): langsung bisa dipakai di pengajuan, tapi masuk antrian
+     *   validasi WM → approval WH.
+     * - WM/WC/WH/DCI (halaman Perusahaan): ditambahkan langsung ke master, status approved.
      */
     public function storePerusahaan(Request $request)
     {
@@ -1187,15 +1189,28 @@ class PengajuanController extends Controller
                 $perusahaan->save();
             }
 
-            app(PersetujuanMasterService::class)->ajukanVendor($perusahaan, auth()->user());
+            $user = auth()->user();
+            $olehKg = $user->userUtility?->role === 'KG';
+            if ($olehKg) {
+                app(PersetujuanMasterService::class)->ajukanVendor($perusahaan, $user);
+            } else {
+                $perusahaan->forceFill([
+                    'status_approval' => PerusahaanEkspedisi::STATUS_APPROVED,
+                    'id_cabang_pengaju' => $user->getCabangId(),
+                    'submitted_by' => $user->id,
+                    'submitted_at' => now(),
+                ])->save();
+            }
 
-            $idVendorSkillList = $this->vendorSkillIdsDiCabang($perusahaan->id_perusahaan, auth()->user()->getCabangId());
+            $idVendorSkillList = $this->vendorSkillIdsDiCabang($perusahaan->id_perusahaan, $user->getCabangId());
 
             DB::connection('sqlsrv')->commit();
 
             return response()->json([
                 'success' => true,
-                'message' => 'Vendor baru diajukan dan menunggu validasi WM & approval WH.',
+                'message' => $olehKg
+                    ? 'Vendor baru diajukan dan menunggu validasi WM & approval WH.'
+                    : 'Vendor baru ditambahkan ke master dan langsung aktif.',
                 'perusahaan' => $perusahaan,
                 'id_vendor_skill_list' => $idVendorSkillList,
             ], 201);
@@ -1209,9 +1224,24 @@ class PengajuanController extends Controller
         }
     }
 
+    /**
+     * Edit profil vendor (WM/WC/WH/DCI). Nama perusahaan hanya bisa diganti DCI; role lain
+     * yang mengirim nama berbeda ditolak. Vendor yang belum disetujui hanya bisa diedit oleh
+     * yang boleh melihatnya (cabang pengaju / user global).
+     */
     public function updateVendor(Request $request, int $id)
     {
         $vendor = PerusahaanEkspedisi::where('flag', true)->findOrFail($id);
+        abort_unless($this->bolehLihatVendor($vendor), 404);
+
+        $bolehGantiNama = auth()->user()->userUtility?->role === 'DCI';
+        if (! $bolehGantiNama && $request->filled('nama_perusahaan')
+            && trim((string) $request->input('nama_perusahaan')) !== $vendor->nama_perusahaan) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Nama perusahaan hanya bisa diubah DCI.',
+            ], 403);
+        }
 
         $data = $request->validate([
             'nama_perusahaan' => 'nullable|string|max:255|unique:sqlsrv.dbo.sesi_perusahaan_ekspedisi,nama_perusahaan,'.$id.',id_perusahaan',
@@ -1227,7 +1257,7 @@ class PengajuanController extends Controller
         try {
             DB::connection('sqlsrv')->beginTransaction();
 
-            if (! empty($data['nama_perusahaan'])) {
+            if ($bolehGantiNama && ! empty($data['nama_perusahaan'])) {
                 $vendor->nama_perusahaan = $data['nama_perusahaan'];
             }
             $vendor->badan_usaha = $data['badan_usaha'];

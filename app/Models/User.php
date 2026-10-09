@@ -59,7 +59,7 @@ class User extends Authenticatable
     public function getCabangIds(): array
     {
         // Untuk role multi-cabang (WM = area-based, punya banyak cabang dalam 1 area).
-        // Sumbernya: override manual (sesi_approval, Task 18 2 Okt 2026) kalau
+        // Sumbernya: override manual di sesi_approval kalau
         // ada, else live-query ke view eksternal IT (lihat UserCabangResolver —
         // WM bisa di-rolling kapan saja jadi gak bisa cuma andelin sync sekali jalan).
         return UserCabangResolver::resolveCabangIds($this->username, $this->userUtility?->role);

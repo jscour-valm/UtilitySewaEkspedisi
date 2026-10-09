@@ -35,14 +35,6 @@
 
 {{-- Right Side --}}
 <div class="flex items-center gap-4">
-
-    {{-- Notification --}}
-    <button
-        type="button"
-        class="p-2 rounded-lg hover:bg-gray-100">
-        <i data-lucide="bell" class="w-6 h-6"></i>
-    </button>
-
     {{-- User Dropdown --}}
     <div class="relative" x-data="{ open: false }">
 

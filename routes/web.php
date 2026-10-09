@@ -9,6 +9,7 @@ use App\Http\Controllers\JenisBiayaController;
 use App\Http\Controllers\JenisKendaraanController;
 use App\Http\Controllers\KaDashboardController;
 use App\Http\Controllers\KendaraanController;
+use App\Http\Controllers\MasterSkillController;
 use App\Http\Controllers\PengajuanController;
 use App\Http\Controllers\PengaturanController;
 use App\Http\Controllers\PersetujuanMasterController;
@@ -63,8 +64,6 @@ Route::middleware(['auth', 'role:KG'])->group(function () {
 
 Route::middleware(['auth', 'role:KG,WH,WC,DCI,KA'])->group(function () {
     Route::get('/pengajuan/{id}', [PengajuanController::class, 'show'])->name('pengajuan.show');
-
-    Route::post('/api/pengajuan/perusahaan/{id}', [PengajuanController::class, 'updateVendor'])->name('pengajuan.update-vendor');
 });
 
 // Link di email notifikasi (1 email dibaca banyak role): redirect sesuai role
@@ -114,30 +113,44 @@ Route::middleware(['auth', 'role:WM,WC,WH'])->group(function () {
     Route::post('/approval/{id}/reject', [ApprovalController::class, 'reject'])->name('approval.reject');
 });
 
-Route::middleware(['auth', 'role:KG,WM,WH,WC,DCI'])->group(function () {
+Route::middleware(['auth', 'role:KG,KA,WM,WH,WC,DCI'])->group(function () {
     Route::get('/perusahaan', [PerusahaanController::class, 'index'])->name('perusahaan.index');
     Route::get('/perusahaan/facet/skill-options', [PerusahaanController::class, 'skillOptions'])->name('perusahaan.facet.skill-options');
     Route::get('/api/perusahaan/preview', [PerusahaanController::class, 'preview'])->name('perusahaan.preview');
     Route::get('/perusahaan/{id}', [PerusahaanController::class, 'show'])->whereNumber('id')->name('perusahaan.show');
 
-    // Dropdown "Jenis Kendaraan" di form tambah/edit kendaraan — KG juga butuh baca ini,
-    // beda dari CRUD-nya (nambah/edit entri master) yang cuma boleh DCI/WH/WM.
+    // Dropdown "Jenis Kendaraan" di form tambah/edit kendaraan (termasuk wizard KG).
     Route::get('/api/jenis-kendaraan', [JenisKendaraanController::class, 'list'])->name('jenis-kendaraan.list');
 });
 
-Route::middleware(['auth', 'role:WM,WH,DCI'])->group(function () {
-    Route::get('/perusahaan/sewa-truk/{id}/edit', [TarifKirimanRutinController::class, 'editSewaTruk'])->name('perusahaan.sewa-truk.edit');
-    Route::get('/perusahaan/kiriman-rutin/{id}/edit', [TarifKirimanRutinController::class, 'editKirimanRutin'])->name('perusahaan.kiriman-rutin.edit');
+// Riwayat harga master: semua role kecuali KG
+Route::middleware(['auth', 'role:KA,WM,WH,WC,DCI'])->group(function () {
+    Route::get('/api/perusahaan/riwayat-harga/{jenis}/{idVendorSkill}', [PerusahaanController::class, 'riwayatHarga'])
+        ->whereIn('jenis', ['sewa-truk', 'kiriman-rutin'])->whereNumber('idVendorSkill')->name('perusahaan.riwayat-harga');
+});
 
-    // Master Jenis Kendaraan — yang boleh kelola: DCI, WH, WM (review mentor item 4).
+// Kelola master perusahaan (tambah vendor langsung aktif, edit profil tanpa ganti nama, tambah/edit unit
+// kendaraan) + lihat master Jenis Kendaraan / Biaya Tambahan / Barang Kiriman / Skill. Hapus & CRUD lookup: DCI.
+Route::middleware(['auth', 'role:WM,WC,WH,DCI'])->group(function () {
+    Route::post('/api/perusahaan', [PengajuanController::class, 'storePerusahaan'])->name('perusahaan.store');
+    Route::post('/api/pengajuan/perusahaan/{id}', [PengajuanController::class, 'updateVendor'])->whereNumber('id')->name('pengajuan.update-vendor');
+    Route::post('/api/kendaraan', [KendaraanController::class, 'store'])->name('kendaraan.store');
+    Route::put('/api/kendaraan/{id}', [KendaraanController::class, 'update'])->name('kendaraan.update');
+    Route::get('/api/master-skill/by-cabang/{cabang_code}', [TarifKirimanRutinController::class, 'skillByCabang'])->name('master-skill.by-cabang');
+
     Route::get('/master/jenis-kendaraan', [JenisKendaraanController::class, 'index'])->name('master.jenis-kendaraan');
-    Route::post('/api/jenis-kendaraan', [JenisKendaraanController::class, 'store'])->name('jenis-kendaraan.store');
-    Route::put('/api/jenis-kendaraan/{id}', [JenisKendaraanController::class, 'update'])->name('jenis-kendaraan.update');
-    Route::delete('/api/jenis-kendaraan/{id}', [JenisKendaraanController::class, 'destroy'])->name('jenis-kendaraan.destroy');
+    Route::get('/master/jenis-barang-kiriman', [TarifKirimanRutinController::class, 'indexBarang'])->name('master.jenis-barang-kiriman');
+    Route::get('/master/jenis-biaya-tambahan', [JenisBiayaController::class, 'index'])->name('master.jenis-biaya-tambahan');
+
+    Route::get('/master/skill', [MasterSkillController::class, 'index'])->name('master.skill');
+    Route::post('/api/master-skill', [MasterSkillController::class, 'store'])->name('master-skill.store');
+    Route::put('/api/master-skill/{id}', [MasterSkillController::class, 'update'])->whereNumber('id')->name('master-skill.update');
 });
 
 Route::middleware(['auth', 'role:DCI'])->group(function () {
     Route::get('/dashboard/dci', [DciDashboardController::class, 'index'])->name('dashboard.dci')->middleware('query.sesi');
+    Route::get('/perusahaan/sewa-truk/{id}/edit', [TarifKirimanRutinController::class, 'editSewaTruk'])->name('perusahaan.sewa-truk.edit');
+    Route::get('/perusahaan/kiriman-rutin/{id}/edit', [TarifKirimanRutinController::class, 'editKirimanRutin'])->name('perusahaan.kiriman-rutin.edit');
     Route::put('/perusahaan/sewa-truk/{id}', [TarifKirimanRutinController::class, 'updateSewaTruk'])->name('perusahaan.sewa-truk.update');
     Route::put('/perusahaan/kiriman-rutin/{id}', [TarifKirimanRutinController::class, 'updateKirimanRutin'])->name('perusahaan.kiriman-rutin.update');
 
@@ -148,20 +161,21 @@ Route::middleware(['auth', 'role:DCI'])->group(function () {
     Route::get('/api/rate-card-kiriman-rutin', [TarifKirimanRutinController::class, 'listRateCard'])->name('rate-card-kiriman-rutin.list');
     Route::post('/api/rate-card-kiriman-rutin', [TarifKirimanRutinController::class, 'storeRateCard'])->name('rate-card-kiriman-rutin.store');
     Route::get('/api/master-skill', [TarifKirimanRutinController::class, 'listSkill'])->name('master-skill.list');
-    Route::get('/api/master-skill/by-cabang/{cabang_code}', [TarifKirimanRutinController::class, 'skillByCabang'])->name('master-skill.by-cabang');
 
-    Route::get('/master/jenis-barang-kiriman', [TarifKirimanRutinController::class, 'indexBarang'])->name('master.jenis-barang-kiriman');
     Route::post('/api/jenis-barang-kiriman', [TarifKirimanRutinController::class, 'storeBarang'])->name('jenis-barang-kiriman.store');
     Route::put('/api/jenis-barang-kiriman/{id}', [TarifKirimanRutinController::class, 'updateBarang'])->name('jenis-barang-kiriman.update');
     Route::delete('/api/jenis-barang-kiriman/{id}', [TarifKirimanRutinController::class, 'destroyBarang'])->name('jenis-barang-kiriman.destroy');
 
-    Route::get('/master/jenis-biaya-tambahan', [JenisBiayaController::class, 'index'])->name('master.jenis-biaya-tambahan');
     Route::post('/api/jenis-biaya', [JenisBiayaController::class, 'store'])->name('jenis-biaya.store');
     Route::put('/api/jenis-biaya/{id}', [JenisBiayaController::class, 'update'])->name('jenis-biaya.update');
     Route::delete('/api/jenis-biaya/{id}', [JenisBiayaController::class, 'destroy'])->name('jenis-biaya.destroy');
 
-    Route::post('/api/kendaraan', [KendaraanController::class, 'store'])->name('kendaraan.store');
-    Route::put('/api/kendaraan/{id}', [KendaraanController::class, 'update'])->name('kendaraan.update');
+    Route::post('/api/jenis-kendaraan', [JenisKendaraanController::class, 'store'])->name('jenis-kendaraan.store');
+    Route::put('/api/jenis-kendaraan/{id}', [JenisKendaraanController::class, 'update'])->name('jenis-kendaraan.update');
+    Route::delete('/api/jenis-kendaraan/{id}', [JenisKendaraanController::class, 'destroy'])->name('jenis-kendaraan.destroy');
+
+    Route::delete('/api/master-skill/{id}', [MasterSkillController::class, 'destroy'])->whereNumber('id')->name('master-skill.destroy');
+
     Route::delete('/api/kendaraan/{id}', [KendaraanController::class, 'destroy'])->name('kendaraan.destroy');
 
     Route::get('/pengaturan', [PengaturanController::class, 'index'])->name('pengaturan.index');

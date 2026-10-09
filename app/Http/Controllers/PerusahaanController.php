@@ -5,29 +5,29 @@ namespace App\Http\Controllers;
 use App\Helpers\FormatHelper;
 use App\Http\Controllers\Concerns\BuildsPerusahaanSummary;
 use App\Models\JenisBarangKiriman;
+use App\Models\MasterJenisKendaraan;
 use App\Models\PerusahaanEkspedisi;
+use App\Models\PerusahaanSkill;
+use App\Models\RiwayatHargaSewaTruk;
+use App\Models\RiwayatTarifKirimanRutin;
 use App\Models\TarifKirimanRutin;
 use App\Models\UsulanHarga;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Halaman perusahaan terpadu — gantiin /kendaraan (KG) dan 2 halaman "Kelola
- * Tarif" (Sewa Truk & Kiriman Rutin). Form edit tarif TETAP di
- * TarifKirimanRutinController (cuma route name-nya yang pindah ke perusahaan.*).
+ * Halaman master perusahaan (vendor, kendaraan, tarif Sewa Truk & Kiriman Rutin).
+ * Form edit tarif ada di TarifKirimanRutinController (route perusahaan.*).
  *
- * - index(): toggle `tab` = semua | sewa-truk | kiriman-rutin.
- *   Tab "semua"  → 1 baris per PERUSAHAAN (ringkasan, tanpa harga inline).
- *   Tab lainnya  → 1 baris per vendor_skill (perusahaan+cabang+skill), sama
- *                  bentuknya kayak tabel Kelola Tarif yang lama.
- * - show(): Detail Perusahaan (profil + dokumen + kendaraan + kedua jenis tarif).
+ * - index(): `tab` = semua | sewa-truk | kiriman-rutin.
+ *   Tab "semua" → 1 baris per perusahaan (ringkasan). Tab lain → 1 baris per vendor_skill
+ *   (perusahaan + cabang + area).
+ * - show(): detail perusahaan (profil, dokumen, kendaraan, tarif, riwayat harga).
  *
- * Semua role melihat SEMUA perusahaan/cabang. Buat KG/WM, perusahaan yang
- * "milik" cabang user (punya sesi_perusahaan_skill — termasuk placeholder vendor
- * baru dari wizard — ATAU sesi_unit_kendaraan di cabang itu) cuma DIPRIORITASKAN:
- * naik ke urutan atas kalau user nggak milih sort sendiri, plus badge "Cabang
- * Anda". sesi_perusahaan_ekspedisi sendiri nggak punya kolom cabang (entity global).
- * WH/DCI (global) nggak punya "cabang sendiri" → tanpa prioritas/badge.
+ * KG hanya melihat vendor & baris tarif/kendaraan cabangnya sendiri, tanpa tab. Role lain melihat
+ * semua cabang; untuk WM, vendor "milik" cabangnya (punya vendor_skill / unit kendaraan / diajukan
+ * dari cabang itu) naik ke atas + badge "Cabang Anda". sesi_perusahaan_ekspedisi tidak punya kolom
+ * cabang (entity global). User global (WH, WC, DCI) tanpa prioritas/badge.
  */
 class PerusahaanController extends Controller
 {
@@ -42,6 +42,9 @@ class PerusahaanController extends Controller
     // yang kebetulan ada di data sekarang.
     private const BADAN_USAHA_OPTIONS = ['PT', 'CV', 'UD', 'Perseorangan'];
 
+    /** Role yang boleh menambah vendor (langsung aktif), edit profil vendor, tambah/edit unit kendaraan. */
+    public const ROLE_KELOLA_MASTER = ['WM', 'WC', 'WH', 'DCI'];
+
     // ------------------------------------------------------------------
     // INDEX
     // ------------------------------------------------------------------
@@ -52,9 +55,7 @@ class PerusahaanController extends Controller
 
         $tab = $request->get('tab');
         $tab = in_array($tab, self::TABS, true) ? $tab : 'semua';
-        // KG: 1 halaman aja, nggak perlu 3 tab (datanya udah disempitkan ke cabang sendiri
-        // lewat filter mentor 30 Sept — split 3 tab jadi kerasa kosong/nggak efektif).
-        // WM/WH/DCI tetap 3 tab seperti biasa.
+        // KG: 1 tab saja (data sudah disempitkan ke cabang sendiri). Role lain 3 tab.
         if ($isKg) {
             $tab = 'semua';
         }
@@ -82,13 +83,9 @@ class PerusahaanController extends Controller
         };
 
         if ($isKg) {
-            // POV KaGud (30 Sept, lanjutan redesain kolom): Cabang dikunci otomatis ke
-            // cabang sendiri (nggak ditampilkan sbg pill — cuma 1 nilai valid & backend
-            // udah maksa filter ini di indexSemua() apa pun yg dikirim), Area Kirim ikut
-            // dibuang (butuh Cabang buat cascading, jadi nggak relevan lagi). Diganti
-            // filter yang match sama kolom baru: Badan Usaha + comot dari tab Sewa Truk
-            // (range Harga Sewa) & tab Kiriman Rutin (facet Jenis Barang + range Harga
-            // per Unit) — bounds slider di-scope ke cabang sendiri, bukan global.
+            // Filter KG: cabang dikunci ke cabang sendiri (dipaksa di indexSemua(), tidak
+            // ditampilkan), tanpa Area Kirim. Isinya Badan Usaha, range Harga Sewa, Jenis Barang
+            // + range Harga per Unit — batas slider dihitung dari cabang sendiri.
             $badanUsahaOptions = collect(self::BADAN_USAHA_OPTIONS)->map(fn ($b) => ['value' => $b, 'label' => $b])->all();
             $jenisBarangOptions = JenisBarangKiriman::where('flag', true)->orderBy('nama_barang')->get(['id_jenis_barang', 'nama_barang']);
             $barangOptions = $jenisBarangOptions->map(fn ($jb) => ['value' => (string) $jb->id_jenis_barang, 'label' => $jb->nama_barang])->all();
@@ -135,6 +132,7 @@ class PerusahaanController extends Controller
             'sortOrder' => $sortOrder,
             'ownCabang' => $own,
             'isKg' => $isKg,
+            'bolehKelola' => in_array(auth()->user()?->userUtility?->role, self::ROLE_KELOLA_MASTER, true),
         ]));
     }
 
@@ -156,13 +154,12 @@ class PerusahaanController extends Controller
 
     /**
      * Proyeksi "dashboard" dari tabel Perusahaan (tab Semua) — 5 data tercocok by
-     * search, tanpa facet/pagination. Dipakai KG dashboard ("Daftar Kendaraan" →
-     * ringkasan perusahaan, Revisi 8) lewat `<x-perusahaan-dashboard-preview>`.
+     * search, tanpa facet/pagination. Dipakai dashboard KG lewat `<x-perusahaan-dashboard-preview>`.
      */
     public function preview(Request $request)
     {
         $own = $this->ownCabang();
-        // Opsi B (sama seperti wizard Pengajuan) — cuma perusahaan yang terhubung ke
+        // Sama seperti wizard Pengajuan — cuma perusahaan yang terhubung ke
         // cabang user atau belum terhubung ke cabang manapun; TIDAK ikut cabang lain.
         $rows = $this->summaryRows($own, $request->get('search'), 5, $this->ownOrUnclaimedScope($own));
 
@@ -235,8 +232,7 @@ class PerusahaanController extends Controller
             $query->whereIn('pe.badan_usaha', $f['badan_usaha']);
         }
 
-        // Filter "comotan" dari tab Sewa Truk/Kiriman Rutin — cuma dipakai lewat modal KG
-        // (30 Sept), tapi ditulis generik (jalan juga kalau kebetulan ke-request tab lain).
+        // Filter harga Sewa Truk / Kiriman Rutin di tab Semua (dipakai modal filter KG).
         if ($f['harga_min'] !== null || $f['harga_max'] !== null) {
             $query->whereExists(function ($s) use ($f, $own, $isKg) {
                 $s->select(DB::raw(1))->from('sesi_perusahaan_skill as fh')
@@ -262,11 +258,8 @@ class PerusahaanController extends Controller
             });
         }
 
-        // KG cuma boleh lihat vendor yang terhubung ke cabang dia sendiri di tab "Semua" —
-        // WM/WH/DCI tetap lihat semua (butuh riset vendor lintas cabang buat approval). Beda
-        // dari `$own` di tempat lain yang cuma dipakai buat prioritas urutan (orderByDesc)
-        // — di sini beneran jadi WHERE (Revisi 29 Sept, Jo: KG nggak perlu & jangan lihat
-        // ratusan vendor cabang lain).
+        // KG hanya melihat vendor yang terhubung ke cabangnya (WHERE). Role lain melihat semua
+        // vendor; `$own` di tempat lain hanya untuk prioritas urutan.
         if ($isKg && $own) {
             [$mineOnlySql, $mineOnlyBindings] = $this->mineCompanySql($own);
             $query->whereRaw("{$mineOnlySql} = 1", $mineOnlyBindings);
@@ -319,9 +312,7 @@ class PerusahaanController extends Controller
         $ids = collect($rows->items())->pluck('id_perusahaan')->all();
         $rel = $this->loadRelations($ids, $own);
 
-        // KG: filter data cabang LAIN dari sini juga (keputusan mentor 30 Sept, pola sama
-        // kayak show()) — sekarang mau nampilin HARGA beneran per jenis barang di kolom
-        // baru, jadi wajib cabang-scoped, jangan cuma badge ada/nggak.
+        // KG: buang data cabang lain (kolom harga per jenis barang harus cabang-scoped).
         if ($isKg) {
             $rel['vs'] = $rel['vs']->whereIn('cabang_code', $own)->values();
             $rel['units'] = $rel['units']->whereIn('id_cabang', $own)->values();
@@ -393,7 +384,7 @@ class PerusahaanController extends Controller
                 // udah cabang-scoped di atas) — bisa >1 kalau beda area beda harga.
                 $row->kiriman_items = collect($tarifByPerusahaan[$row->id_perusahaan] ?? [])
                     ->map(fn ($t) => $t['items'])->all();
-                // Harga Sewa (1 Okt) — per area di cabang sendiri, bisa lebih dari 1 kalau beda area beda harga.
+                // Harga Sewa per area di cabang sendiri (bisa >1 kalau beda area beda harga).
                 $row->sewa_items = $vs->filter(fn ($v) => $v->harga_sewa !== null)
                     ->map(fn ($v) => ['area' => $rel['skillNames']->get((int) $v->id_skill), 'harga' => (float) $v->harga_sewa])
                     ->values()->all();
@@ -404,9 +395,8 @@ class PerusahaanController extends Controller
 
         $jenisBarangCols = [];
         if ($isKg) {
-            // Kolom = jenis barang yang MUNCUL di halaman ini doang (bukan semua jenis barang
-            // yang pernah ada) — diurutkan: yang paling sering keisi data (banyak vendor jual
-            // barang itu) di kiri, yang jarang digeser ke kanan (Jo, 30 Sept).
+            // Kolom = jenis barang yang muncul di halaman ini, urut dari yang paling banyak
+            // vendornya (kiri) ke yang paling jarang (kanan).
             $counts = [];
             $names = [];
             foreach ($tarifByPerusahaan as $items) {
@@ -585,8 +575,7 @@ class PerusahaanController extends Controller
             ->where('ps.flag', true)
             ->where('pe.flag', true);
 
-        // KG jangan pernah lihat baris tarif cabang LAIN (keputusan mentor, 30 Sept) —
-        // WM/WH/DCI tetap lihat semua. Beda dari orderMineFirst() di bawah (cuma sortir).
+        // KG hanya melihat baris tarif cabangnya. Role lain semua (orderMineFirst() cuma sortir).
         if (auth()->user()?->userUtility?->role === 'KG') {
             $own = $this->ownCabang();
             $own ? $query->whereIn('ps.cabang_code', $own) : $query->whereRaw('1 = 0');
@@ -627,9 +616,8 @@ class PerusahaanController extends Controller
         $db = DB::connection('sqlsrv');
         $rel = $this->loadRelations([$perusahaan->id_perusahaan], $own);
 
-        // KG jangan pernah lihat data (tarif/kendaraan) cabang LAIN (keputusan mentor, 30
-        // Sept) — bukan blokir akses ke perusahaannya, cuma baris cabang lain disembunyikan.
-        // WM/WH/DCI tetap "semua cabang tampil, baris di cabang user naik ke atas" (default).
+        // KG: baris tarif/kendaraan cabang lain disembunyikan (perusahaannya tetap bisa dibuka).
+        // Role lain: semua cabang tampil, baris cabang user di atas.
         $isKg = auth()->user()?->userUtility?->role === 'KG';
         if ($isKg) {
             $rel['vs'] = $rel['vs']->whereIn('cabang_code', $own)->values();
@@ -667,9 +655,8 @@ class PerusahaanController extends Controller
                 ->whereColumn('t.id_vendor_skill', 'ps.id_vendor_skill')->where('t.flag', true);
         })
             ->get(['ps.id_vendor_skill', 'ps.id_skill', 'ps.cabang_code', 'mc.Name as nama_cabang', 'ms.nama_skill', 'ps.updated_at']);
-        // Baris ini = 1 kombinasi cabang+AREA KIRIM spesifik (beda dari sewa truk, tarifnya per-
-        // item bukan 1 angka harga_sewa) — bawa id_skill juga biar checkbox "Skill/Area
-        // Pengantaran" di step2 wizard ke-centang otomatis (Revisi 8, dulu kelewatan).
+        // 1 baris = 1 kombinasi cabang + area kirim (tarif per barang). id_skill ikut dibawa supaya
+        // area di wizard langsung terpilih.
         $tarifKiriman->each(function ($t) use ($perusahaan) {
             $t->pengajuan_url = $this->tarifPengajuanUrl($perusahaan, 'pengiriman_rutin', (int) $t->id_skill, null, $t->nama_skill, (int) $t->id_vendor_skill);
         });
@@ -716,11 +703,62 @@ class PerusahaanController extends Controller
             ? JenisBarangKiriman::where('flag', true)->orderBy('nama_barang')->get(['id_jenis_barang', 'nama_barang'])
             : collect();
 
+        // Kelola master (edit profil, tambah/edit kendaraan): WM/WC/WH/DCI. Pilihan cabang kendaraan
+        // = cabang yang boleh diakses user (WM cabang sendiri, user global semua cabang).
+        $bolehKelola = in_array(auth()->user()->userUtility?->role, self::ROLE_KELOLA_MASTER, true);
+        $cabangKelola = ! $bolehKelola ? collect() : $db->table('sesi_master_cabang')
+            ->when(! auth()->user()->isGlobalAccess(), fn ($q) => $q->whereIn('Code', $own ?: ['__none__']))
+            ->orderBy('Code')->get(['Code', 'Name']);
+        $jenisKendaraanList = $bolehKelola
+            ? MasterJenisKendaraan::orderBy('nama_jenis')->get(['id_jenis_kendaraan', 'nama_jenis', 'muatan_maksimal_ton'])
+            : collect();
+
         return view('pages.perusahaan.show', compact(
             'perusahaan', 'kendaraan', 'tarifSewa', 'tarifKiriman', 'hargaByVs',
             'jenisBarangCols', 'belumAdaTarif', 'cabangCount', 'areaCount', 'breadcrumb',
-            'usulanBerjalan', 'jenisBarangSemua'
+            'usulanBerjalan', 'jenisBarangSemua', 'bolehKelola', 'cabangKelola', 'jenisKendaraanList'
         ) + ['ownCabang' => $own]);
+    }
+
+    /**
+     * Riwayat perubahan harga master 1 baris tarif (KA/WM/WC/WH/DCI). Sewa truk: harga_sewa;
+     * kiriman rutin: biaya per unit tiap jenis barang. Terbaru di atas.
+     * GET /api/perusahaan/riwayat-harga/{sewa-truk|kiriman-rutin}/{idVendorSkill}
+     */
+    public function riwayatHarga(string $jenis, int $idVendorSkill)
+    {
+        $vs = PerusahaanSkill::with('perusahaan')->findOrFail($idVendorSkill);
+        abort_unless($vs->perusahaan && $this->bolehLihatVendor($vs->perusahaan), 404);
+
+        if ($jenis === 'sewa-truk') {
+            $rows = RiwayatHargaSewaTruk::with('diubahOleh:id,name')
+                ->where('id_vendor_skill', $idVendorSkill)
+                ->orderByDesc('tanggal_perubahan')->orderByDesc('id_riwayat')
+                ->get()
+                ->map(fn ($r) => [
+                    'tanggal' => $r->tanggal_perubahan?->translatedFormat('d M Y, H:i'),
+                    'barang' => null,
+                    'lama' => $r->harga_lama !== null ? (float) $r->harga_lama : null,
+                    'baru' => (float) $r->harga_baru,
+                    'oleh' => $r->diubahOleh?->name,
+                ]);
+        } else {
+            $tarif = TarifKirimanRutin::withInactive()->with('jenisBarang:id_jenis_barang,nama_barang')
+                ->where('id_vendor_skill', $idVendorSkill)->get()->keyBy('id_tarif');
+            $rows = $tarif->isEmpty() ? collect() : RiwayatTarifKirimanRutin::with('diubahOleh:id,name')
+                ->whereIn('id_tarif', $tarif->keys())
+                ->orderByDesc('tanggal_perubahan')->orderByDesc('id_riwayat')
+                ->get()
+                ->map(fn ($r) => [
+                    'tanggal' => $r->tanggal_perubahan?->translatedFormat('d M Y, H:i'),
+                    'barang' => $tarif->get($r->id_tarif)?->jenisBarang?->nama_barang,
+                    'lama' => $r->biaya_lama !== null ? (float) $r->biaya_lama : null,
+                    'baru' => (float) $r->biaya_baru,
+                    'oleh' => $r->diubahOleh?->name,
+                ]);
+        }
+
+        return response()->json(['success' => true, 'riwayat' => $rows->values()]);
     }
 
     // ------------------------------------------------------------------
@@ -775,16 +813,13 @@ class PerusahaanController extends Controller
         if ($harga !== null) {
             $params['harga'] = (int) $harga;
         }
-        // Revisi 9: nama skill dibawa juga (bukan cuma id) — dipakai app.js buat push
-        // entry sintetis ke checkbox "Skill/Area Pengantaran" kalau skill ini kebetulan
-        // nggak ada di master list cabang (lihat resolveVendorSkillIds()).
+        // Nama area ikut dibawa — app.js menambah pilihan sintetis kalau area ini tidak ada di
+        // daftar area cabang (lihat resolveVendorSkillIds()).
         if ($skillNama !== null) {
             $params['skill_nama'] = $skillNama;
         }
-        // Revisi 10: id_vendor_skill baris INI (bukan hasil resolve/union semua skill
-        // vendor) — dipakai app.js buat langsung fetch tarif SATU kombinasi ini doang
-        // di "Langkah 2: Area & Tarif Vendor", bukan tergabung sama area lain milik
-        // vendor yang sama (bug Revisi 9: union bikin panel itu nunjukin SEMUA area).
+        // id_vendor_skill baris ini — app.js mengambil tarif kombinasi ini saja di langkah
+        // "Area & Tarif", bukan gabungan semua area vendor.
         if ($idVendorSkill !== null) {
             $params['id_vendor_skill'] = $idVendorSkill;
         }
@@ -800,8 +835,7 @@ class PerusahaanController extends Controller
     private function facetOptions(array $own, array $selectedCabang = []): array
     {
         $db = DB::connection('sqlsrv');
-        // KG cuma bisa lihat cabang sendiri (keputusan mentor, 30 Sept) — opsi filter Cabang
-        // buat cabang lain percuma buat mereka (selalu 0 hasil). WM/WH/DCI tetap semua cabang.
+        // KG hanya melihat cabang sendiri, jadi opsi filter Cabang lain tidak ditampilkan.
         $isKg = auth()->user()?->userUtility?->role === 'KG';
 
         $cabangQuery = $db->table('sesi_master_cabang')->whereNotNull('Name')->orderBy('Name');

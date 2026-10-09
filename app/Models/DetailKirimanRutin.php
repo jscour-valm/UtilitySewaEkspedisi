@@ -36,7 +36,7 @@ class DetailKirimanRutin extends Model
         return $this->belongsTo(PengajuanSewa::class, 'id_pengajuan_sewa', 'id_pengajuan_sewa');
     }
 
-    /** Part B — user (WM/WH) yang decide usulan baris ini. Tanpa FK ke lntrn_users. */
+    /** Kolom legacy: user (WM/WH) yang memutuskan usulan baris ini. Tanpa FK ke lntrn_users. */
     public function usulanDecidedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'usulan_decided_by', 'id');

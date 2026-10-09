@@ -5,13 +5,10 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * PAC (Pengiriman Antar Cabang) — mentor review item 5-7 (29 Sept 2026).
- *
- * `id_cabang` yang sudah ada dipertahankan maknanya sbg cabang PEMINTA/tujuan
- * (auto dari cabang login KG, readonly di form) — TIDAK di-rename krn dipakai
- * puluhan tempat di seluruh app. Kolom baru `id_cabang_asal` = cabang ASAL
- * barang, cuma wajib diisi kalau tujuan_penyewaan=PAC (divalidasi di
- * controller, bukan di level DB — kolom tetap nullable krn Toko tidak butuh).
+ * PAC (Pengiriman Antar Cabang): kolom cabang kedua di pengajuan, wajib kalau
+ * tujuan_penyewaan=PAC (divalidasi di controller; nullable karena Toko tidak butuh).
+ * `id_cabang` tetap cabang KG pengaju. Kolom ini di-rename jadi `id_cabang_tujuan` oleh
+ * migration 2026_10_07_000001.
  */
 return new class extends Migration
 {

@@ -3,6 +3,8 @@
 @section('title', 'Jenis Kendaraan')
 
 @section('content')
+{{-- CRUD hanya DCI; WM/WC/WH lihat saja. --}}
+@php $bolehKelola = auth()->user()?->userUtility?->role === 'DCI'; @endphp
 <div class="flex flex-col gap-4 pb-2" x-data="{
         items: @js($jenisKendaraan),
         showForm: false,
@@ -74,6 +76,7 @@
                 <h1 class="text-2xl font-bold text-gray-900">Jenis Kendaraan</h1>
                 <p class="text-gray-600 text-sm">Master lookup jenis kendaraan — muatan maksimal terkunci per jenis, biar KaGud nggak salah isi manual pas tambah kendaraan.</p>
             </div>
+            @if($bolehKelola)
             <button
                 type="button"
                 @click="showForm = !showForm; if (!showForm) resetForm()"
@@ -82,9 +85,11 @@
                 <span x-show="!showForm">+ Tambah Jenis Kendaraan</span>
                 <span x-show="showForm">Batal</span>
             </button>
+            @endif
         </div>
 
         {{-- Add/Edit Form --}}
+        @if($bolehKelola)
         <div x-show="showForm" class="bg-blue-50 rounded-lg p-4 border border-blue-200 mb-4">
             <h3 class="font-semibold text-gray-900 mb-4">
                 <span x-show="!editingId">Tambah Jenis Kendaraan Baru</span>
@@ -113,6 +118,7 @@
                 </button>
             </div>
         </div>
+        @endif
 
         {{-- Table --}}
         <div class="overflow-hidden rounded-xl border border-gray-200">
@@ -130,7 +136,7 @@
                         <th class="px-4 py-3 text-right">Muatan Maksimal</th>
                         <th class="px-4 py-3 text-left">Dibuat</th>
                         <th class="px-4 py-3 text-left">Diupdate</th>
-                        <th class="px-4 py-3 text-right">Aksi</th>
+                        @if($bolehKelola)<th class="px-4 py-3 text-right">Aksi</th>@endif
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200">
@@ -140,10 +146,12 @@
                             <td class="px-4 py-3 text-right text-gray-600" x-text="Number(item.muatan_maksimal_ton).toLocaleString('id-ID') + ' ton'"></td>
                             <td class="px-4 py-3 text-gray-500" x-text="item.created_at ? new Date(item.created_at).toLocaleDateString('id-ID') : '—'"></td>
                             <td class="px-4 py-3 text-gray-500" x-text="item.updated_at ? new Date(item.updated_at).toLocaleDateString('id-ID') : '—'"></td>
+                            @if($bolehKelola)
                             <td class="px-4 py-3 text-right">
                                 <button type="button" @click="editItem(item)" class="text-xs font-medium text-avian-green hover:underline mr-3">Edit</button>
                                 <button type="button" @click="deleteItem(item)" class="text-xs font-medium text-red-500 hover:underline">Hapus</button>
                             </td>
+                            @endif
                         </tr>
                     </template>
                     <tr x-show="items.length === 0">

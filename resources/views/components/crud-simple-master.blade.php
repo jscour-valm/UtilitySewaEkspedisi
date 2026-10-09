@@ -3,6 +3,7 @@
   Used in: Master Jenis Barang Kiriman, Master Jenis Biaya Tambahan
 
   Kartu list + form add/edit + delete buat master data 1-kolom-nama sederhana.
+  bolehKelola=false → read-only (tanpa tombol tambah/edit/hapus).
 
   @props([
     'title', 'description', 'addLabel', 'items',
@@ -34,6 +35,7 @@
     'columnLabel',
     'placeholder',
     'itemNoun',
+    'bolehKelola' => true,
 ])
 
 <div class="flex flex-col gap-4 pb-2" x-data="crudSimpleMaster({
@@ -47,6 +49,7 @@
                 <h1 class="text-2xl font-bold text-gray-900">{{ $title }}</h1>
                 <p class="text-gray-600 text-sm">{{ $description }}</p>
             </div>
+            @if($bolehKelola)
             <button
                 type="button"
                 @click="showForm = !showForm; if (!showForm) resetForm()"
@@ -55,9 +58,11 @@
                 <span x-show="!showForm">{{ $addLabel }}</span>
                 <span x-show="showForm">Batal</span>
             </button>
+            @endif
         </div>
 
         {{-- Add/Edit Form --}}
+        @if($bolehKelola)
         <div x-show="showForm" class="bg-blue-50 rounded-lg p-4 border border-blue-200 mb-4">
             <h3 class="font-semibold text-gray-900 mb-4">
                 <span x-show="!editingId">Tambah {{ $itemNoun }} Baru</span>
@@ -80,6 +85,7 @@
                 </button>
             </div>
         </div>
+        @endif
 
         {{-- Table --}}
         <div class="overflow-hidden rounded-xl border border-gray-200">
@@ -95,7 +101,7 @@
                         <th class="px-4 py-3 text-left">{{ $columnLabel }}</th>
                         <th class="px-4 py-3 text-left">Dibuat</th>
                         <th class="px-4 py-3 text-left">Diupdate</th>
-                        <th class="px-4 py-3 text-right">Aksi</th>
+                        @if($bolehKelola)<th class="px-4 py-3 text-right">Aksi</th>@endif
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200">
@@ -104,6 +110,7 @@
                         <td class="px-4 py-3 font-medium text-gray-800">{{ $item->{$nameField} }}</td>
                         <td class="px-4 py-3 text-gray-500">{{ $item->created_at?->translatedFormat('d M Y, H:i') ?? '—' }}</td>
                         <td class="px-4 py-3 text-gray-500">{{ $item->updated_at?->translatedFormat('d M Y, H:i') ?? '—' }}</td>
+                        @if($bolehKelola)
                         <td class="px-4 py-3 text-right space-x-2">
                             <button
                                 type="button"
@@ -118,6 +125,7 @@
                                 Hapus
                             </button>
                         </td>
+                        @endif
                     </tr>
                     @empty
                     <tr>

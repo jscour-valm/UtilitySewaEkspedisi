@@ -17,11 +17,9 @@ class TarifKirimanRutinController extends Controller
     use LogsRiwayatHarga;
     use ManagesVendorMasterData;
 
-    // Halaman list Sewa Truk / Kiriman Rutin sekarang ada di PerusahaanController
-    // (tab=sewa-truk / tab=kiriman-rutin). Controller ini tinggal form edit/update
-    // tarif + endpoint pendukungnya. Catatan lama yang masih berlaku: kolom
-    // Revisi/Tanggal Revisi/KTP-NPWP sengaja TIDAK ditampilkan di UI (keputusan Jo
-    // 16 Sept) — datanya tetap ada di DB.
+    // Daftar Sewa Truk / Kiriman Rutin ada di PerusahaanController (tab=sewa-truk / kiriman-rutin).
+    // Controller ini: form edit/update tarif (DCI) + endpoint pendukung. Kolom Revisi / Tanggal
+    // Revisi / KTP-NPWP hasil impor sengaja tidak ditampilkan di UI (datanya tetap di DB).
 
     public function editSewaTruk($id)
     {
@@ -173,9 +171,8 @@ class TarifKirimanRutinController extends Controller
     }
 
     /**
-     * Data buat seksi "Kendaraan" di halaman edit Sewa Truk & Kiriman Rutin
-     * (16 Sept — dulu cuma tarif, sekarang sekalian bisa kelola profil
-     * perusahaan & kendaraannya dari sini). Kendaraan di-scope ke CABANG yang
+     * Data seksi "Profil Perusahaan" & "Kendaraan" di halaman edit Sewa Truk & Kiriman Rutin.
+     * Kendaraan di-scope ke CABANG yang
      * sama dengan baris tarif ini ($vendorSkill->cabang_code), bukan semua
      * kendaraan milik perusahaan ini lintas cabang.
      */

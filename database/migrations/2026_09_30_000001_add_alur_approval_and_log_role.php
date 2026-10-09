@@ -6,10 +6,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Alur approval per pengajuan (spesifikasi mentor, 30 Sept 2026): urutan approver
- * disimpan & dikunci per pengajuan (`WM`, `WM,WH`, `WM,WC`, `WM,WC,WH`) karena
- * sekarang ada WC dan alur 3 tingkat — `kategori_approval` (normal/over_threshold)
- * tidak cukup lagi untuk tahu siapa approver berikutnya.
+ * Alur approval per pengajuan: urutan approver disimpan & dikunci per pengajuan (`WM`, `WM,WH`,
+ * `WM,WC`, `WM,WC,WH`) — `kategori_approval` (normal/over_threshold) tidak cukup untuk tahu
+ * approver berikutnya setelah ada WC.
  *
  * `sesi_approval_log.role_approver` + `tingkat`: peran approver dicatat langsung di
  * log, bukan diturunkan dari `sesi_approval.role_berwenang` (enum cuma WM/WH, jadi

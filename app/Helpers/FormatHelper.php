@@ -10,11 +10,9 @@ class FormatHelper
      * Ubah string `id_skill` comma-separated (numeric, sesi_unit_kendaraan /
      * sesi_pengajuan_sewa — lihat migration 2026_08_19_033038_create_sesi_master_skill.php) jadi array
      * nama_skill buat ditampilkan (badge dsb). Token yang BUKAN angka
-     * (leftover lama sblm konversi 9 Sept yg ga match master manapun) balik
-     * apa adanya. Token angka yang match master tapi flag=0 (soft-deleted)
-     * DI-DROP total dari hasil — bukan ditampilkan sbg angka mentah atau nama
-     * lama (lihat Batch Fix 3: id_skill sampah "1936"/"1937" yg udah
-     * di-soft-delete tapi masih nongol sbg angka di kolom Skill/Area).
+     * (data lama yang tidak cocok master mana pun) dikembalikan apa adanya. Token angka
+     * yang cocok master tapi flag=0 (soft-deleted) dibuang dari hasil — tidak ditampilkan
+     * sebagai angka mentah maupun nama lama.
      */
     public static function skillNames(?string $idSkillCsv): array
     {
@@ -32,22 +30,22 @@ class FormatHelper
             ->keyBy('id_skill');
 
         $result = array_map(function ($t) use ($master) {
-            if (!ctype_digit($t)) {
+            if (! ctype_digit($t)) {
                 return $t; // token teks bebas, biarkan
             }
             $row = $master->get($t);
             if ($row && $row->flag) {
                 return $row->nama_skill; // aktif -> nama
             }
-            if ($row && !$row->flag) {
+            if ($row && ! $row->flag) {
                 return null; // soft-deleted -> drop
             }
+
             return $t; // tidak match master sama sekali -> legacy, biarkan
         }, $tokens);
 
         return array_values(array_filter($result, fn ($v) => $v !== null));
     }
-
 
     /**
      * Format angka desimal, trim trailing zero
@@ -59,6 +57,7 @@ class FormatHelper
         if (str_contains($formatted, '.')) {
             $formatted = rtrim(rtrim($formatted, '0'), '.');
         }
+
         return $formatted;
     }
 
@@ -67,7 +66,7 @@ class FormatHelper
      */
     public static function ton($value): string
     {
-        return self::trimDecimal($value) . ' Ton';
+        return self::trimDecimal($value).' Ton';
     }
 
     /**
@@ -77,7 +76,7 @@ class FormatHelper
      */
     public static function kg($value): string
     {
-        return self::trimDecimal($value) . ' kg';
+        return self::trimDecimal($value).' kg';
     }
 
     /**
@@ -95,7 +94,7 @@ class FormatHelper
             ? number_format($rounded, 2, ',', '.')
             : number_format($rounded, 0, ',', '.');
 
-        return 'Rp ' . $formatted;
+        return 'Rp '.$formatted;
     }
 
     /**

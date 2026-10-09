@@ -19,7 +19,7 @@ class ApprovalController extends Controller
     /** Peran yang bisa ada di alur_approval pengajuan (urutan tingkat). */
     public const PERAN_APPROVER = ['WM', 'WC', 'WH'];
 
-    /** WM = "Validasi", WC/WH = "Approval" (istilah mentor). */
+    /** WM = "Validasi", WC/WH = "Approval" (istilah di Wewenang Role). */
     public static function labelMenunggu(string $peran): string
     {
         return $peran === 'WM' ? 'Menunggu Validasi WM' : "Menunggu Approval {$peran}";
@@ -284,7 +284,7 @@ class ApprovalController extends Controller
 
     /**
      * Cari Approval rule yang cocok buat role tertentu. WM: 1 rule per cabang.
-     * WH: 1 rule global (id_cabang null), tingkat 2 — lihat ApprovalSeeder.
+     * WH: 1 rule global (id_cabang null), tingkat 2.
      */
     private function findApprovalRule(string $role, PengajuanSewa $pengajuan): ?Approval
     {

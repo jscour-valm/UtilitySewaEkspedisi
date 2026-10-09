@@ -7,9 +7,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * Log histori biaya_per_unit (sesi_tarif_kiriman_rutin) — append-only, review
- * mentor item 11. 1 baris = 1 kali harga berubah, dari usulan Part B atau
- * Kelola Tarif.
+ * Log histori biaya_per_unit (sesi_tarif_kiriman_rutin) — append-only. 1 baris = 1 kali harga
+ * berubah, dari usulan harga yang disetujui WH atau edit tarif langsung oleh DCI.
  */
 class RiwayatTarifKirimanRutin extends Model
 {
