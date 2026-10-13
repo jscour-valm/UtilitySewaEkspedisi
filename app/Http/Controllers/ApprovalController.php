@@ -155,7 +155,7 @@ class ApprovalController extends Controller
 
         // Get ambang rasio sewa yang aktif dari database
         $rasioSewaSetting = RasioSewa::aktif();
-        $ambangRasio = $rasioSewaSetting ? $rasioSewaSetting->persentase_maksimal : 2.5; // Fallback ke 2.5
+        $ambangRasio = $rasioSewaSetting ? $rasioSewaSetting->persentase_maksimal : RasioSewa::BATAS_DEFAULT;
 
         // Get dummy dokumen SJ/TO-ACB
         $dokumen = app(SnapshotDokumenService::class)->ambil($pengajuan);

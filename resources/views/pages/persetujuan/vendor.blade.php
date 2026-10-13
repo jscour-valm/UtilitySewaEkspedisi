@@ -5,11 +5,7 @@
 @section('content')
 @php
     $status = $vendor->statusPersetujuan();
-    $warnaStatus = match ($status) {
-        'approved' => 'bg-avian-green-light text-avian-green',
-        'rejected' => 'bg-red-50 text-red-600',
-        default => 'bg-amber-50 text-amber-700',
-    };
+    $warnaStatus = $vendor->warnaStatusPersetujuan();
     $namaLengkap = trim(($vendor->badan_usaha && $vendor->badan_usaha !== '-' ? $vendor->badan_usaha . ' ' : '') . $vendor->nama_perusahaan);
     $labelAksi = $peran === 'WM' ? 'Validasi' : 'Setujui';
     $sectionLabel = 'text-[11px] font-semibold tracking-[0.09em] text-gray-500';
@@ -84,7 +80,7 @@
                 <div x-data="formVendor(@js(route('persetujuan.vendor.ajukan-ulang', $vendor->id_perusahaan)), @js($vendor->only(['nama_perusahaan', 'badan_usaha', 'no_telepon', 'alamat_kantor'])))">
                     <p class="{{ $sectionLabel }} mb-1">PERBAIKI & AJUKAN ULANG</p>
                     <p class="mb-4 text-xs text-gray-500">Perbaiki data sesuai alasan penolakan, lalu ajukan lagi ke WM.</p>
-                    <x-form-vendor :foto-lama="$docs->all()" />
+                    <x-perusahaan.form-vendor :foto-lama="$docs->all()" />
                     <div class="mt-4 flex justify-end">
                         <button type="button" @click="simpan()" :disabled="menyimpan"
                             class="rounded-lg bg-avian-green px-4 py-2 text-sm font-medium text-white hover:bg-avian-green-dark disabled:opacity-50">

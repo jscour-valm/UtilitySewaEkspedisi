@@ -1,13 +1,14 @@
 @extends('layouts.app')
 
 @section('title', 'Dashboard KA')
+@section('judul_halaman', 'Dashboard')
 
 @section('content')
 <div class="space-y-4">
-    <x-filter-tanggal-dashboard />
+    <x-dashboard.filter-tanggal />
 
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <x-stat-card
+        <x-ui.stat-card
             label="Pengajuan Disetujui"
             :count="$countApproved"
             subtitle="Cabang {{ implode(', ', $cabangIds) ?: '-' }}"
@@ -20,7 +21,7 @@
             <h2 class="text-sm font-semibold text-gray-700">Pengajuan Sewa Disetujui &middot; Hanya Lihat</h2>
         </div>
         <div class="p-6">
-            <x-tabel-pengajuan mode="ka" :limit="0" />
+            <x-dashboard.tabel-pengajuan mode="ka" :limit="0" />
         </div>
     </div>
 </div>

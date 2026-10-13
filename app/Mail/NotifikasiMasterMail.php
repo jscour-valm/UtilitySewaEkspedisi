@@ -17,9 +17,6 @@ use Illuminate\Support\Facades\DB;
  */
 class NotifikasiMasterMail extends Mailable
 {
-    /** Tema markdown hijau: resources/views/vendor/mail/html/themes/hijau.css */
-    public $theme = 'hijau';
-
     public function __construct(
         public Model $objek,
         public string $aksi,
@@ -112,7 +109,7 @@ class NotifikasiMasterMail extends Mailable
         $hargaUsulan = $this->isVendor() ? null : (float) $this->objek->harga_usulan;
 
         return new Content(
-            markdown: 'emails.notifikasi-master',
+            view: 'emails.notifikasi-master',
             with: [
                 'judul' => $judul,
                 'intro' => $intro,

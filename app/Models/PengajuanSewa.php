@@ -12,6 +12,20 @@ class PengajuanSewa extends Model
 {
     use HasFlag;
 
+    /** Nilai kolom `jenis_pengajuan` => label tampilan. */
+    public const JENIS = ['sewa_truk' => 'Sewa Truk', 'pengiriman_rutin' => 'Kiriman Rutin'];
+
+    /** Nilai kolom `tujuan_penyewaan`. */
+    public const TUJUAN = ['Toko', 'PAC'];
+
+    /** Badge status pengajuan di tabel daftar: kelas Tailwind + label per nilai `status_pengajuan` (huruf kecil). */
+    public const BADGE_STATUS = [
+        'pending' => ['kelas' => 'bg-blue-100 text-blue-700', 'label' => 'Pending'],
+        'approved' => ['kelas' => 'bg-avian-green-light text-avian-green', 'label' => 'Disetujui'],
+        'rejected' => ['kelas' => 'bg-red-100 text-red-600', 'label' => 'Ditolak'],
+        'cancelled' => ['kelas' => 'bg-gray-100 text-gray-600', 'label' => 'Dibatalkan'],
+    ];
+
     protected $connection = 'sqlsrv';
 
     protected $table = 'sesi_pengajuan_sewa';

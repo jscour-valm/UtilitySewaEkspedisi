@@ -38,48 +38,14 @@
 
     {{-- Shared Form Grid --}}
     <div class="grid grid-cols-2 gap-5">
+        {{-- Baris 1: Tanggal | Tujuan | (Cabang Tujuan, PAC) | Kategori Toko --}}
+        <div class="col-span-2 grid gap-5" :class="pengajuan.tujuan_penyewaan === 'PAC' ? 'grid-cols-4' : 'grid-cols-3'">
         {{-- Tanggal Pengiriman (SHARED) --}}
         <div>
             <label class="mb-1 block text-xs font-medium text-gray-600">
                 Tanggal Pengiriman <span class="text-red-500">*</span>
             </label>
-            <input
-                type="date"
-                x-model="pengajuan.tanggal_pengiriman"
-                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-avian-green focus:outline-none">
-        </div>
-
-        {{-- Harga Sewa (SEWA TRUK ONLY) --}}
-        <div x-show="pengajuan.jenis_pengajuan === 'sewa_truk'">
-            <label class="mb-1 block text-xs font-medium text-gray-600">
-                Harga Sewa (Rp) <span class="text-red-500">*</span>
-            </label>
-            <input
-                type="text"
-                inputmode="numeric"
-                :value="formatRibuan(pengajuan.harga_sewa)"
-                @input="pengajuan.harga_sewa = parseRibuan($event.target.value)"
-                :readonly="!!editId"
-                placeholder="Contoh: 2.500.000"
-                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-avian-green focus:outline-none"
-                :class="editId ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''">
-            {{-- Tabel wewenang : harga terkunci saat edit, perubahan harga lewat pengajuan perubahan harga --}}
-            <p x-show="editId" class="mt-1 text-[11px] text-gray-500">Harga sewa tidak bisa diubah saat edit. Untuk mengubah harga, gunakan pengajuan perubahan harga.</p>
-            {{-- Usulan harga master (vendor + cabang + area): proses terpisah validasi WM → approval WH,
-                 tidak menahan pengajuan ini. --}}
-            <label x-show="!editId && !usulanTerkunci(pengajuan.usulan_status)" class="mt-2 flex items-start gap-2 text-xs text-gray-500">
-                <input type="checkbox" x-model="pengajuan.usulan_harga_sewa" class="mt-0.5 rounded border-gray-300 text-avian-green focus:ring-avian-green">
-                <span>Ajukan juga sebagai harga master baru? Diproses terpisah (validasi WM → approval WH); kalau disetujui, harga sewa cabang + area ini di tabel master diganti harga di atas.</span>
-            </label>
-            <p x-show="!editId && kendaraanTerpilih?.harga_master && pengajuan.harga_sewa && Number(pengajuan.harga_sewa) !== Number(kendaraanTerpilih?.harga_master) && !pengajuan.usulan_harga_sewa" x-cloak
-                class="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-800">
-                Harga sewa beda dari harga master
-                (<span x-text="'Rp ' + Number(kendaraanTerpilih?.harga_master || 0).toLocaleString('id-ID')"></span>).
-                Jelaskan alasannya di kolom Catatan (mis. ada tambahan toko), atau centang usulan di atas kalau harga master memang perlu diubah.
-            </p>
-            <p x-show="usulanTerkunci(pengajuan.usulan_status)" class="mt-2 text-[11px] font-medium"
-                :class="pengajuan.usulan_status === 'approved' ? 'text-green-600' : 'text-red-600'"
-                x-text="'Usulan harga master sudah ' + (pengajuan.usulan_status === 'approved' ? 'disetujui' : 'ditolak') + ' — tidak bisa diubah'"></p>
+            <x-ui.input-tanggal model="pengajuan.tanggal_pengiriman" />
         </div>
 
         {{-- Tujuan Penyewaan (SHARED) --}}
@@ -142,6 +108,47 @@
                     class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400">
                     <path d="m6 9 6 6 6-6" />
                 </svg>
+            </div>
+        </div>
+        </div>
+
+        {{-- Baris 2 (SEWA TRUK): kiri input harga, kanan opsi usulan harga master + peringatan beda harga --}}
+        <div class="col-span-2 grid grid-cols-2 gap-5" x-show="pengajuan.jenis_pengajuan === 'sewa_truk'">
+            <div>
+                <label class="mb-1 block text-xs font-medium text-gray-600">
+                    Harga Sewa (Rp) <span class="text-red-500">*</span>
+                </label>
+                <input
+                    type="text"
+                    inputmode="numeric"
+                    :value="formatRibuan(pengajuan.harga_sewa)"
+                    @input="pengajuan.harga_sewa = parseRibuan($event.target.value)"
+                    :readonly="!!editId"
+                    placeholder="Contoh: 2.500.000"
+                    class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-avian-green focus:outline-none"
+                    :class="editId ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''">
+                {{-- Harga terkunci saat edit; perubahan harga lewat usulan harga master --}}
+                <p x-show="editId" class="mt-1 text-[11px] text-gray-500">Harga sewa tidak bisa diubah saat edit. Untuk mengubah harga, gunakan pengajuan perubahan harga.</p>
+                <p x-show="kendaraanTerpilih?.harga_master" x-cloak class="mt-1 text-[11px] text-gray-400">
+                    Harga master: <span x-text="'Rp ' + Number(kendaraanTerpilih?.harga_master || 0).toLocaleString('id-ID')"></span>
+                </p>
+            </div>
+            <div class="space-y-2 pt-5">
+                {{-- Usulan harga master (vendor + cabang + area): proses terpisah validasi WM → approval WH,
+                     tidak menahan pengajuan ini. --}}
+                <label x-show="!editId && !usulanTerkunci(pengajuan.usulan_status)" class="flex items-start gap-2 text-xs text-gray-500">
+                    <input type="checkbox" x-model="pengajuan.usulan_harga_sewa" class="mt-0.5 rounded border-gray-300 text-avian-green focus:ring-avian-green">
+                    <span>Ajukan juga sebagai harga master baru? Diproses terpisah (validasi WM → approval WH); kalau disetujui, harga sewa cabang + area ini di tabel master diganti harga di samping.</span>
+                </label>
+                <p x-show="!editId && kendaraanTerpilih?.harga_master && pengajuan.harga_sewa && Number(pengajuan.harga_sewa) !== Number(kendaraanTerpilih?.harga_master) && !pengajuan.usulan_harga_sewa" x-cloak
+                    class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-800">
+                    Harga sewa beda dari harga master
+                    (<span x-text="'Rp ' + Number(kendaraanTerpilih?.harga_master || 0).toLocaleString('id-ID')"></span>).
+                    Jelaskan alasannya di kolom Catatan (mis. ada tambahan toko), atau centang usulan di atas kalau harga master memang perlu diubah.
+                </p>
+                <p x-show="usulanTerkunci(pengajuan.usulan_status)" class="text-[11px] font-medium"
+                    :class="pengajuan.usulan_status === 'approved' ? 'text-green-600' : 'text-red-600'"
+                    x-text="'Usulan harga master sudah ' + (pengajuan.usulan_status === 'approved' ? 'disetujui' : 'ditolak') + ' — tidak bisa diubah'"></p>
             </div>
         </div>
 

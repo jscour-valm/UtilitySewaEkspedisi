@@ -1,0 +1,72 @@
+{{--
+    Isian data vendor: nama, badan usaha, kontak, identitas owner. Wajib di dalam x-data="formVendor(...)".
+    Dipakai di: daftar Perusahaan (tambah/ajukan vendor), detail perusahaan (edit profil), proses vendor baru.
+    Props: fotoLama (identitas yang sudah tersimpan), namaTerkunci (true = nama perusahaan hanya tampil).
+--}}
+@props(['fotoLama' => [], 'namaTerkunci' => false])
+
+<div class="space-y-4">
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div>
+            <x-ui.form-label required>Nama Perusahaan</x-ui.form-label>
+            <input type="text" x-model="form.nama_perusahaan" maxlength="255" @readonly($namaTerkunci)
+                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-avian-green focus:outline-none read-only:bg-gray-100 read-only:text-gray-500">
+            @if($namaTerkunci)
+                <p class="mt-1 text-xs text-gray-400">Nama perusahaan hanya bisa diubah DCI.</p>
+            @endif
+        </div>
+        <div>
+            <x-ui.form-label required>Badan Usaha</x-ui.form-label>
+            <select x-model="form.badan_usaha"
+                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-avian-green focus:outline-none">
+                <option value="">-- Pilih --</option>
+                @foreach (\App\Models\PerusahaanEkspedisi::BADAN_USAHA as $badanUsaha)
+                <option value="{{ $badanUsaha }}">{{ $badanUsaha }}</option>
+                @endforeach
+            </select>
+        </div>
+        <div>
+            <x-ui.form-label required>No. Telepon</x-ui.form-label>
+            <input type="text" x-model="form.no_telepon" maxlength="20"
+                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-avian-green focus:outline-none">
+        </div>
+        <div>
+            <x-ui.form-label required>Alamat Kantor</x-ui.form-label>
+            <input type="text" x-model="form.alamat_kantor"
+                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-avian-green focus:outline-none">
+        </div>
+    </div>
+
+    <div>
+        <x-ui.form-label :required="empty($fotoLama)">Upload Identitas Owner (KTP/NPWP/SIM) — Maks 3 File</x-ui.form-label>
+        <input type="file" accept="image/*" multiple x-ref="fileInput" @change="pilihFile($event)"
+            class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-avian-green focus:outline-none">
+        <p class="mt-2 text-xs text-gray-500">
+            Format: JPG, PNG, WebP. Ukuran maks 5MB per file.
+            @if(! empty($fotoLama))
+                Kosongkan kalau foto lama tetap dipakai; upload baru menggantikan semua foto lama.
+            @endif
+        </p>
+
+        @if(! empty($fotoLama))
+            <div x-show="previews.length === 0" class="mt-3 flex flex-wrap gap-2">
+                @foreach($fotoLama as $i => $src)
+                    <img src="{{ $src }}" alt="Identitas owner #{{ $i + 1 }}"
+                        class="h-20 w-20 cursor-zoom-in rounded-lg border border-gray-200 object-cover hover:opacity-80"
+                        @click="openLightbox(@js($fotoLama), {{ $i }})">
+                @endforeach
+            </div>
+        @endif
+
+        <div x-show="previews.length > 0" class="mt-3 flex flex-wrap gap-2">
+            <template x-for="(preview, i) in previews" :key="i">
+                <div class="relative">
+                    <img :src="preview" class="h-20 w-20 cursor-pointer rounded-lg border border-gray-200 object-cover hover:opacity-80"
+                        @click="openLightbox(previews, i)">
+                    <button type="button" @click="hapusFile(i)"
+                        class="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs font-bold text-white hover:bg-red-600">×</button>
+                </div>
+            </template>
+        </div>
+    </div>
+</div>

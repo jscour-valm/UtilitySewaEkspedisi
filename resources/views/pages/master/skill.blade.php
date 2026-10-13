@@ -65,7 +65,7 @@
             </table>
         </div>
 
-        <div class="mt-4">{{ $rows->links() }}</div>
+        <x-ui.pagination-links :paginator="$rows" />
     </div>
 
     {{-- Modal tambah / ganti nama --}}
@@ -76,7 +76,7 @@
             <p class="mb-4 mt-1 text-sm text-gray-500" x-show="idEdit">Nama area berlaku di semua cabang yang memakainya.</p>
             <div class="space-y-3">
                 <div x-show="!idEdit">
-                    <x-form-label required>Cabang</x-form-label>
+                    <x-ui.form-label required>Cabang</x-ui.form-label>
                     <select x-model="form.cabang_code"
                         class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-avian-green focus:outline-none">
                         <option value="">-- Pilih --</option>
@@ -86,7 +86,7 @@
                     </select>
                 </div>
                 <div>
-                    <x-form-label required>Nama Area</x-form-label>
+                    <x-ui.form-label required>Nama Area</x-ui.form-label>
                     <input type="text" x-model="form.nama_skill" maxlength="100" @keydown.enter.prevent="simpan()"
                         class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm uppercase focus:border-avian-green focus:outline-none">
                 </div>

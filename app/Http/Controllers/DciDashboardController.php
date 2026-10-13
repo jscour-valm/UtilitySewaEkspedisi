@@ -10,7 +10,7 @@ class DciDashboardController extends Controller
     /**
      * Dashboard DCI — read-only, lintas semua cabang (DCI global access,
      * lihat App\Models\User::isGlobalAccess()). Cuma ringkasan angka +
-     * tabel (datanya diambil sendiri sama <x-tabel-pengajuan>, otomatis
+     * tabel (datanya diambil sendiri sama <x-dashboard.tabel-pengajuan>, otomatis
      * scope ke semua cabang buat role global-access) — nggak butuh
      * eager-load kendaraan/perusahaan per baris di sini kayak
      * WmDashboardController (yang punya bug laten null-pointer buat

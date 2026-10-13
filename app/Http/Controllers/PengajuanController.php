@@ -1037,11 +1037,6 @@ class PengajuanController extends Controller
             abort(403);
         }
 
-        // KA (KaAdmin) view-only: cuma boleh lihat pengajuan yang sudah approved
-        if (auth()->user()->userUtility?->role === 'KA' && strtolower($pengajuan->status_pengajuan) !== 'approved') {
-            abort(403);
-        }
-
         $timeline = collect($pengajuan->approvalLogs)->map(function ($log) {
             return [
                 'type' => 'approval',
@@ -1081,7 +1076,7 @@ class PengajuanController extends Controller
         $timeline = $timeline->sortBy('decided_at')->values();
 
         $rasioSewaSetting = RasioSewa::aktif();
-        $ambangRasio = $rasioSewaSetting ? $rasioSewaSetting->persentase_maksimal : 2.5;
+        $ambangRasio = $rasioSewaSetting ? $rasioSewaSetting->persentase_maksimal : RasioSewa::BATAS_DEFAULT;
 
         return view('pages.pengajuan.detailPengajuan', [
             'pengajuan' => $pengajuan,
@@ -1163,7 +1158,7 @@ class PengajuanController extends Controller
     {
         $request->validate([
             'nama_perusahaan' => 'required|string|max:255|unique:sqlsrv.dbo.sesi_perusahaan_ekspedisi,nama_perusahaan',
-            'badan_usaha' => 'required|in:PT,CV,UD,Perseorangan',
+            'badan_usaha' => 'required|in:'.implode(',', PerusahaanEkspedisi::BADAN_USAHA),
             'no_telepon' => 'required|string|max:20',
             'alamat_kantor' => 'required|string',
             'identitas_owner' => 'required|array|min:1|max:3',
@@ -1245,7 +1240,7 @@ class PengajuanController extends Controller
 
         $data = $request->validate([
             'nama_perusahaan' => 'nullable|string|max:255|unique:sqlsrv.dbo.sesi_perusahaan_ekspedisi,nama_perusahaan,'.$id.',id_perusahaan',
-            'badan_usaha' => 'required|in:PT,CV,UD,Perseorangan',
+            'badan_usaha' => 'required|in:'.implode(',', PerusahaanEkspedisi::BADAN_USAHA),
             'no_telepon' => 'required|string|max:20',
             'alamat_kantor' => 'required|string',
             'identitas_owner_keep' => 'nullable|array',
@@ -1411,7 +1406,7 @@ class PengajuanController extends Controller
      */
     private function hitungAlurApproval(string $jenisPengajuan, float $rasioSewa, string $tujuanPenyewaan): string
     {
-        $rasioMaks = RasioSewa::aktif()?->persentase_maksimal ?? 2.5;
+        $rasioMaks = RasioSewa::aktif()?->persentase_maksimal ?? RasioSewa::BATAS_DEFAULT;
 
         return AturanAlur::alurUntuk($jenisPengajuan, $tujuanPenyewaan, $rasioSewa > $rasioMaks);
     }

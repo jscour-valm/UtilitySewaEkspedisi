@@ -1,17 +1,18 @@
 @extends('layouts.app')
 
 @section('title', 'Dashboard DCI')
+@section('judul_halaman', 'Dashboard')
 
 @section('content')
 <div class="space-y-4">
-<x-tab-dashboard :filter="true">
+<x-dashboard.tab :filter="true">
 
     {{-- Summary Cards — read-only, klik buat filter tabel di bawah --}}
     <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
         <div class="stat-filter-card grid cursor-pointer rounded-xl transition ring-2 ring-transparent
             hover:ring-avian-green/40 focus-visible:ring-avian-green"
             data-status-filter="all" role="button" tabindex="0">
-            <x-stat-card
+            <x-ui.stat-card
                 label="Total Pengajuan"
                 :count="$countTotal"
                 subtitle="Semua cabang, semua status"
@@ -22,7 +23,7 @@
         <div class="stat-filter-card grid cursor-pointer rounded-xl transition ring-2 ring-transparent
             hover:ring-avian-green/40 focus-visible:ring-avian-green"
             data-status-filter="pending" role="button" tabindex="0">
-            <x-stat-card
+            <x-ui.stat-card
                 label="Pending"
                 :count="$countPending"
                 subtitle="Menunggu approval"
@@ -33,7 +34,7 @@
         <div class="stat-filter-card grid cursor-pointer rounded-xl transition ring-2 ring-transparent
             hover:ring-avian-green/40 focus-visible:ring-avian-green"
             data-status-filter="approved" role="button" tabindex="0">
-            <x-stat-card
+            <x-ui.stat-card
                 label="Approved"
                 :count="$countApproved"
                 subtitle="Pengajuan disetujui"
@@ -44,7 +45,7 @@
         <div class="stat-filter-card grid cursor-pointer rounded-xl transition ring-2 ring-transparent
             hover:ring-avian-green/40 focus-visible:ring-avian-green"
             data-status-filter="rejected" role="button" tabindex="0">
-            <x-stat-card
+            <x-ui.stat-card
                 label="Rejected"
                 :count="$countRejected"
                 subtitle="Pengajuan ditolak"
@@ -55,7 +56,7 @@
         <div class="stat-filter-card grid cursor-pointer rounded-xl transition ring-2 ring-transparent
             hover:ring-avian-green/40 focus-visible:ring-avian-green"
             data-kategori-filter="over_threshold" role="button" tabindex="0">
-            <x-stat-card
+            <x-ui.stat-card
                 label="Over Threshold"
                 :count="$countOverThreshold"
                 subtitle="Rasio sewa / PAC di atas ambang"
@@ -74,11 +75,11 @@
         </div>
 
         <div class="p-6">
-            <x-tabel-pengajuan mode="dashboard" :limit="0" />
+            <x-dashboard.tabel-pengajuan mode="dashboard" :limit="0" />
         </div>
     </div>
 
-</x-tab-dashboard>
+</x-dashboard.tab>
 </div>
 
 <script>

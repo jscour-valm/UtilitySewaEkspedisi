@@ -3,7 +3,7 @@
 @section('title', 'Jenis Biaya Tambahan')
 
 @section('content')
-<x-crud-simple-master
+<x-master.crud-simple
     :bolehKelola="auth()->user()?->userUtility?->role === 'DCI'"
     title="Daftar Jenis Biaya"
     description="Master referensi jenis biaya tambahan — dipakai KG pas nambahin biaya tambahan di pengajuan."

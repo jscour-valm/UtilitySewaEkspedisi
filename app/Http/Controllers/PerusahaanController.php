@@ -37,11 +37,6 @@ class PerusahaanController extends Controller
 
     private const PER_PAGE = 25;
 
-    // Enum kolom `badan_usaha` di migration sesi_perusahaan_ekspedisi, minus '-' (placeholder
-    // "belum diisi" dari impor CSV) — facet filter selalu nunjukin semua nilai ini, bukan cuma
-    // yang kebetulan ada di data sekarang.
-    private const BADAN_USAHA_OPTIONS = ['PT', 'CV', 'UD', 'Perseorangan'];
-
     /** Role yang boleh menambah vendor (langsung aktif), edit profil vendor, tambah/edit unit kendaraan. */
     public const ROLE_KELOLA_MASTER = ['WM', 'WC', 'WH', 'DCI'];
 
@@ -86,7 +81,7 @@ class PerusahaanController extends Controller
             // Filter KG: cabang dikunci ke cabang sendiri (dipaksa di indexSemua(), tidak
             // ditampilkan), tanpa Area Kirim. Isinya Badan Usaha, range Harga Sewa, Jenis Barang
             // + range Harga per Unit — batas slider dihitung dari cabang sendiri.
-            $badanUsahaOptions = collect(self::BADAN_USAHA_OPTIONS)->map(fn ($b) => ['value' => $b, 'label' => $b])->all();
+            $badanUsahaOptions = collect(PerusahaanEkspedisi::BADAN_USAHA)->map(fn ($b) => ['value' => $b, 'label' => $b])->all();
             $jenisBarangOptions = JenisBarangKiriman::where('flag', true)->orderBy('nama_barang')->get(['id_jenis_barang', 'nama_barang']);
             $barangOptions = $jenisBarangOptions->map(fn ($jb) => ['value' => (string) $jb->id_jenis_barang, 'label' => $jb->nama_barang])->all();
 
@@ -139,7 +134,7 @@ class PerusahaanController extends Controller
     /**
      * Fragment HTML pill Area/Skill (dipakai ulang di render awal modal DAN endpoint AJAX
      * `perusahaan.facet.skill-options`), supaya opsi selalu ikut cabang yang lagi dicentang
-     * user TANPA nunggu klik "Terapkan" — lihat script di pill-filter-modal.blade.php.
+     * user TANPA nunggu klik "Terapkan" — lihat script di ui/pill-filter-modal.blade.php.
      */
     public function skillOptions(Request $request)
     {
@@ -154,7 +149,7 @@ class PerusahaanController extends Controller
 
     /**
      * Proyeksi "dashboard" dari tabel Perusahaan (tab Semua) — 5 data tercocok by
-     * search, tanpa facet/pagination. Dipakai dashboard KG lewat `<x-perusahaan-dashboard-preview>`.
+     * search, tanpa facet/pagination. Dipakai dashboard KG lewat `<x-dashboard.preview-perusahaan>`.
      */
     public function preview(Request $request)
     {
@@ -858,12 +853,12 @@ class PerusahaanController extends Controller
         $skill = $this->skillFacetOptions($selectedCabang);
 
         // Enum tetap (bukan query distinct()) — selalu semua nilai, walau datanya kosong.
-        $badanUsaha = collect(self::BADAN_USAHA_OPTIONS)->map(fn ($b) => ['value' => $b, 'label' => $b])->all();
+        $badanUsaha = collect(PerusahaanEkspedisi::BADAN_USAHA)->map(fn ($b) => ['value' => $b, 'label' => $b])->all();
 
         return [
             ['key' => 'cabang',      'label' => 'Cabang',      'options' => $cabang,      'count' => count($cabang)],
             // 'requires' => 'cabang' — starting point render pertama (no-JS fallback); interaktivitas
-            // instan tanpa reload ditangani script di pill-filter-modal.blade.php via endpoint AJAX.
+            // instan tanpa reload ditangani script di ui/pill-filter-modal.blade.php via endpoint AJAX.
             ['key' => 'skill',       'label' => 'Area Kirim',  'options' => $skill,       'count' => count($skill), 'requires' => 'cabang'],
             ['key' => 'badan_usaha', 'label' => 'Badan Usaha', 'options' => $badanUsaha,  'count' => count($badanUsaha)],
         ];

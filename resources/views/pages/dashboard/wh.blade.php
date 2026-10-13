@@ -1,13 +1,14 @@
 @extends('layouts.app')
 
 @section('title', 'Dashboard WH')
+@section('judul_halaman', 'Dashboard')
 
 @section('content')
 <div class="space-y-4">
-<x-tab-dashboard :filter="true">
+<x-dashboard.tab :filter="true">
 
     {{-- Summary Cards (Stat Cards) - Clickable filters --}}
-    <x-dashboard-stat-filters
+    <x-dashboard.stat-filters
         :countTotal="$countTotal"
         :countPending="$countPending"
         :countApproved="$countApproved"
@@ -29,11 +30,11 @@
 
         <div class="p-6">
             {{-- mode=wh: lintas cabang, tanpa kolom KaGud (search sudah di dalam komponen) --}}
-            <x-tabel-pengajuan mode="wh" :limit="0" />
+            <x-dashboard.tabel-pengajuan mode="wh" :limit="0" />
         </div>
     </div>
 
-</x-tab-dashboard>
+</x-dashboard.tab>
 </div>
 
 @endsection

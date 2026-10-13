@@ -670,7 +670,7 @@ Alpine.data('pengajuanSewa', () => ({
                     alamat_kantor:   params.get('alamat_kantor') ?? '',
                 }
                 // Perusahaan ini belum tentu ada di perusahaanList (di-fetch di awal init(), sebelum
-                // blok ini jalan) — push manual biar <x-tabel-perusahaan> di sub-step "Perusahaan"
+                // blok ini jalan) — push manual biar <x-pengajuan.tabel-perusahaan> di sub-step "Perusahaan"
                 // bisa nge-render & nge-highlight barisnya (sama pola kayak di loadDraft()).
                 if (!this.perusahaanList.some(p => String(p.id_perusahaan) === String(this.perusahaanTerpilih.id_perusahaan))) {
                     this.perusahaanList.push(this.perusahaanTerpilih)
@@ -862,7 +862,7 @@ Alpine.data('pengajuanSewa', () => ({
     },
 
     // Server membatasi hasil ke 5 data paling cocok, jadi `searchPerusahaan` (input search
-    // di tabel-perusahaan.blade.php) dikirim sebagai query param `search`, bukan difilter di client.
+    // di pengajuan/tabel-perusahaan.blade.php) dikirim sebagai query param `search`, bukan difilter di client.
     async fetchPerusahaanList() {
         this.loadingPerusahaan = true
         try {
@@ -1849,6 +1849,73 @@ Alpine.data('pengajuanSewa', () => ({
         }
     },
 }))
+
+// Input 1 tanggal dengan popover kalender (components/input-tanggal). `nilai` = 'YYYY-MM-DD' atau '',
+// diikat ke state induk lewat x-modelable.
+Alpine.data('inputTanggal', () => {
+    const BULAN = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des']
+    const BULAN_PANJANG = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember']
+    const keStr = (d) => d.toLocaleDateString('en-CA')
+    const hariIni = keStr(new Date())
+    const valid = (t) => /^\d{4}-\d{2}-\d{2}$/.test(t || '')
+
+    return {
+        nilai: '',
+        hariIni,
+        buka: false,
+        tahun: 0,
+        bulan: 0,
+
+        toggle() {
+            if (!this.buka) {
+                const acuan = valid(this.nilai) ? this.nilai : hariIni
+                this.tahun = Number(acuan.slice(0, 4))
+                this.bulan = Number(acuan.slice(5, 7)) - 1
+            }
+            this.buka = !this.buka
+        },
+
+        geserBulan(n) {
+            const d = new Date(this.tahun, this.bulan + n, 1)
+            this.tahun = d.getFullYear()
+            this.bulan = d.getMonth()
+        },
+
+        get judulBulan() {
+            return `${BULAN_PANJANG[this.bulan]} ${this.tahun}`
+        },
+
+        get label() {
+            if (!valid(this.nilai)) return ''
+            const [y, m, d] = this.nilai.split('-').map(Number)
+            return `${d} ${BULAN[m - 1]} ${y}`
+        },
+
+        // Minggu penuh, Senin di kolom pertama; tanggal bulan tetangga ikut tampil (luar: true).
+        get hariBulan() {
+            const mulai = -((new Date(this.tahun, this.bulan, 1).getDay() + 6) % 7)
+            const jumlah = new Date(this.tahun, this.bulan + 1, 0).getDate()
+            const total = Math.ceil((jumlah - mulai) / 7) * 7
+            const sel = []
+            for (let i = 0; i < total; i++) {
+                const d = new Date(this.tahun, this.bulan, mulai + i + 1)
+                sel.push({ tgl: keStr(d), hari: d.getDate(), luar: d.getMonth() !== this.bulan })
+            }
+            return sel
+        },
+
+        pilih(t) {
+            this.nilai = t
+            this.buka = false
+        },
+
+        kelasTanggal(sel) {
+            if (sel.tgl === this.nilai) return 'bg-avian-green font-semibold text-white'
+            if (sel.luar) return 'text-gray-400 hover:bg-gray-100'
+            return sel.tgl === hariIni ? 'font-semibold text-avian-green ring-1 ring-avian-green/40 hover:bg-gray-100' : 'text-gray-700 hover:bg-gray-100'
+        },
+    }
+})
 
 // Filter tanggal dashboard: rentang maks `maksHari`, tanggal tidak boleh melewati hari ini.
 // Filter periode dashboard (components/filter-tanggal-dashboard). Tanggal = string 'YYYY-MM-DD'.

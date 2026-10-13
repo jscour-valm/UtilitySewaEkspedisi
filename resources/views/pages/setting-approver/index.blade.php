@@ -4,8 +4,8 @@
 
 @section('content')
 <div class="flex flex-col gap-4 pb-2">
-    <x-alert-success />
-    <x-alert-error />
+    <x-ui.alert-success />
+    <x-ui.alert-error />
 
     <div class="rounded-xl bg-white shadow-sm p-6">
         <h1 class="text-2xl font-bold text-gray-900 mb-1">Setting Approver</h1>
@@ -147,7 +147,7 @@
                 @endforelse
             </table>
         </div>
-        <x-pagination-links :paginator="$cabangs" />
+        <x-ui.pagination-links :paginator="$cabangs" />
     </div>
 </div>
 @endsection

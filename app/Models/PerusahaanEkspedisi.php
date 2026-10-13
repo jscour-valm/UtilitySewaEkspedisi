@@ -17,6 +17,12 @@ class PerusahaanEkspedisi extends Model
     use HasFlag;
     use HasStatusPersetujuan;
 
+    /**
+     * Pilihan badan usaha untuk form, validasi, dan facet filter. Sama dengan enum kolom
+     * `badan_usaha` minus '-' (placeholder "belum diisi" dari impor CSV).
+     */
+    public const BADAN_USAHA = ['PT', 'CV', 'UD', 'Perseorangan'];
+
     protected $connection = 'sqlsrv';
 
     protected $table = 'sesi_perusahaan_ekspedisi';

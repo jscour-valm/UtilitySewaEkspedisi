@@ -9,6 +9,7 @@ use App\Http\Controllers\Concerns\ManagesVendorMasterData;
 use App\Models\PengajuanSewa;
 use App\Models\PerusahaanEkspedisi;
 use App\Models\UsulanHarga;
+use App\Services\DaftarPersetujuanMaster;
 use App\Services\PersetujuanMasterService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -29,7 +30,7 @@ class PersetujuanMasterController extends Controller
 
         if ($jenis === 'vendor') {
             $vendor = PerusahaanEkspedisi::withInactive()->findOrFail($id);
-            if (in_array($role, ['KG', 'WM', 'WH', 'DCI'], true) && $this->bolehAksesProses($vendor->id_cabang_pengaju)) {
+            if (in_array($role, DaftarPersetujuanMaster::PERAN, true) && $this->bolehAksesProses($vendor->id_cabang_pengaju)) {
                 return redirect()->route('persetujuan.vendor.show', $id);
             }
 
@@ -39,7 +40,7 @@ class PersetujuanMasterController extends Controller
         }
 
         $usulan = UsulanHarga::withInactive()->findOrFail($id);
-        if (in_array($role, ['KG', 'WM', 'WH', 'DCI'], true) && $this->bolehAksesProses($usulan->id_cabang_pengaju)) {
+        if (in_array($role, DaftarPersetujuanMaster::PERAN, true) && $this->bolehAksesProses($usulan->id_cabang_pengaju)) {
             return redirect()->route('persetujuan.harga.show', $id);
         }
 
@@ -115,7 +116,7 @@ class PersetujuanMasterController extends Controller
 
         $data = $request->validate([
             'nama_perusahaan' => 'required|string|max:255|unique:sqlsrv.dbo.sesi_perusahaan_ekspedisi,nama_perusahaan,'.$id.',id_perusahaan',
-            'badan_usaha' => 'required|in:PT,CV,UD,Perseorangan',
+            'badan_usaha' => 'required|in:'.implode(',', PerusahaanEkspedisi::BADAN_USAHA),
             'no_telepon' => 'required|string|max:20',
             'alamat_kantor' => 'required|string',
             'identitas_owner' => 'nullable|array|max:3',

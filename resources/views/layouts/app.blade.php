@@ -33,10 +33,11 @@
         }"
         x-init="$watch('sidebarOpen', val => localStorage.setItem('sidebarOpen', val))">
         <div class="flex h-screen overflow-hidden">
-            @include('components.sidebar')
+            @include('components.layout.sidebar')
             <div class="flex flex-1 flex-col min-w-0">
+                {{-- Bar atas hanya di halaman detail (controller mengirim $breadcrumb): garis warna status + tombol kembali, judul, badge --}}
+                @isset($breadcrumb)
                 <header class="bg-white border-b border-gray-200">
-                    {{-- Status-aware strip (shows only on pengajuan detail pages with status) --}}
                     @if(isset($breadcrumb['status']))
                         @php
                             $stripColor = match($breadcrumb['status']) {
@@ -49,17 +50,22 @@
                         @endphp
                         <div class="h-1 {{ $stripColor }}"></div>
                     @endif
-                    <div class="h-16 flex items-center justify-between px-6">
-                        @include('components.navbar')
+                    <div class="flex h-14 items-center gap-3 px-6">
+                        @include('components.layout.bar-kembali')
                     </div>
                 </header>
+                @endisset
                 <main class="flex-1 overflow-y-auto p-4">
+                    {{-- Judul kecil untuk halaman yang kontennya tidak punya judul sendiri (mis. dashboard) --}}
+                    @hasSection('judul_halaman')
+                        <h1 class="mb-3 px-1 text-2xl font-bold text-gray-900">@yield('judul_halaman')</h1>
+                    @endif
                     @yield('content')
                 </main>
             </div>
         </div>
 
-        <x-photo-lightbox />
+        <x-layout.photo-lightbox />
 
         {{-- Dialihkan dari halaman yang tidak boleh dibuka (lihat bootstrap/app.php) --}}
         @if(session('akses_ditolak'))

@@ -14,6 +14,7 @@ use App\Http\Controllers\PengajuanController;
 use App\Http\Controllers\PengaturanController;
 use App\Http\Controllers\PersetujuanMasterController;
 use App\Http\Controllers\PerusahaanController;
+use App\Http\Controllers\RiwayatPengajuanController;
 use App\Http\Controllers\TarifKirimanRutinController;
 use App\Http\Controllers\WcDashboardController;
 use App\Http\Controllers\WhDashboardController;
@@ -33,6 +34,7 @@ Route::get('/', [AuthController::class, 'beranda'])->name('beranda');
 Route::middleware(['auth', 'role:KG'])->group(function () {
     Route::get('/dashboard/kg', fn () => view('pages.dashboard.kg'))->name('dashboard.kg')->middleware('query.sesi');
     Route::get('/pengajuan', fn () => view('pages.pengajuan.index'))->name('pengajuan.kg');
+    Route::redirect('/history', '/daftar-pengajuan');
     Route::get('/pengajuan/{id}/edit', [PengajuanController::class, 'edit'])->name('pengajuan.edit');
 
     // API endpoints untuk pengajuan
@@ -114,6 +116,9 @@ Route::middleware(['auth', 'role:WM,WC,WH'])->group(function () {
 });
 
 Route::middleware(['auth', 'role:KG,KA,WM,WH,WC,DCI'])->group(function () {
+    // Semua pengajuan sewa sesuai cakupan cabang peran (tanpa batas periode dashboard).
+    Route::get('/daftar-pengajuan', [RiwayatPengajuanController::class, 'index'])->name('pengajuan.daftar');
+
     Route::get('/perusahaan', [PerusahaanController::class, 'index'])->name('perusahaan.index');
     Route::get('/perusahaan/facet/skill-options', [PerusahaanController::class, 'skillOptions'])->name('perusahaan.facet.skill-options');
     Route::get('/api/perusahaan/preview', [PerusahaanController::class, 'preview'])->name('perusahaan.preview');

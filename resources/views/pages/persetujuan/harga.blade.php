@@ -7,11 +7,7 @@
     use App\Helpers\FormatHelper;
 
     $status = $usulan->status;
-    $warnaStatus = match ($status) {
-        'approved' => 'bg-avian-green-light text-avian-green',
-        'rejected' => 'bg-red-50 text-red-600',
-        default => 'bg-amber-50 text-amber-700',
-    };
+    $warnaStatus = $usulan->warnaStatusPersetujuan();
     $namaVendor = $vendor ? trim(($vendor->badan_usaha && $vendor->badan_usaha !== '-' ? $vendor->badan_usaha . ' ' : '') . $vendor->nama_perusahaan) : '-';
     $isRutin = $usulan->jenis === 'pengiriman_rutin';
     $lama = $usulan->harga_lama !== null ? (float) $usulan->harga_lama : null;

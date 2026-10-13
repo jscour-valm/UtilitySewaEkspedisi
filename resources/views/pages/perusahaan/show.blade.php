@@ -20,7 +20,7 @@
 @endphp
 
 <div class="space-y-4 pb-4">
-    <x-alert-success />
+    <x-ui.alert-success />
 
     @if($perusahaan->status_approval && ! $perusahaan->sudahDisetujui())
         <div class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
@@ -28,7 +28,7 @@
                 Vendor baru — <strong>{{ $perusahaan->labelStatusPersetujuan() }}</strong>.
                 Pengajuan sewa yang memakai vendor ini baru bisa divalidasi WM setelah vendor disetujui WH.
             </p>
-            @if(in_array($role, ['KG', 'WM', 'WH', 'DCI'], true))
+            @if(in_array($role, \App\Services\DaftarPersetujuanMaster::PERAN, true))
                 <a href="{{ route('persetujuan.vendor.show', $perusahaan->id_perusahaan) }}"
                     class="font-semibold text-amber-800 underline hover:text-amber-950">Lihat proses vendor →</a>
             @endif
@@ -199,7 +199,7 @@
                             <td class="px-3.5 py-2.5 font-medium text-gray-800">{{ $t->nama_skill }}</td>
                             <td class="px-3.5 py-2.5 text-right font-semibold tabular-nums text-gray-900">
                                 {{ \App\Helpers\FormatHelper::rupiah($t->harga_sewa) }}
-                                <x-penanda-usulan-harga :usulan="$usulanRow" />
+                                <x-perusahaan.penanda-usulan-harga :usulan="$usulanRow" />
                             </td>
                             <td class="px-3.5 py-2.5 text-gray-500">{{ $diupdate ? \Carbon\Carbon::parse($diupdate)->translatedFormat('d M Y') : '—' }}</td>
                                 <td class="px-3.5 py-2.5 text-right whitespace-nowrap">
@@ -253,7 +253,7 @@
                             @foreach($jenisBarangCols as $jb)
                                 <td class="px-3.5 py-2.5 text-right tabular-nums text-gray-700">
                                     {{ isset($hargaByVs[$t->id_vendor_skill][$jb->id_jenis_barang]) ? number_format($hargaByVs[$t->id_vendor_skill][$jb->id_jenis_barang], 0, ',', '.') : '—' }}
-                                    <x-penanda-usulan-harga :usulan="$usulanBerjalan->get('pengiriman_rutin|' . $t->cabang_code . '|' . $t->id_skill . '|' . $jb->id_jenis_barang)" />
+                                    <x-perusahaan.penanda-usulan-harga :usulan="$usulanBerjalan->get('pengiriman_rutin|' . $t->cabang_code . '|' . $t->id_skill . '|' . $jb->id_jenis_barang)" />
                                 </td>
                             @endforeach
                                 <td class="px-3.5 py-2.5 text-right whitespace-nowrap">
@@ -301,7 +301,7 @@
     @endif
 
     @if($isKg)
-        <x-modal-usulan-harga :perusahaan="$perusahaan" :jenis-barang="$jenisBarangSemua" />
+        <x-perusahaan.modal-usulan-harga :perusahaan="$perusahaan" :jenis-barang="$jenisBarangSemua" />
     @endif
 
     @if($bolehKelola)
@@ -312,7 +312,7 @@
                 <div class="relative z-10 max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl"
                     x-data="formVendor(@js(route('pengajuan.update-vendor', $perusahaan->id_perusahaan)), @js($perusahaan->only(['nama_perusahaan', 'badan_usaha', 'no_telepon', 'alamat_kantor'])))">
                     <h3 class="mb-4 text-[17px] font-bold text-gray-900">Edit Profil Vendor</h3>
-                    <x-form-vendor :foto-lama="$docSrcs->all()" :nama-terkunci="! $isDci" />
+                    <x-perusahaan.form-vendor :foto-lama="$docSrcs->all()" :nama-terkunci="! $isDci" />
                     <div class="mt-5 flex justify-end gap-3">
                         <button type="button" @click="buka = false"
                             class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50">Batal</button>

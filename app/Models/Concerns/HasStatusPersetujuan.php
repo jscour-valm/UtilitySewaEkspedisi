@@ -2,6 +2,8 @@
 
 namespace App\Models\Concerns;
 
+use App\Models\PengajuanSewa;
+
 /**
  * Status proses persetujuan master (vendor baru, usulan harga): KG mengajukan →
  * WM memvalidasi → WH menyetujui. Penolakan oleh WM atau WH langsung final.
@@ -58,6 +60,16 @@ trait HasStatusPersetujuan
             self::STATUS_APPROVED => 'Disetujui',
             self::STATUS_REJECTED => 'Ditolak',
             default => '-',
+        };
+    }
+
+    /** Kelas Tailwind badge status persetujuan. Status menunggu = warna badge Pending pengajuan sewa. */
+    public function warnaStatusPersetujuan(): string
+    {
+        return match ($this->statusPersetujuan()) {
+            self::STATUS_APPROVED => 'bg-avian-green-light text-avian-green',
+            self::STATUS_REJECTED => 'bg-red-50 text-red-600',
+            default => PengajuanSewa::BADGE_STATUS['pending']['kelas'],
         };
     }
 

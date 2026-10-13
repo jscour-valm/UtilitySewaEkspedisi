@@ -68,7 +68,7 @@
         {{-- Tabel: Pilih perusahaan existing --}}
         <div x-show="kendaraanBaru.perusahaan_mode === 'pilih'">
             <div class="mb-3">
-                <x-tabel-perusahaan />
+                <x-pengajuan.tabel-perusahaan />
             </div>
 
             {{-- Tombol Lanjut ke Kendaraan --}}
@@ -106,28 +106,27 @@
 
             <div class="grid grid-cols-2 gap-4">
                 <div>
-                    <x-form-label required>Nama Perusahaan</x-form-label>
+                    <x-ui.form-label required>Nama Perusahaan</x-ui.form-label>
                     <input type="text" x-model="kendaraanBaru.nama_perusahaan"
                         class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-avian-green focus:outline-none">
                 </div>
                 <div>
-                    <x-form-label required>Badan Usaha</x-form-label>
+                    <x-ui.form-label required>Badan Usaha</x-ui.form-label>
                     <select x-model="kendaraanBaru.badan_usaha"
                         class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-avian-green focus:outline-none">
                         <option value="">-- Pilih --</option>
-                        <option value="PT">PT</option>
-                        <option value="CV">CV</option>
-                        <option value="UD">UD</option>
-                        <option value="Perseorangan">Perseorangan</option>
+                        @foreach (\App\Models\PerusahaanEkspedisi::BADAN_USAHA as $badanUsaha)
+                        <option value="{{ $badanUsaha }}">{{ $badanUsaha }}</option>
+                        @endforeach
                     </select>
                 </div>
                 <div>
-                    <x-form-label required>No. Telepon</x-form-label>
+                    <x-ui.form-label required>No. Telepon</x-ui.form-label>
                     <input type="text" x-model="kendaraanBaru.no_telepon"
                         class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-avian-green focus:outline-none">
                 </div>
                 <div>
-                    <x-form-label required>Alamat Kantor</x-form-label>
+                    <x-ui.form-label required>Alamat Kantor</x-ui.form-label>
                     <input type="text" x-model="kendaraanBaru.alamat_kantor"
                         class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-avian-green focus:outline-none">
                 </div>
@@ -135,7 +134,7 @@
 
             {{-- Identitas Owner Upload --}}
             <div>
-                <x-form-label required>Upload Identitas Owner (KTP/NPWP/SIM) — Max 3 File</x-form-label>
+                <x-ui.form-label required>Upload Identitas Owner (KTP/NPWP/SIM) — Max 3 File</x-ui.form-label>
                 <input type="file" accept="image/*" multiple
                     x-ref="identitasOwnerInput"
                     @change="handleIdentitasOwnerUpload($event)"
@@ -320,7 +319,7 @@
                 {{-- Jenis Kendaraan & Plat Nomor & Muatan Maksimal --}}
                 <div class="grid grid-cols-3 gap-4">
                     <div>
-                        <x-form-label required>Jenis Kendaraan</x-form-label>
+                        <x-ui.form-label required>Jenis Kendaraan</x-ui.form-label>
                         <select x-model="kendaraanBaru.id_jenis_kendaraan"
                             @change="onJenisKendaraanChange(kendaraanBaru, $event.target.value)"
                             class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-avian-green focus:outline-none">
@@ -331,12 +330,12 @@
                         </select>
                     </div>
                     <div>
-                        <x-form-label>Plat Nomor</x-form-label>
+                        <x-ui.form-label>Plat Nomor</x-ui.form-label>
                         <input type="text" x-model="kendaraanBaru.plat_nomor_truk" placeholder="Cth: B 1234 XYZ"
                             class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-avian-green focus:outline-none">
                     </div>
                     <div>
-                        <x-form-label required>Muatan Maksimal (Ton)</x-form-label>
+                        <x-ui.form-label required>Muatan Maksimal (Ton)</x-ui.form-label>
                         {{-- Readonly: ke-lock otomatis dari master begitu Jenis Kendaraan dipilih
                         (onJenisKendaraanChange di atas), biar KaGud nggak bisa salah isi manual. --}}
                         <input type="number" x-model="kendaraanBaru.muatan_maksimal" step="0.01" min="0.01" readonly
@@ -347,7 +346,7 @@
 
                 {{-- Skill Selection (Multi-select) --}}
                 <div>
-                    <x-form-label required>Area/Skill Layanan</x-form-label>
+                    <x-ui.form-label required>Area/Skill Layanan</x-ui.form-label>
 
                     <div class="grid grid-cols-2 gap-4">
 

@@ -1,12 +1,13 @@
 @extends('layouts.app')
 
 @section('title', 'Dashboard WC')
+@section('judul_halaman', 'Dashboard')
 
 @section('content')
 <div class="space-y-4">
-    <x-filter-tanggal-dashboard />
+    <x-dashboard.filter-tanggal />
 
-    <x-dashboard-stat-filters
+    <x-dashboard.stat-filters
         :countTotal="$countTotal"
         :countPending="$countPending"
         :countApproved="$countApproved"
@@ -26,7 +27,7 @@
         </div>
 
         <div class="p-6">
-            <x-tabel-pengajuan mode="wc" :limit="0" />
+            <x-dashboard.tabel-pengajuan mode="wc" :limit="0" />
         </div>
     </div>
 

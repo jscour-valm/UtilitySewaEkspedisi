@@ -18,9 +18,6 @@ use Illuminate\Support\Facades\DB;
  */
 class NotifikasiPengajuanMail extends Mailable
 {
-    /** Tema markdown hijau: resources/views/vendor/mail/html/themes/hijau.css */
-    public $theme = 'hijau';
-
     public function __construct(
         public PengajuanSewa $pengajuan,
         public string $tipe,
@@ -86,7 +83,6 @@ class NotifikasiPengajuanMail extends Mailable
             'jumlah' => (float) $b->jumlah,
         ]);
         $totalBiayaTambahan = (float) $biaya->sum('jumlah');
-        $helper = $biaya->first(fn ($b) => stripos($b['nama'], 'helper') !== false);
 
         $kode = $p->id_cabang;
         [$judul, $intro] = match ($this->tipe) {
@@ -107,7 +103,7 @@ class NotifikasiPengajuanMail extends Mailable
         $rasioSetting = RasioSewa::aktif();
 
         return new Content(
-            markdown: 'emails.notifikasi-pengajuan',
+            view: 'emails.notifikasi-pengajuan',
             with: [
                 'judul' => $judul,
                 'intro' => $intro,
@@ -119,8 +115,7 @@ class NotifikasiPengajuanMail extends Mailable
                 'biaya' => $biaya,
                 'totalBiayaTambahan' => $totalBiayaTambahan,
                 'totalBiayaSewa' => (float) $p->harga_sewa + $totalBiayaTambahan,
-                'helper' => $helper,
-                'ambangRasio' => (float) ($rasioSetting?->persentase_maksimal ?? 2.5),
+                'ambangRasio' => (float) ($rasioSetting?->persentase_maksimal ?? RasioSewa::BATAS_DEFAULT),
                 'dokumen' => $this->dokumen,
                 'riwayat' => $p->approvalLogs->sortBy('decided_at')->values(),
             ],

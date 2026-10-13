@@ -11,7 +11,7 @@
 @endphp
 
 <div class="flex flex-col gap-4 pb-2">
-    <x-alert-success />
+    <x-ui.alert-success />
 
     <div class="rounded-xl bg-white shadow-sm p-6">
         <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -19,6 +19,19 @@
                 <h1 class="text-2xl font-bold text-gray-900">Perusahaan</h1>
                 <p class="text-sm text-gray-500">Vendor ekspedisi beserta tarif dan kendaraannya.</p>
             </div>
+            <div class="flex flex-wrap items-center gap-3">
+            {{-- KG tanpa tab (datanya sudah disempitkan ke cabang sendiri); role lain 3 tab. --}}
+            @unless($isKg)
+            <div class="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5 text-sm">
+                @foreach($tabs as $key => $label)
+                    <a href="{{ route('perusahaan.index', array_merge($tabQuery, $key === 'semua' ? [] : ['tab' => $key])) }}"
+                        class="rounded-md px-3.5 py-1.5 font-medium transition
+                        {{ $tab === $key ? 'bg-white text-avian-green shadow-sm' : 'text-gray-500 hover:text-gray-700' }}">
+                        {{ $label }}
+                    </a>
+                @endforeach
+            </div>
+            @endunless
             @if($isKg || $bolehKelola)
                 {{-- KG: vendor baru masuk proses validasi WM → approval WH. WM/WC/WH/DCI: langsung aktif di master. --}}
                 <div x-data="{ buka: false }" @keydown.escape.window="buka = false">
@@ -39,7 +52,7 @@
                                     Vendor langsung aktif di master. Unit kendaraan ditambahkan dari halaman detail vendor.
                                 @endif
                             </p>
-                            <x-form-vendor />
+                            <x-perusahaan.form-vendor />
                             <div class="mt-5 flex justify-end gap-3">
                                 <button type="button" @click="buka = false"
                                     class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50">Batal</button>
@@ -52,19 +65,7 @@
                     </div>
                 </div>
             @endif
-            {{-- KG: 1 halaman aja (nggak ada gunanya split 3 tab, datanya udah disempitkan
-                 ke cabang sendiri) — WM/WH/DCI tetap lihat switcher 3 tab. --}}
-            @unless($isKg)
-            <div class="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5 text-sm">
-                @foreach($tabs as $key => $label)
-                    <a href="{{ route('perusahaan.index', array_merge($tabQuery, $key === 'semua' ? [] : ['tab' => $key])) }}"
-                        class="rounded-md px-3.5 py-1.5 font-medium transition
-                        {{ $tab === $key ? 'bg-white text-avian-green shadow-sm' : 'text-gray-500 hover:text-gray-700' }}">
-                        {{ $label }}
-                    </a>
-                @endforeach
             </div>
-            @endunless
         </div>
 
         <form method="GET" class="mb-4 flex flex-wrap items-center gap-3">
@@ -89,7 +90,7 @@
                     </svg>
                 </button>
             </div>
-            <x-pill-filter-modal :facets="$facets" :ranges="$ranges" :skill-options-url="route('perusahaan.facet.skill-options')" />
+            <x-ui.pill-filter-modal :facets="$facets" :ranges="$ranges" :skill-options-url="route('perusahaan.facet.skill-options')" />
         </form>
 
         {{-- Penjelas level agregasi — tab "Semua" 1 baris = 1 vendor (ringkasan), tab Sewa
@@ -129,7 +130,7 @@
                         }
                     }"
                     @scroll.window.capture="if (hoverPop.open) repositionPop()">
-                <x-table-shell :width="$totalWidth" :fluid="true">
+                <x-ui.table-shell :width="$totalWidth" :fluid="true">
                     <colgroup>
                         <col style="width: {{ $widths['nama'] }}px">
                         <col style="width: {{ $widths['badan_usaha'] }}px">
@@ -143,21 +144,21 @@
                     </colgroup>
                     <thead>
                         <tr class="border-b border-gray-300 bg-gray-50 text-xs font-medium uppercase tracking-wide text-gray-500">
-                            <x-sortable-th col="nama" label="Perusahaan" :class="$stickyTh . ' border-r border-gray-200'" style="left: 0px" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort" orderParam="order" />
-                            <x-sortable-th col="badan_usaha" label="Badan Usaha" :class="$plainTh" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort" orderParam="order" />
+                            <x-ui.sortable-th col="nama" label="Perusahaan" :class="$stickyTh . ' border-r border-gray-200'" style="left: 0px" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort" orderParam="order" />
+                            <x-ui.sortable-th col="badan_usaha" label="Badan Usaha" :class="$plainTh" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort" orderParam="order" />
                             <th class="{{ $plainTh }} px-3 py-3 text-left whitespace-nowrap">Dokumen Identitas</th>
                             <th class="{{ $plainTh }} px-3 py-3 text-right whitespace-nowrap">Harga Sewa</th>
                             @foreach($jenisBarangCols as $col)
                                 <th class="{{ $plainTh }} px-3 py-3 text-right whitespace-nowrap" title="{{ $col['nama_barang'] }}">{{ $col['nama_barang'] }}</th>
                             @endforeach
-                            <x-sortable-th col="diperbarui" label="Diperbarui" :class="$plainTh" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort" orderParam="order" />
+                            <x-ui.sortable-th col="diperbarui" label="Diperbarui" :class="$plainTh" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort" orderParam="order" />
                             <th class="{{ $plainTh }} px-3 py-3 text-right whitespace-nowrap">Aksi</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-200">
                         @forelse($rows as $r)
                         <tr class="group hover:bg-gray-50 transition">
-                            <td class="sticky z-10 bg-white group-hover:bg-gray-50 px-3 py-3 font-medium text-gray-800 border-r border-gray-200 truncate" style="left: 0px" title="{{ $r->nama_perusahaan }}"><div class="truncate">{{ $r->nama_perusahaan }}</div><x-badge-vendor-baru :status="$r->status_approval ?? null" :id="$r->id_perusahaan" class="mt-1" /></td>
+                            <td class="sticky z-10 bg-white group-hover:bg-gray-50 px-3 py-3 font-medium text-gray-800 border-r border-gray-200 truncate" style="left: 0px" title="{{ $r->nama_perusahaan }}"><div class="truncate">{{ $r->nama_perusahaan }}</div><x-perusahaan.badge-vendor-baru :status="$r->status_approval ?? null" :id="$r->id_perusahaan" class="mt-1" /></td>
                             <td class="px-3 py-3 text-gray-600 truncate">{{ $r->badan_usaha ?: '—' }}</td>
                             <td class="px-3 py-3">
                                 @if(count($r->identitas_owner_src))
@@ -219,7 +220,7 @@
                         </tr>
                         @endforelse
                     </tbody>
-                </x-table-shell>
+                </x-ui.table-shell>
                 <template x-teleport="body">
                     <div x-show="hoverPop.open" x-cloak @mouseenter="hoverPop.open = true" @mouseleave="hidePop()"
                         class="fixed z-50 py-1" :style="hoverPop.pos + ';left:' + hoverPop.left + 'px'">
@@ -241,7 +242,7 @@
             @php
                 $widths = ['nama' => 280, 'badan_usaha' => 160, 'cakupan' => 170, 'tarif' => 190, 'kendaraan' => 120, 'diperbarui' => 130, 'aksi' => 90];
             @endphp
-            <x-table-shell :width="array_sum($widths)" :fluid="true">
+            <x-ui.table-shell :width="array_sum($widths)" :fluid="true">
                 <colgroup>
                     @foreach($widths as $w)
                         <col style="width: {{ $w }}px">
@@ -249,21 +250,21 @@
                 </colgroup>
                 <thead>
                     <tr class="border-b border-gray-300 bg-gray-50 text-xs font-medium uppercase tracking-wide text-gray-500">
-                        <x-sortable-th col="nama" label="Perusahaan" :class="$stickyTh . ' border-r border-gray-200'" style="left: 0px" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort" orderParam="order" />
-                        <x-sortable-th col="badan_usaha" label="Badan Usaha" :class="$plainTh" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort" orderParam="order" />
-                        <x-sortable-th col="cakupan" label="Cakupan" :class="$plainTh" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort" orderParam="order" />
+                        <x-ui.sortable-th col="nama" label="Perusahaan" :class="$stickyTh . ' border-r border-gray-200'" style="left: 0px" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort" orderParam="order" />
+                        <x-ui.sortable-th col="badan_usaha" label="Badan Usaha" :class="$plainTh" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort" orderParam="order" />
+                        <x-ui.sortable-th col="cakupan" label="Cakupan" :class="$plainTh" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort" orderParam="order" />
                         <th class="{{ $plainTh }} px-3 py-3 text-left whitespace-nowrap">Tarif</th>
-                        <x-sortable-th col="kendaraan" label="Kendaraan" :class="$plainTh" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort" orderParam="order" />
-                        <x-sortable-th col="diperbarui" label="Diperbarui" :class="$plainTh" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort" orderParam="order" />
+                        <x-ui.sortable-th col="kendaraan" label="Kendaraan" :class="$plainTh" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort" orderParam="order" />
+                        <x-ui.sortable-th col="diperbarui" label="Diperbarui" :class="$plainTh" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort" orderParam="order" />
                         <th class="{{ $plainTh }} px-3 py-3 text-right whitespace-nowrap">Aksi</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200">
                     @forelse($rows as $r)
                     <tr class="group hover:bg-gray-50 transition">
-                        <td class="sticky z-10 bg-white group-hover:bg-gray-50 px-3 py-3 font-medium text-gray-800 border-r border-gray-200 truncate" style="left: 0px" title="{{ $r->nama_perusahaan }}"><div class="truncate">{{ $r->nama_perusahaan }}</div><x-badge-vendor-baru :status="$r->status_approval ?? null" :id="$r->id_perusahaan" class="mt-1" /></td>
+                        <td class="sticky z-10 bg-white group-hover:bg-gray-50 px-3 py-3 font-medium text-gray-800 border-r border-gray-200 truncate" style="left: 0px" title="{{ $r->nama_perusahaan }}"><div class="truncate">{{ $r->nama_perusahaan }}</div><x-perusahaan.badge-vendor-baru :status="$r->status_approval ?? null" :id="$r->id_perusahaan" class="mt-1" /></td>
                         <td class="px-3 py-3 text-gray-600 truncate">{{ $r->badan_usaha ?: '—' }}</td>
-                        <x-cakupan-popover mode="server" :row="$r" padding="px-3 py-3" />
+                        <x-perusahaan.cakupan-popover mode="server" :row="$r" padding="px-3 py-3" />
                         <td class="px-3 py-3">
                             <div class="flex flex-wrap gap-1">
                                 @if($r->has_sewa)
@@ -339,7 +340,7 @@
                     </tr>
                     @endforelse
                 </tbody>
-            </x-table-shell>
+            </x-ui.table-shell>
             @endif
 
         @elseif($tab === 'sewa-truk')
@@ -351,7 +352,7 @@
                 $left['nama'] = $left['cabang'] + $stickyWidths['cabang'];
                 $otherWidths = [150, 160, 220, 150, 130, 130, 90];
             @endphp
-            <x-table-shell :width="array_sum($stickyWidths) + array_sum($otherWidths)">
+            <x-ui.table-shell :width="array_sum($stickyWidths) + array_sum($otherWidths)">
                 <colgroup>
                     @foreach($stickyWidths as $w)
                         <col style="width: {{ $w }}px">
@@ -362,15 +363,15 @@
                 </colgroup>
                 <thead>
                     <tr class="border-b border-gray-300 bg-gray-50 text-xs font-medium uppercase tracking-wide text-gray-500">
-                        <x-sortable-th col="kode_area" label="Area" :class="$stickyTh" :style="'left: ' . $left['kode_area'] . 'px'" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort" orderParam="order" />
-                        <x-sortable-th col="cabang" label="Cabang" :class="$stickyTh" :style="'left: ' . $left['cabang'] . 'px'" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort" orderParam="order" />
-                        <x-sortable-th col="nama" label="Nama Ekspedisi" :class="$stickyTh . ' border-r border-gray-200'" :style="'left: ' . $left['nama'] . 'px'" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort" orderParam="order" />
-                        <x-sortable-th col="badan_usaha" label="Badan Usaha" :class="$plainTh" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort" orderParam="order" />
+                        <x-ui.sortable-th col="kode_area" label="Area" :class="$stickyTh" :style="'left: ' . $left['kode_area'] . 'px'" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort" orderParam="order" />
+                        <x-ui.sortable-th col="cabang" label="Cabang" :class="$stickyTh" :style="'left: ' . $left['cabang'] . 'px'" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort" orderParam="order" />
+                        <x-ui.sortable-th col="nama" label="Nama Ekspedisi" :class="$stickyTh . ' border-r border-gray-200'" :style="'left: ' . $left['nama'] . 'px'" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort" orderParam="order" />
+                        <x-ui.sortable-th col="badan_usaha" label="Badan Usaha" :class="$plainTh" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort" orderParam="order" />
                         <th class="{{ $plainTh }} px-3 py-3 text-center truncate">Identitas Owner</th>
-                        <x-sortable-th col="area_kirim" label="Area Kirim" :class="$plainTh" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort" orderParam="order" />
-                        <x-sortable-th col="harga" label="Harga Sewa" align="right" :class="$plainTh" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort" orderParam="order" />
-                        <x-sortable-th col="diupdate" label="Diupdate" :class="$plainTh" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort" orderParam="order" />
-                        <x-sortable-th col="dibuat" label="Dibuat" :class="$plainTh" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort" orderParam="order" />
+                        <x-ui.sortable-th col="area_kirim" label="Area Kirim" :class="$plainTh" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort" orderParam="order" />
+                        <x-ui.sortable-th col="harga" label="Harga Sewa" align="right" :class="$plainTh" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort" orderParam="order" />
+                        <x-ui.sortable-th col="diupdate" label="Diupdate" :class="$plainTh" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort" orderParam="order" />
+                        <x-ui.sortable-th col="dibuat" label="Dibuat" :class="$plainTh" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort" orderParam="order" />
                         <th class="{{ $plainTh }} px-3 py-3 text-right">Aksi</th>
                     </tr>
                 </thead>
@@ -419,7 +420,7 @@
                     </tr>
                     @endforelse
                 </tbody>
-            </x-table-shell>
+            </x-ui.table-shell>
 
         @else
             {{-- ==================== TAB KIRIMAN RUTIN: 1 baris = 1 vendor_skill ==================== --}}
@@ -432,7 +433,7 @@
                 $areaKirimWidth = 220;
                 $tableWidth = array_sum($stickyWidths) + $areaKirimWidth + $barangWidths->sum() + 130 + 130 + 90;
             @endphp
-            <x-table-shell :width="$tableWidth">
+            <x-ui.table-shell :width="$tableWidth">
                 <colgroup>
                     @foreach($stickyWidths as $w)
                         <col style="width: {{ $w }}px">
@@ -447,15 +448,15 @@
                 </colgroup>
                 <thead>
                     <tr class="border-b border-gray-300 bg-gray-50 text-xs font-medium uppercase tracking-wide text-gray-500">
-                        <x-sortable-th col="kode_area" label="Area" :class="$stickyTh" :style="'left: ' . $left['kode_area'] . 'px'" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort" orderParam="order" />
-                        <x-sortable-th col="cabang" label="Cabang" :class="$stickyTh" :style="'left: ' . $left['cabang'] . 'px'" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort" orderParam="order" />
-                        <x-sortable-th col="nama" label="Nama Ekspedisi" :class="$stickyTh . ' border-r border-gray-200'" :style="'left: ' . $left['nama'] . 'px'" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort" orderParam="order" />
-                        <x-sortable-th col="area_kirim" label="Area Kirim" :class="$plainTh" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort" orderParam="order" />
+                        <x-ui.sortable-th col="kode_area" label="Area" :class="$stickyTh" :style="'left: ' . $left['kode_area'] . 'px'" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort" orderParam="order" />
+                        <x-ui.sortable-th col="cabang" label="Cabang" :class="$stickyTh" :style="'left: ' . $left['cabang'] . 'px'" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort" orderParam="order" />
+                        <x-ui.sortable-th col="nama" label="Nama Ekspedisi" :class="$stickyTh . ' border-r border-gray-200'" :style="'left: ' . $left['nama'] . 'px'" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort" orderParam="order" />
+                        <x-ui.sortable-th col="area_kirim" label="Area Kirim" :class="$plainTh" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort" orderParam="order" />
                         @foreach($jenisBarangList as $jb)
-                        <x-sortable-th :col="'barang_' . $jb->id_jenis_barang" :label="$jb->nama_barang" align="right" :class="$plainTh" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort" orderParam="order" />
+                        <x-ui.sortable-th :col="'barang_' . $jb->id_jenis_barang" :label="$jb->nama_barang" align="right" :class="$plainTh" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort" orderParam="order" />
                         @endforeach
-                        <x-sortable-th col="diupdate" label="Diupdate" :class="$plainTh" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort" orderParam="order" />
-                        <x-sortable-th col="dibuat" label="Dibuat" :class="$plainTh" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort" orderParam="order" />
+                        <x-ui.sortable-th col="diupdate" label="Diupdate" :class="$plainTh" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort" orderParam="order" />
+                        <x-ui.sortable-th col="dibuat" label="Dibuat" :class="$plainTh" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort" orderParam="order" />
                         <th class="{{ $plainTh }} px-3 py-3 text-right">Aksi</th>
                     </tr>
                 </thead>
@@ -492,10 +493,10 @@
                     </tr>
                     @endforelse
                 </tbody>
-            </x-table-shell>
+            </x-ui.table-shell>
         @endif
 
-        <x-pagination-links :paginator="$rows" />
+        <x-ui.pagination-links :paginator="$rows" />
     </div>
 </div>
 @endsection

@@ -8,7 +8,7 @@
         <div class="space-y-4">
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
-                    <x-form-label required>Cabang</x-form-label>
+                    <x-ui.form-label required>Cabang</x-ui.form-label>
                     <select x-model="form.id_cabang" @change="form.id_skill = []; muatSkill()" :disabled="!!idEdit"
                         class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-avian-green focus:outline-none disabled:bg-gray-50 disabled:text-gray-500">
                         <option value="">-- Pilih --</option>
@@ -18,7 +18,7 @@
                     </select>
                 </div>
                 <div>
-                    <x-form-label required>Jenis Kendaraan</x-form-label>
+                    <x-ui.form-label required>Jenis Kendaraan</x-ui.form-label>
                     <select x-model="form.id_jenis_kendaraan" @change="pilihJenis()"
                         class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-avian-green focus:outline-none">
                         <option value="">-- Pilih --</option>
@@ -28,12 +28,12 @@
                     </select>
                 </div>
                 <div>
-                    <x-form-label>Plat Nomor</x-form-label>
+                    <x-ui.form-label>Plat Nomor</x-ui.form-label>
                     <input type="text" x-model="form.plat_nomor_truk" maxlength="20"
                         class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm uppercase focus:border-avian-green focus:outline-none">
                 </div>
                 <div>
-                    <x-form-label>Muatan Maksimal (Ton)</x-form-label>
+                    <x-ui.form-label>Muatan Maksimal (Ton)</x-ui.form-label>
                     <input type="text" :value="form.muatan_maksimal" readonly
                         class="w-full rounded-lg border border-gray-300 bg-gray-100 px-3 py-2 text-sm text-gray-600">
                     <p class="mt-1 text-xs text-gray-400">Otomatis dari jenis kendaraan.</p>
@@ -41,7 +41,7 @@
             </div>
 
             <div>
-                <x-form-label required>Area / Skill</x-form-label>
+                <x-ui.form-label required>Area / Skill</x-ui.form-label>
                 <input type="text" x-model="cariSkill" placeholder="Cari area terdaftar di cabang…" :disabled="!form.id_cabang"
                     class="mb-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-avian-green focus:outline-none disabled:bg-gray-50">
                 <div class="mb-2 flex max-h-40 flex-wrap gap-2 overflow-y-auto rounded-lg border border-gray-200 bg-white p-2">

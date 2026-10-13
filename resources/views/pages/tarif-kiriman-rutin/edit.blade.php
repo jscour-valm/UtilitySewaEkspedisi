@@ -5,14 +5,14 @@
 @section('content')
 @php $isDci = auth()->user()?->userUtility?->role === 'DCI'; @endphp
 <div data-dirty-root class="flex flex-col gap-4 pb-2">
-    <x-alert-error />
+    <x-ui.alert-error />
 
     <form id="tarif-form" class="hidden" method="POST" action="{{ route('perusahaan.kiriman-rutin.update', $vendorSkill->id_vendor_skill) }}">
         @csrf
         @method('PUT')
     </form>
 
-    <x-form-vendor-kendaraan-edit :vendorSkill="$vendorSkill" :kendaraanList="$kendaraanList" :skillList="$skillList" :cabangList="$cabangList" :jenisKendaraanList="$jenisKendaraanList" />
+    <x-perusahaan.form-vendor-kendaraan-edit :vendorSkill="$vendorSkill" :kendaraanList="$kendaraanList" :skillList="$skillList" :cabangList="$cabangList" :jenisKendaraanList="$jenisKendaraanList" />
 
     @php
         $hargaInit = collect($jenisBarangList)->mapWithKeys(
@@ -30,7 +30,7 @@
         @cabang-skill-updated.window="onCabangChanged($event.detail)">
         <h2 class="text-lg font-semibold text-gray-900 mb-4">Tarif Kiriman Rutin</h2>
 
-        <x-skill-picker-fields :isDci="$isDci" maxHeight="max-h-56" gridClass="mb-5" />
+        <x-perusahaan.skill-picker-fields :isDci="$isDci" maxHeight="max-h-56" gridClass="mb-5" />
 
         <p class="text-sm text-gray-600 mb-3">Isi harga per unit tiap jenis barang. Kosongkan kalau vendor ini tidak melayani jenis barang tersebut di area ini.</p>
 

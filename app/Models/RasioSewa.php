@@ -9,9 +9,15 @@ class RasioSewa extends Model
 {
     use HasFlag;
 
+    /** Batas rasio sewa (%) yang dipakai kalau belum ada pengaturan rasio aktif. */
+    public const BATAS_DEFAULT = 2.5;
+
     protected $connection = 'sqlsrv';
+
     protected $table = 'sesi_rasio_sewa';
+
     protected $primaryKey = 'id_rasio_sewa';
+
     public $timestamps = true;
 
     protected $fillable = [

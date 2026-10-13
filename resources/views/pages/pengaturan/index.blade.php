@@ -1,6 +1,7 @@
 @extends('layouts.app')
 
 @section('title', 'Pengaturan')
+@section('judul_halaman', 'Pengaturan')
 
 @section('content')
 @php
@@ -15,12 +16,12 @@
         ];
     };
     $labelAlur = ['WM' => 'WM saja (final di WM)', 'WM,WC' => 'WM → WC', 'WM,WH' => 'WM → WH', 'WM,WC,WH' => 'WM → WC → WH'];
-    $batas = $rasioAktif ? (float) $rasioAktif->persentase_maksimal : 2.5;
+    $batas = $rasioAktif ? (float) $rasioAktif->persentase_maksimal : \App\Models\RasioSewa::BATAS_DEFAULT;
     $grupEmail = collect(\App\Models\AturanEmail::KEJADIAN)->groupBy('grup', true);
 @endphp
 
 <div class="space-y-4 pb-6">
-    <x-alert-success />
+    <x-ui.alert-success />
     @if($errors->any())
         <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{{ $errors->first() }}</div>
     @endif
@@ -46,13 +47,13 @@
                     @csrf
                     <div class="grid grid-cols-2 gap-3">
                         <div>
-                            <x-form-label required>Batas baru (%)</x-form-label>
+                            <x-ui.form-label required>Batas baru (%)</x-ui.form-label>
                             <input type="number" name="persentase_maksimal" step="0.01" min="0.01" max="100" required
                                 value="{{ old('persentase_maksimal') }}"
                                 class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-avian-green focus:outline-none">
                         </div>
                         <div>
-                            <x-form-label required>Mulai berlaku</x-form-label>
+                            <x-ui.form-label required>Mulai berlaku</x-ui.form-label>
                             <input type="date" name="mulai_berlaku" required min="{{ now()->toDateString() }}"
                                 value="{{ old('mulai_berlaku', now()->toDateString()) }}"
                                 class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-avian-green focus:outline-none">

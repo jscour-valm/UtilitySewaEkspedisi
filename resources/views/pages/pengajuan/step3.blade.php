@@ -16,7 +16,7 @@
     </div>
 
     {{-- Dokumen Selection Table --}}
-    <x-tabel-dokumen-pengajuan />
+    <x-pengajuan.tabel-dokumen />
 
     {{-- Progress Bar Kapasitas Muatan --}}
     <div x-show="kendaraanTerpilih && dokumenDipilih.length > 0" class="rounded-lg border border-gray-200 bg-gray-50 px-4 py-4">

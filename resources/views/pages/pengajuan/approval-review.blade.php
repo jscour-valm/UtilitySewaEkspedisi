@@ -33,14 +33,14 @@
                     &middot; {{ \Carbon\Carbon::parse($pengajuan->submitted_at)->translatedFormat('d M Y') }}
                 </p>
             </div>
-            <x-status-badge-large :status="strtolower($pengajuan->status_pengajuan)" :pendingLabel="$pendingLabel" />
+            <x-pengajuan.status-badge-large :status="strtolower($pengajuan->status_pengajuan)" :pendingLabel="$pendingLabel" />
         </div>
 
         {{-- Alur persetujuan: pill dari alur_approval (dulu ditentukan dari peran yang melihat, bukan data) --}}
-        <x-alur-approval-pill :alur="$alurApproval" :sudah="$peranSudahApprove" :berikutnya="$approverBerikutnya"
+        <x-pengajuan.alur-approval-pill :alur="$alurApproval" :sudah="$peranSudahApprove" :berikutnya="$approverBerikutnya"
             :status="$pengajuan->status_pengajuan" :actingRole="$actingRole" />
 
-        <x-vendor-menunggu-approval :vendor="$vendorMenunggu" class="mt-4" />
+        <x-pengajuan.vendor-menunggu-approval :vendor="$vendorMenunggu" class="mt-4" />
 
         {{-- Verdict strip: rasio vs ambang (sewa_truk saja — kiriman rutin gak pakai rasio,
              lihat PengajuanController::hitungAlurApproval()), total, value muatan --}}
@@ -221,7 +221,7 @@
                                 @if($master !== null) · master {{ \App\Helpers\FormatHelper::rupiah($master) }} @endif
                             </p>
                         </div>
-                        <x-selisih-harga-master :tampil="$detail->subtotal" :harga="$detail->harga_satuan" :master="$master" satuan="/unit" />
+                        <x-pengajuan.selisih-harga-master :tampil="$detail->subtotal" :harga="$detail->harga_satuan" :master="$master" satuan="/unit" />
                     </div>
                 @empty
                     <div class="flex justify-between gap-4 py-2.5 border-b border-gray-50">
@@ -237,7 +237,7 @@
                             <p class="text-[11px] text-gray-400 tabular-nums">master {{ \App\Helpers\FormatHelper::rupiah($hargaMaster['sewa']) }}</p>
                         @endif
                     </div>
-                    <x-selisih-harga-master :tampil="$pengajuan->harga_sewa" :harga="$pengajuan->harga_sewa" :master="$hargaMaster['sewa']" />
+                    <x-pengajuan.selisih-harga-master :tampil="$pengajuan->harga_sewa" :harga="$pengajuan->harga_sewa" :master="$hargaMaster['sewa']" />
                 </div>
             @endif
 
@@ -261,8 +261,8 @@
     </div>
 
     {{-- ==================== CATATAN PENGAJUAN + USULAN HARGA MASTER ==================== --}}
-    <x-catatan-pengajuan :pengajuan="$pengajuan" :harga-master="$hargaMaster" />
-    <x-usulan-harga-pengajuan :pengajuan="$pengajuan" />
+    <x-pengajuan.catatan :pengajuan="$pengajuan" :harga-master="$hargaMaster" />
+    <x-pengajuan.usulan-harga :pengajuan="$pengajuan" />
 
     {{-- ==================== DOKUMEN IDENTITAS PERUSAHAAN ==================== --}}
     @php
@@ -314,7 +314,7 @@
             @endif
         </p>
 
-        <x-tabel-dokumen-terlampir :dokumen="$dokumen" />
+        <x-pengajuan.tabel-dokumen-terlampir :dokumen="$dokumen" />
     </div>
 
     {{-- ==================== PERBANDINGAN VENDOR ====================

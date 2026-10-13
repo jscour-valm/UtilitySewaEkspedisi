@@ -3,7 +3,7 @@
 @section('title', 'Jenis Barang Kiriman')
 
 @section('content')
-<x-crud-simple-master
+<x-master.crud-simple
     :bolehKelola="auth()->user()?->userUtility?->role === 'DCI'"
     title="Daftar Jenis Barang Kiriman"
     description="Master jenis barang untuk fitur Kiriman Rutin — dipakai sbg dasar tarif per jenis barang di halaman Kelola Tarif."

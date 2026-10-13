@@ -24,13 +24,13 @@
         <div class="flex items-start justify-between gap-5 flex-wrap">
             <div class="min-w-0">
                 <h1 class="text-[22px] font-bold tracking-tight text-gray-900">
-                    {{ $namaPerusahaan?->badan_usaha }} {{ $namaPerusahaan?->nama_perusahaan }}
+                    {{ $namaPerusahaan?->nama_perusahaan }}
                 </h1>
                 <p class="text-[13px] text-gray-500 mt-1">
                     Diajukan pada {{ \Carbon\Carbon::parse($pengajuan->submitted_at)->translatedFormat('d M Y') }}
                 </p>
             </div>
-            <x-status-badge-large :status="strtolower($pengajuan->status_pengajuan)"
+            <x-pengajuan.status-badge-large :status="strtolower($pengajuan->status_pengajuan)"
                 :pendingLabel="$approverBerikutnya ? \App\Http\Controllers\ApprovalController::labelMenunggu($approverBerikutnya) : 'Menunggu Validasi WM'" />
         </div>
 
@@ -42,10 +42,10 @@
         @endif
 
         {{-- Alur persetujuan: pill (1–3 langkah sesuai alur_approval) --}}
-        <x-alur-approval-pill :alur="$alurApproval" :sudah="$peranSudahApprove" :berikutnya="$approverBerikutnya"
+        <x-pengajuan.alur-approval-pill :alur="$alurApproval" :sudah="$peranSudahApprove" :berikutnya="$approverBerikutnya"
             :status="$pengajuan->status_pengajuan" :actingRole="auth()->user()->userUtility?->role" />
 
-        <x-vendor-menunggu-approval :vendor="$vendorMenunggu" class="mt-4" />
+        <x-pengajuan.vendor-menunggu-approval :vendor="$vendorMenunggu" class="mt-4" />
 
         {{-- Verdict strip: rasio vs ambang (sewa_truk saja — kiriman rutin gak pakai
              rasio sbg trigger over_threshold), total, value muatan --}}
@@ -108,7 +108,7 @@
     {{-- ==================== KATEGORI APPROVAL ALERT ==================== --}}
     @php $areaBaru = $pengajuan->areaBaru(); @endphp
     @if(count($alurApproval) > 1)
-        <x-alert-info title="Perlu Persetujuan Berlapis">
+        <x-ui.alert-info title="Perlu Persetujuan Berlapis">
             @php
                 $reasons = [];
                 if (in_array('WC', $alurApproval, true)) {
@@ -122,7 +122,7 @@
                 $message = "Alasan: " . implode("; ", $reasons) . " — alur: " . implode(' → ', $alurApproval) . ".";
             @endphp
             <p class="text-sm text-orange-800">{{ $message }}</p>
-        </x-alert-info>
+        </x-ui.alert-info>
     @endif
     @if($areaBaru)
         <p class="rounded-lg border border-blue-100 bg-blue-50 px-4 py-2 text-sm text-blue-700">
@@ -140,9 +140,9 @@
                 <p class="text-[11px] font-semibold tracking-[0.09em] text-gray-500 mb-1">INFORMASI VENDOR</p>
 
                 <div class="flex justify-between gap-4 py-2.5 border-b border-gray-50">
-                    <span class="text-sm text-gray-500">Badan Usaha &amp; Perusahaan</span>
+                    <span class="text-sm text-gray-500">Badan Usaha</span>
                     <span class="text-sm font-semibold text-gray-900 text-right">
-                        {{ $pengajuan->perusahaanEkspedisi?->badan_usaha }} {{ $pengajuan->perusahaanEkspedisi?->nama_perusahaan }}
+                        {{ $pengajuan->perusahaanEkspedisi?->badan_usaha }}
                     </span>
                 </div>
                 <div class="flex justify-between gap-4 py-2.5 border-b border-gray-50">
@@ -243,7 +243,7 @@
                                 @if($master !== null) · master {{ \App\Helpers\FormatHelper::rupiah($master) }} @endif
                             </p>
                         </div>
-                        <x-selisih-harga-master :tampil="$detail->subtotal" :harga="$detail->harga_satuan" :master="$master" satuan="/unit" />
+                        <x-pengajuan.selisih-harga-master :tampil="$detail->subtotal" :harga="$detail->harga_satuan" :master="$master" satuan="/unit" />
                     </div>
                 @empty
                     <div class="flex justify-between gap-4 py-2.5 border-b border-gray-50">
@@ -259,7 +259,7 @@
                             <p class="text-[11px] text-gray-400 tabular-nums">master {{ \App\Helpers\FormatHelper::rupiah($hargaMaster['sewa']) }}</p>
                         @endif
                     </div>
-                    <x-selisih-harga-master :tampil="$pengajuan->harga_sewa" :harga="$pengajuan->harga_sewa" :master="$hargaMaster['sewa']" />
+                    <x-pengajuan.selisih-harga-master :tampil="$pengajuan->harga_sewa" :harga="$pengajuan->harga_sewa" :master="$hargaMaster['sewa']" />
                 </div>
             @endif
 
@@ -283,8 +283,8 @@
     </div>
 
     {{-- ==================== CATATAN PENGAJUAN + USULAN HARGA MASTER ==================== --}}
-    <x-catatan-pengajuan :pengajuan="$pengajuan" :harga-master="$hargaMaster" />
-    <x-usulan-harga-pengajuan :pengajuan="$pengajuan" />
+    <x-pengajuan.catatan :pengajuan="$pengajuan" :harga-master="$hargaMaster" />
+    <x-pengajuan.usulan-harga :pengajuan="$pengajuan" />
 
     {{-- ==================== DOKUMEN IDENTITAS PERUSAHAAN (Sewa Truk only) ==================== --}}
     @if(!$isKirimanRutin)
@@ -338,7 +338,7 @@
             @endif
         </p>
 
-        <x-tabel-dokumen-terlampir :dokumen="$dokumen" />
+        <x-pengajuan.tabel-dokumen-terlampir :dokumen="$dokumen" />
     </div>
 
     {{-- ==================== TIMELINE RIWAYAT PERSETUJUAN ==================== --}}

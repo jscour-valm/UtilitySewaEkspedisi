@@ -5,14 +5,14 @@
 @section('content')
 @php $isDci = auth()->user()?->userUtility?->role === 'DCI'; @endphp
 <div data-dirty-root class="flex flex-col gap-4 mb-2">
-    <x-alert-error />
+    <x-ui.alert-error />
 
     <form id="tarif-form" class="hidden" method="POST" action="{{ route('perusahaan.sewa-truk.update', $vendorSkill->id_vendor_skill) }}">
         @csrf
         @method('PUT')
     </form>
 
-    <x-form-vendor-kendaraan-edit :vendorSkill="$vendorSkill" :kendaraanList="$kendaraanList" :skillList="$skillList" :cabangList="$cabangList" :jenisKendaraanList="$jenisKendaraanList" />
+    <x-perusahaan.form-vendor-kendaraan-edit :vendorSkill="$vendorSkill" :kendaraanList="$kendaraanList" :skillList="$skillList" :cabangList="$cabangList" :jenisKendaraanList="$jenisKendaraanList" />
 
     <div class="rounded-xl bg-white shadow-sm p-6"
         x-data="skillPicker({
@@ -25,7 +25,7 @@
         @cabang-skill-updated.window="onCabangChanged($event.detail)">
         <h2 class="text-lg font-semibold text-gray-900 mb-4">Harga Sewa per Skill</h2>
 
-        <x-skill-picker-fields :isDci="$isDci" maxHeight="max-h-72">
+        <x-perusahaan.skill-picker-fields :isDci="$isDci" maxHeight="max-h-72">
             <div>
                 <label class="mb-1 block text-xs font-medium text-gray-600">Harga Sewa (Rp) <span class="text-red-500">*</span></label>
                 <input
@@ -35,7 +35,7 @@
                     @disabled(!$isDci)
                     class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-avian-green focus:outline-none disabled:bg-gray-50 disabled:text-gray-500">
             </div>
-        </x-skill-picker-fields>
+        </x-perusahaan.skill-picker-fields>
 
         <input type="hidden" name="harga_sewa" form="tarif-form" :value="hargaSewa">
 

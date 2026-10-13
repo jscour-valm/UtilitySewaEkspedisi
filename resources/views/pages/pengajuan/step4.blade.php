@@ -7,8 +7,7 @@
         :class="perubahanEdit.length ? 'border-amber-300 bg-amber-50' : 'border-gray-200 bg-gray-50'">
         <p x-show="perubahanEdit.length" class="text-xs text-amber-800">
             <span class="font-medium">Yang diubah:</span>
-            <span x-text="perubahanEdit.map(p => p.label).join(', ')"></span>.
-            Bagian yang berubah ditandai <span class="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">Diubah</span>.
+            <span x-text="perubahanEdit.map(p => p.label).join(', ')"></span>
         </p>
         <p x-show="!perubahanEdit.length" class="text-xs text-gray-600">Belum ada perubahan dari pengajuan sebelumnya.</p>
     </div>
