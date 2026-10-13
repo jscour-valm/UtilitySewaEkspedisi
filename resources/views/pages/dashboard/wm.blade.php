@@ -1,11 +1,10 @@
 @extends('layouts.app')
 
 @section('title', 'Dashboard WM')
-@section('judul_halaman', 'Dashboard')
 
 @section('content')
 <div class="space-y-4">
-<x-dashboard.tab :filter="true">
+<x-dashboard.tab :filter="true" :panel="true">
 
     {{-- Summary Cards (Stat Cards) - Clickable filters --}}
     <x-dashboard.stat-filters

@@ -1,11 +1,9 @@
 @extends('layouts.app')
 
 @section('title', 'Dashboard KA')
-@section('judul_halaman', 'Dashboard')
 
 @section('content')
 <div class="space-y-4">
-    <x-dashboard.filter-tanggal />
 
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <x-ui.stat-card
@@ -17,8 +15,9 @@
     </div>
 
     <div class="rounded-xl bg-white shadow-sm">
-        <div class="border-b border-gray-100 px-6 py-4">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-6 py-4">
             <h2 class="text-sm font-semibold text-gray-700">Pengajuan Sewa Disetujui &middot; Hanya Lihat</h2>
+            <x-dashboard.filter-tanggal />
         </div>
         <div class="p-6">
             <x-dashboard.tabel-pengajuan mode="ka" :limit="0" />

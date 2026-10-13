@@ -1,11 +1,10 @@
 @extends('layouts.app')
 
 @section('title', 'Dashboard DCI')
-@section('judul_halaman', 'Dashboard')
 
 @section('content')
 <div class="space-y-4">
-<x-dashboard.tab :filter="true">
+<x-dashboard.tab :filter="true" :panel="true">
 
     {{-- Summary Cards — read-only, klik buat filter tabel di bawah --}}
     <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">

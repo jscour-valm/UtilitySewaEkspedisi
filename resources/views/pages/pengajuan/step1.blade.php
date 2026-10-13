@@ -290,7 +290,7 @@
                     <template x-for="a in kendaraanByPerusahaan" :key="a.id">
                         <div class="flex items-center justify-between border-b border-gray-100 px-4 py-3 last:border-0 cursor-pointer hover:bg-gray-50"
                             :class="kendaraanTerpilih?.id === a.id ? 'bg-avian-green-light' : ''"
-                            @click="kendaraanTerpilih = (kendaraanTerpilih?.id === a.id ? null : a); showFormKendaraanBaru = false">
+                            @click="pilihKendaraan(a)">
                             <div class="text-sm">
                                 <span class="font-medium text-gray-800" x-text="a.kendaraan || '(Tanpa nama)'"></span>
                                 <span class="text-gray-400 mx-1">·</span>

@@ -105,6 +105,12 @@ class User extends Authenticatable
         return UserCabangResolver::resolveArea($this->username, $this->userUtility?->role);
     }
 
+    /** @return string[] area dari semua cabang yang dipegang (WM); kosong untuk role lain */
+    public function getAreas(): array
+    {
+        return UserCabangResolver::resolveAreas($this->username, $this->userUtility?->role);
+    }
+
     public function getCabangDetails(): array
     {
         // [code => name] untuk semua cabang yang di-assign ke user ini

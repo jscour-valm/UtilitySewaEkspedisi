@@ -1,7 +1,7 @@
 {{--
-    Profil user di dasar sidebar: avatar + nama + role; klik → panel info cabang & tombol Keluar.
-    Panel memakai `position: fixed` karena <aside> sidebar `overflow-hidden` (elemen absolute di
-    dalamnya terpotong); posisi kirinya mengikuti lebar sidebar (w-56 terbuka / w-16 ciut).
+    Profil user di dasar sidebar: avatar + nama + role; klik → panel info area/cabang & tombol
+    Keluar yang terbuka ke atas tombol. Panel memakai `position: fixed` karena <aside> sidebar
+    `overflow-hidden` (elemen absolute di dalamnya terpotong); jarak bawahnya dihitung dari posisi tombol.
     Dipakai di: <aside> sidebar.
 --}}
 @php
@@ -10,8 +10,9 @@
     $inisial = strtoupper(substr($user->name ?? 'G', 0, 1));
 @endphp
 
-<div class="border-t border-green-800 p-2" x-data="{ open: false }" @click.outside="open = false" @keydown.escape.window="open = false">
-    <button type="button" @click="open = !open" title="{{ $user->name ?? 'Guest' }}"
+<div class="border-t border-green-800 p-2" x-data="{ open: false, bawah: 0 }" @click.outside="open = false" @keydown.escape.window="open = false">
+    <button type="button" x-ref="tombol" title="{{ $user->name ?? 'Guest' }}"
+        @click="bawah = window.innerHeight - $refs.tombol.getBoundingClientRect().top + 8; open = !open"
         class="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition hover:bg-green-800/60"
         :class="[open && 'bg-green-800/60', !sidebarOpen && 'justify-center']">
         <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/15 text-sm font-semibold text-white">{{ $inisial }}</span>
@@ -25,8 +26,8 @@
     </button>
 
     <div x-show="open" x-cloak x-transition.opacity
-        class="fixed bottom-3 z-50 w-60 rounded-xl border border-gray-100 bg-white shadow-lg"
-        :style="{ left: (sidebarOpen ? 232 : 72) + 'px' }">
+        class="fixed left-2 z-50 w-60 rounded-xl border border-gray-100 bg-white shadow-lg"
+        :style="{ bottom: bawah + 'px' }">
         <div class="space-y-2 border-b border-gray-100 px-4 py-3">
             <div>
                 <p class="text-sm font-medium text-gray-900">{{ $user->name ?? 'Guest' }}</p>
@@ -36,11 +37,11 @@
                 @if($isWM)
                     {{-- WM: area + daftar cabang yang dipegang --}}
                     @php
-                        $area = $user->getArea();
+                        $areas = $user->getAreas();
                         $cabangDetails = $user->getCabangDetails();
                     @endphp
-                    @if($area)
-                        <p class="mb-2 text-xs font-medium text-gray-700">Area: {{ $area }}</p>
+                    @if($areas)
+                        <p class="mb-2 text-xs font-medium text-gray-700">WM Area {{ implode(', ', $areas) }}</p>
                     @endif
                     @if(!empty($cabangDetails))
                         <div class="max-h-48 space-y-1 overflow-y-auto">

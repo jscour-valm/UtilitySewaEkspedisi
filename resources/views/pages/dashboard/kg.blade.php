@@ -1,15 +1,15 @@
 @extends('layouts.app')
 
 @section('title', 'Dashboard')
-@section('judul_halaman', 'Dashboard')
 
 @section('content')
 
 <div class="space-y-2">
-    {{-- Tab Pengajuan Sewa | Vendor Baru | Perubahan Harga; Daftar Ekspedisi di luar tab --}}
+    {{-- Tab Pengajuan Sewa | Vendor Baru | Perubahan Harga menempel ke kartu pertama; Daftar Ekspedisi di luar tab --}}
     <x-dashboard.tab>
     <div class="rounded-xl">
-        <div class="rounded-xl bg-white shadow  mb-4">
+        {{-- rounded-tl-none: menyatu dengan tab pertama yang menempel di sudut kiri-atas --}}
+        <div class="rounded-xl rounded-tl-none bg-white shadow  mb-4">
             <div class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-6 py-4">
                 <h2 class="text-sm font-semibold text-gray-700">Pengajuan Sewa</h2>
                 <div class="flex flex-wrap items-center gap-3">

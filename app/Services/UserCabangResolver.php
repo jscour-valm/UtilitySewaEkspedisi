@@ -180,6 +180,32 @@ class UserCabangResolver
         return null;
     }
 
+    /**
+     * Area dari semua cabang yang dipegang WM (termasuk cabang hasil override manual, yang bisa
+     * lintas area). Urut naik; kosong untuk role lain.
+     *
+     * @return string[]
+     */
+    public static function resolveAreas(string $username, ?string $role): array
+    {
+        $cabang = $role === 'WM' ? self::resolveCabangIds($username, $role) : [];
+        $tanggal = $cabang ? self::latestWmEffectiveDate() : null;
+        if (! $tanggal) {
+            return [];
+        }
+
+        return DB::connection('sqlsrv')->table('lntrn_view_summary_mapping_areas')
+            ->where('type', 'wm')
+            ->where('company', 'TT')
+            ->where('effective_date', $tanggal)
+            ->whereIn('code', $cabang)
+            ->whereNotNull('area')
+            ->distinct()
+            ->orderBy('area')
+            ->pluck('area')
+            ->all();
+    }
+
     public static function canAccess(string $username, ?string $role, string $cabangCode): bool
     {
         return in_array(strtoupper($cabangCode), self::resolveCabangIds($username, $role), true);

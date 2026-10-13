@@ -1,11 +1,9 @@
 @extends('layouts.app')
 
 @section('title', 'Dashboard WC')
-@section('judul_halaman', 'Dashboard')
 
 @section('content')
 <div class="space-y-4">
-    <x-dashboard.filter-tanggal />
 
     <x-dashboard.stat-filters
         :countTotal="$countTotal"
@@ -20,10 +18,9 @@
 
     <div class="rounded-xl bg-white shadow-sm">
 
-        <div class="border-b border-gray-100 px-6 py-4">
-            <h2 class="text-sm font-semibold text-gray-700">
-                Pengajuan Sewa &middot; Approval WC (PAC)
-            </h2>
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-6 py-4">
+            <h2 class="text-sm font-semibold text-gray-700">Pengajuan Sewa &middot; Approval WC (PAC)</h2>
+            <x-dashboard.filter-tanggal />
         </div>
 
         <div class="p-6">

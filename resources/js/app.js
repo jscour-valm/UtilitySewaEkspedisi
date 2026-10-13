@@ -197,9 +197,16 @@ if (sesiMenit > 0 && sesiPengguna) {
 // Pengajuan Sewa. Diekspos global (window) supaya bisa dipanggil dari Alpine
 // component manapun (mis. komponen edit tarif/kendaraan di Kelola Tarif),
 // nggak cuma dari dalam Alpine.data('pengajuanSewa', ...) di bawah.
+// Angka → teks berpemisah ribuan ("1.200.000"). Menerima angka, teks ketikan ("1.200"), atau
+// desimal dari database ("1000.00"). Desimal dibulatkan dulu; kalau titiknya ikut dibuang
+// seperti pemisah ribuan, "1000.00" akan terbaca 100.000.
 window.formatRibuan = function (val) {
     if (val === '' || val === null || val === undefined) return ''
-    const num = String(val).replace(/\D/g, '')
+    if (typeof val === 'number') return Number.isFinite(val) ? Math.round(val).toLocaleString('id-ID') : ''
+    const teks = String(val).trim()
+    // Satu titik diikuti 1–2 atau ≥4 digit = desimal. Tepat 3 digit = pemisah ribuan.
+    if (/^\d+\.(\d{1,2}|\d{4,})$/.test(teks)) return Math.round(Number(teks)).toLocaleString('id-ID')
+    const num = teks.replace(/\D/g, '')
     return num === '' ? '' : Number(num).toLocaleString('id-ID')
 }
 
@@ -424,6 +431,17 @@ Alpine.data('pengajuanSewa', () => ({
             prev = p
         }
         return result
+    },
+
+    // Pilih / batal pilih unit kendaraan di step 1. Harga sewa diawali harga master unit itu
+    // (kosong kalau belum ada), supaya KG tinggal mengoreksi di step 2.
+    pilihKendaraan(unit) {
+        const batal = this.kendaraanTerpilih?.id === unit.id
+        this.kendaraanTerpilih = batal ? null : unit
+        this.showFormKendaraanBaru = false
+        if (!this.editId) {
+            this.pengajuan.harga_sewa = batal || unit.harga_master == null ? '' : Math.round(Number(unit.harga_master))
+        }
     },
 
     // Total berat dokumen terpilih dalam kg
@@ -1412,7 +1430,7 @@ Alpine.data('pengajuanSewa', () => ({
             id_tarif_kiriman_rutin: t.id_tarif,
             jenis_barang: t.nama_barang,
             quantity: '',
-            harga_satuan: t.biaya_per_unit,
+            harga_satuan: Number(t.biaya_per_unit),
             subtotal: '',
             tarif_baru: false,
             usulan_update_master: false,
@@ -1506,7 +1524,7 @@ Alpine.data('pengajuanSewa', () => ({
         if (tarif) {
             detail.id_tarif_kiriman_rutin = tarif.id_tarif
             detail.jenis_barang = tarif.nama_barang
-            detail.harga_satuan = tarif.biaya_per_unit
+            detail.harga_satuan = Number(tarif.biaya_per_unit)
             detail.tarif_baru = false
             detail.usulan_update_master = false
         } else {
@@ -1542,7 +1560,7 @@ Alpine.data('pengajuanSewa', () => ({
         const tarif = this.tarifAreaTerpilih.find(t => t.id_jenis_barang == detail.id_jenis_barang)
         if (!tarif) return
         detail.harga_custom = false
-        detail.harga_satuan = tarif.biaya_per_unit
+        detail.harga_satuan = Number(tarif.biaya_per_unit)
         detail.subtotal = Number(detail.quantity || 0) * Number(detail.harga_satuan || 0)
     },
 
@@ -2124,17 +2142,76 @@ Alpine.data('tabDashboard', (peran) => ({
     },
 }))
 
+// Kotak cari + kartu statistik di tabel persetujuan master dashboard
+// (components/dashboard/tabel-persetujuan-master): menyaring baris tr[data-baris] di browser.
+Alpine.data('filterPersetujuan', () => ({
+    q: '',
+    status: 'semua', // semua | pending | approved | rejected
+    tampil: -1, // jumlah baris yang lolos saring; -1 = belum dihitung
+
+    pilihStatus(status) {
+        this.status = status
+        this.terapkan()
+    },
+
+    terapkan() {
+        const q = this.q.trim().toLowerCase()
+        let tampil = 0
+        this.$root.querySelectorAll('tr[data-baris]').forEach((tr) => {
+            const cocokStatus = this.status === 'semua'
+                || (this.status === 'pending' ? tr.dataset.pending === '1' : tr.dataset.status === this.status)
+            const cocok = cocokStatus && (q === '' || tr.dataset.cari.includes(q))
+            tr.hidden = !cocok
+            if (cocok) tampil++
+        })
+        this.tampil = tampil
+    },
+}))
+
 // Form "Usulkan Harga" di detail perusahaan (components/modal-usulan-harga).
-Alpine.data('formUsulanHarga', (url, idPerusahaan) => ({
+Alpine.data('formUsulanHarga', (url, idPerusahaan, daftarBarang = []) => ({
     terbuka: false,
     menyimpan: false,
     ctx: {},
     form: { id_jenis_barang: '', harga: '', catatan: '' },
+    barangLain: false, // true = memilih barang yang belum punya harga di area ini
 
     buka(ctx) {
         this.ctx = ctx
         this.form = { id_jenis_barang: '', harga: '', catatan: '' }
+        this.barangLain = false
         this.terbuka = true
+        this.isiDariMaster()
+    },
+
+    // Harga usulan diawali harga master yang berlaku, supaya pengusul tinggal mengoreksi.
+    isiDariMaster() {
+        this.form.harga = this.hargaSekarang === null ? '' : String(Math.round(this.hargaSekarang))
+    },
+
+    // Master jenis barang + harga master di area ini (null = belum ada) + penanda usulan berjalan.
+    get barangSemua() {
+        const harga = this.ctx.harga_per_barang ?? {}
+        const berjalan = this.ctx.usulan_berjalan ?? []
+        return daftarBarang.map((b) => ({
+            ...b,
+            harga: harga[b.id] === undefined ? null : Number(harga[b.id]),
+            berjalan: berjalan.includes(b.id),
+        }))
+    },
+
+    get barangTerdaftar() {
+        return this.barangSemua.filter((b) => b.harga !== null)
+    },
+
+    get barangBelumAda() {
+        return this.barangSemua.filter((b) => b.harga === null)
+    },
+
+    pilihBarang(id, lain) {
+        this.barangLain = lain
+        this.form.id_jenis_barang = id === '' ? '' : String(id)
+        this.isiDariMaster()
     },
 
     tutup() {
@@ -2168,6 +2245,10 @@ Alpine.data('formUsulanHarga', (url, idPerusahaan) => ({
         }
         if (!Number(this.form.harga)) {
             notify('Isi harga usulan dulu.', 'warning')
+            return
+        }
+        if (this.hargaSekarang !== null && Number(this.form.harga) === Number(this.hargaSekarang)) {
+            notify('Harga usulan masih sama dengan harga master. Ubah dulu harganya.', 'warning')
             return
         }
 

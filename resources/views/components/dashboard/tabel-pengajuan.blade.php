@@ -170,12 +170,12 @@ $searchPlaceholder = match ($mode) {
                 <col style="width: 11%;"> {{-- Status --}}
                 <col style="width: 6.5rem;"> {{-- Action --}}
             @else
-                <col style="width: 16%;"> {{-- Tanggal Pengajuan --}}
-                <col style="width: 16%;"> {{-- Tanggal Pengiriman --}}
+                <col style="width: 14%;"> {{-- Tanggal Pengajuan --}}
+                <col style="width: 14%;"> {{-- Tanggal Pengiriman --}}
                 <col style="width: 20%;"> {{-- Nama Perusahaan --}}
-                <col style="width: 14%;"> {{-- Harga Sewa --}}
-                <col style="width: 12%;"> {{-- Rasio Sewa --}}
-                <col style="width: 10%;"> {{-- Status --}}
+                <col style="width: 13%;"> {{-- Harga Sewa --}}
+                <col style="width: 11%;"> {{-- Rasio Sewa --}}
+                <col style="width: 16%;"> {{-- Status (muat "Menunggu Validasi WM" satu baris) --}}
                 <col style="width: 6.5rem;"> {{-- Action --}}
             @endif
         </colgroup>
@@ -295,7 +295,7 @@ $searchPlaceholder = match ($mode) {
 
                     {{-- Status --}}
                     <td class="px-4 py-3">
-                        <span class="rounded-full px-2 py-0.5 text-xs font-medium {{ $badgeConfig['kelas'] }}">
+                        <span class="whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium {{ $badgeConfig['kelas'] }}">
                             {{ $badgeConfig['label'] }}
                         </span>
                     </td>

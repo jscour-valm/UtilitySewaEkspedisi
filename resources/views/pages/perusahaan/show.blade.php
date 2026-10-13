@@ -266,7 +266,7 @@
                                     @endif
                                     @if($isKg)
                                         <button type="button" class="{{ $editBtn }}"
-                                            @click="$dispatch('usulkan-harga', @js(['jenis' => 'pengiriman_rutin', 'id_skill' => (int) $t->id_skill, 'cabang_code' => $t->cabang_code, 'label' => $t->nama_skill . ' · Cab. ' . $t->cabang_code, 'harga_per_barang' => (object) ($hargaByVs[$t->id_vendor_skill] ?? [])]))">Usulkan Harga</button>
+                                            @click="$dispatch('usulkan-harga', @js(['jenis' => 'pengiriman_rutin', 'id_skill' => (int) $t->id_skill, 'cabang_code' => $t->cabang_code, 'label' => $t->nama_skill . ' · Cab. ' . $t->cabang_code, 'harga_per_barang' => (object) ($hargaByVs[$t->id_vendor_skill] ?? []), 'usulan_berjalan' => $jenisBarangSemua->pluck('id_jenis_barang')->filter(fn ($id) => $usulanBerjalan->has('pengiriman_rutin|' . $t->cabang_code . '|' . $t->id_skill . '|' . $id))->map(fn ($id) => (int) $id)->values()]))">Usulkan Harga</button>
                                     @endif
                                     @if($t->pengajuan_url)
                                         <a href="{{ $t->pengajuan_url }}" class="whitespace-nowrap rounded-lg bg-avian-green px-2.5 py-1 text-xs font-medium text-white hover:bg-avian-green-dark">Buat Pengajuan</a>
