@@ -12,7 +12,7 @@
         class="mb-4 w-full rounded-lg border border-gray-300 px-4 py-2 text-sm
         focus:border-avian-green focus:outline-none">
 
-    <div class="overflow-hidden rounded-xl border border-gray-200">
+    <div class="overflow-hidden">
     <table class="w-full text-sm">
         <colgroup>
             <col class="w-[26%]">
@@ -24,7 +24,7 @@
         </colgroup>
 
         <thead>
-            <tr class="border-b border-gray-300 bg-gray-50 text-xs font-medium uppercase tracking-wide text-gray-500">
+            <tr class="kepala-tabel [--latar-kepala:var(--color-gray-100)] text-xs font-medium uppercase tracking-wide text-gray-500">
                 <th class="px-4 py-3 text-left">Nama Perusahaan</th>
                 <th class="px-4 py-3 text-left">Badan Usaha</th>
                 <th class="px-4 py-3 text-left">Area Kirim</th>
@@ -34,7 +34,7 @@
             </tr>
         </thead>
 
-        <tbody class="divide-y divide-gray-200">
+        <tbody class="divide-y divide-gray-100">
             <template x-for="p in perusahaanList" :key="p.id_perusahaan">
             <tr
                 class="cursor-pointer transition hover:bg-gray-50"
@@ -44,7 +44,7 @@
                     <span x-text="p.nama_perusahaan || '—'"></span>
                     <span x-show="p.status_approval && p.status_approval !== 'approved'" x-cloak
                         class="mt-1 block w-fit whitespace-nowrap rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700"
-                        x-text="p.status_approval === 'menunggu_approval' ? 'Vendor baru · menunggu WH' : 'Vendor baru · menunggu WM'"></span>
+                        x-text="'Vendor baru · menunggu ' + (p.giliran_approval || (p.status_approval === 'menunggu_approval' ? 'WH' : 'WM'))"></span>
                     <template x-if="pengajuan.jenis_pengajuan === 'pengiriman_rutin' && p.tarif_breakdown?.length > 0">
                         <div class="hidden absolute left-0 top-full z-20 max-h-80 w-72 overflow-y-auto
                             rounded-lg border border-gray-200 bg-white p-3 text-xs font-normal

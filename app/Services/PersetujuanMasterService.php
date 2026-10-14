@@ -20,8 +20,8 @@ use Illuminate\Support\Facades\Log;
 
 /**
  * Proses persetujuan master yang terpisah dari pengajuan sewa: vendor baru dan
- * usulan harga. Alur KG mengajukan → WM (cabang pengaju) memvalidasi → WH menyetujui;
- * penolakan oleh WM/WH langsung final.
+ * usulan harga. KG mengajukan, lalu tiap peran di alur (pengaturan DCI, dikunci saat
+ * diajukan) memutuskan bergiliran; WM hanya untuk cabang pengaju. Penolakan langsung final.
  *
  * - Vendor ditolak → flag=0 dan pengajuan sewa Pending yang memakai vendor itu ikut ditolak.
  * - Usulan harga disetujui → harga master diperbarui (histori harga ikut tercatat).
@@ -36,11 +36,10 @@ class PersetujuanMasterService
         private PengirimEmail $pengirim,
     ) {}
 
-    /** Vendor baru dari KG masuk antrian validasi WM. Dipanggil setelah baris vendor dibuat. */
+    /** Vendor baru dari KG masuk antrian tahap pertama alur. Dipanggil setelah baris vendor dibuat. */
     public function ajukanVendor(PerusahaanEkspedisi $vendor, User $kg): void
     {
-        $vendor->forceFill([
-            'status_approval' => PerusahaanEkspedisi::STATUS_MENUNGGU_VALIDASI,
+        $vendor->forceFill($vendor->awalPersetujuan() + [
             'id_cabang_pengaju' => $kg->getCabangId(),
             'submitted_by' => $kg->id,
             'submitted_at' => now(),
@@ -51,7 +50,7 @@ class PersetujuanMasterService
         $this->kirimEmail($vendor, 'diajukan');
     }
 
-    /** Vendor yang ditolak diperbaiki KG pengaju lalu masuk antrian validasi WM lagi. */
+    /** Vendor yang ditolak diperbaiki KG pengaju lalu mengulang alur dari tahap pertama. */
     public function ajukanUlangVendor(PerusahaanEkspedisi $vendor, User $kg): void
     {
         if ($vendor->statusPersetujuan() !== PerusahaanEkspedisi::STATUS_REJECTED) {
@@ -61,8 +60,7 @@ class PersetujuanMasterService
             throw new PersetujuanMasterException('Vendor ini hanya bisa diajukan ulang oleh pengajunya.', 403);
         }
 
-        $vendor->forceFill([
-            'status_approval' => PerusahaanEkspedisi::STATUS_MENUNGGU_VALIDASI,
+        $vendor->forceFill($vendor->awalPersetujuan() + [
             'submitted_at' => now(),
             'alasan_penolakan' => null,
             'flag' => true,
@@ -108,7 +106,7 @@ class PersetujuanMasterService
                 return null;
             }
 
-            $usulan = UsulanHarga::create([
+            $usulan = UsulanHarga::create((new UsulanHarga)->awalPersetujuan() + [
                 'jenis' => $jenis,
                 'id_perusahaan' => (int) $target['id_perusahaan'],
                 'id_skill' => (int) $target['id_skill'],
@@ -120,7 +118,6 @@ class PersetujuanMasterService
                 'harga_usulan' => $harga,
                 'sumber' => $sumber,
                 'catatan' => $catatan,
-                'status' => UsulanHarga::STATUS_MENUNGGU_VALIDASI,
                 'id_cabang_pengaju' => $kg->getCabangId(),
                 'submitted_by' => $kg->id,
                 'submitted_at' => now(),
@@ -136,7 +133,8 @@ class PersetujuanMasterService
     }
 
     /**
-     * Keputusan WM (validasi) atau WH (approval) atas vendor baru / usulan harga.
+     * Keputusan peran yang sedang giliran atas vendor baru / usulan harga. Disetujui tahap
+     * terakhir = final (usulan harga langsung diterapkan ke harga master).
      *
      * @param  bool  $setuju  false = tolak (alasan wajib)
      */
@@ -168,6 +166,8 @@ class PersetujuanMasterService
             }
 
             $kolom = $objek->kolomStatusPersetujuan();
+            $alur = $objek->alurPersetujuan();
+            $berikutnya = $setuju ? $objek->peranSesudah($peran) : null;
             if (! $setuju) {
                 $objek->forceFill([$kolom => $objek::STATUS_REJECTED, 'alasan_penolakan' => $alasan]);
                 if ($objek instanceof PerusahaanEkspedisi) {
@@ -176,7 +176,7 @@ class PersetujuanMasterService
                     $pengajuanDitolak = $this->tolakPengajuanVendor($objek, $user, $peran, $alasanPengajuan);
                 }
                 $aksi = 'ditolak';
-            } elseif ($peran === 'WM') {
+            } elseif ($berikutnya !== null) {
                 $objek->forceFill([$kolom => $objek::STATUS_MENUNGGU_APPROVAL]);
                 $aksi = 'divalidasi';
             } else {
@@ -186,13 +186,16 @@ class PersetujuanMasterService
                 }
                 $aksi = 'disetujui';
             }
+            if ($objek::kolomAlurAda()) {
+                $objek->forceFill(['giliran_approval' => $berikutnya]);
+            }
             $objek->save();
 
             if ($objek instanceof UsulanHarga && $aksi !== 'divalidasi') {
                 $this->sinkronStatusPengajuan($objek, $user);
             }
 
-            $this->catatLog($objek, $user, $peran, $setuju, $alasan);
+            $this->catatLog($objek, $user, $peran, (int) array_search($peran, $alur, true) + 1, $setuju, $alasan);
 
             $db->commit();
         } catch (\Throwable $e) {
@@ -200,7 +203,7 @@ class PersetujuanMasterService
             throw $e;
         }
 
-        $this->kirimEmail($objek, $aksi, $peran, $setuju ? null : $alasan);
+        $this->kirimEmail($objek, $aksi, $peran, $setuju ? null : $alasan, $berikutnya);
 
         foreach ($pengajuanDitolak as $p) {
             try {
@@ -213,19 +216,22 @@ class PersetujuanMasterService
 
     /**
      * Peran penerima email per aksi sesuai pengaturan DCI (KG = pengaju saja, WM = cabang pengaju).
+     * Penolakan dibedakan tahap pertama / tahap lanjutan. Peran yang sekarang giliran
+     * ($giliran) selalu ikut jadi penerima To.
      *
+     * @param  string[]  $alur  alur proses yang bersangkutan
      * @return array{0: string[], 1: string[]} [peran To, peran CC]
      */
-    public static function penerima(string $aksi, ?string $peranPemutus = null): array
+    public static function penerima(string $aksi, ?string $peranPemutus = null, array $alur = ['WM', 'WH'], ?string $giliran = null): array
     {
         $aturan = AturanEmail::penerima(match ($aksi) {
             'diajukan', 'diajukan_ulang' => 'master_diajukan',
             'divalidasi' => 'master_divalidasi',
             'disetujui' => 'master_disetujui',
-            'ditolak' => $peranPemutus === 'WH' ? 'master_ditolak_wh' : 'master_ditolak_wm',
+            'ditolak' => $peranPemutus === ($alur[0] ?? 'WM') ? 'master_ditolak_wm' : 'master_ditolak_wh',
         });
 
-        return [$aturan['to'], $aturan['cc']];
+        return AturanEmail::denganGiliran($aturan['to'], $aturan['cc'], $giliran, true);
     }
 
     /** Sewa Truk: harga_sewa di sesi_perusahaan_skill (dibuat kalau belum ada). @return int id_vendor_skill */
@@ -379,24 +385,25 @@ class PersetujuanMasterService
         $db->table('sesi_detail_kiriman_rutin')->where('id_usulan_harga', $usulan->id_usulan_harga)->update($kolom);
     }
 
-    /** Log keputusan di sesi_approval_log; tingkat 1 = validasi WM, 2 = approval WH. */
-    private function catatLog(PerusahaanEkspedisi|UsulanHarga $objek, User $user, string $peran, bool $setuju, ?string $alasan): void
+    /** Log keputusan di sesi_approval_log; tingkat = urutan peran di alur proses. */
+    private function catatLog(PerusahaanEkspedisi|UsulanHarga $objek, User $user, string $peran, int $tingkat, bool $setuju, ?string $alasan): void
     {
         ApprovalLog::create([
             $objek instanceof PerusahaanEkspedisi ? 'id_perusahaan' : 'id_usulan_harga' => $objek->getKey(),
             'id_approver' => $user->id,
             'role_approver' => $peran,
-            'tingkat' => $peran === 'WM' ? 1 : 2,
+            'tingkat' => $tingkat,
             'status' => $setuju ? 'approved' : 'rejected',
             'decided_at' => now(),
             'alasan_penolakan' => $setuju ? null : $alasan,
         ]);
     }
 
-    private function kirimEmail(PerusahaanEkspedisi|UsulanHarga $objek, string $aksi, ?string $peranPemutus = null, ?string $alasan = null): void
+    private function kirimEmail(PerusahaanEkspedisi|UsulanHarga $objek, string $aksi, ?string $peranPemutus = null, ?string $alasan = null, ?string $giliran = null): void
     {
         try {
-            [$toPeran, $ccPeran] = self::penerima($aksi, $peranPemutus);
+            $giliran ??= in_array($aksi, ['diajukan', 'diajukan_ulang'], true) ? $objek->giliranPersetujuan() : null;
+            [$toPeran, $ccPeran] = self::penerima($aksi, $peranPemutus, $objek->alurPersetujuan(), $giliran);
             $to = $this->alamat($toPeran, $objek);
             $cc = $this->alamat($ccPeran, $objek);
 
@@ -404,7 +411,7 @@ class PersetujuanMasterService
             $url = route('persetujuan.buka', [$jenis, $objek->getKey()]);
             $label = "'$aksi' ".($jenis === 'vendor' ? 'vendor' : 'usulan harga')." #{$objek->getKey()}";
 
-            $this->pengirim->kirim($label, $to, $cc, fn () => new NotifikasiMasterMail($objek->fresh(), $aksi, $url, $alasan));
+            $this->pengirim->kirim($label, $to, $cc, fn () => new NotifikasiMasterMail($objek->fresh(), $aksi, $url, $alasan, $peranPemutus));
         } catch (\Throwable $e) {
             Log::warning("Email persetujuan master '$aksi' gagal disiapkan: ".$e->getMessage());
         }

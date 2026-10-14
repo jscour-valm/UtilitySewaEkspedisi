@@ -16,10 +16,10 @@
     $dilipat = count($items) > $batas;
 @endphp
 
-<div class="overflow-x-auto rounded-lg border border-gray-100 mt-4" @if ($dilipat) x-data="{ semua: false }" @endif>
+<div class="overflow-x-auto mt-4" @if ($dilipat) x-data="{ semua: false }" @endif>
     <table class="w-full text-sm">
         <thead>
-            <tr class="border-b border-gray-100 bg-gray-50 text-[11px] font-semibold tracking-wide text-gray-500">
+            <tr class="kepala-tabel text-[11px] font-semibold tracking-wide text-gray-500">
                 @if ($isAcb)
                     <th class="px-3.5 py-2.5 text-left">NO TO-ACB</th>
                     <th class="px-3.5 py-2.5 text-left">NO TS</th>

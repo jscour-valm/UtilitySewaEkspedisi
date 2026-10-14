@@ -3,21 +3,48 @@
 namespace App\Services;
 
 use App\Helpers\RentangTanggalDashboard;
+use App\Models\AturanAlur;
 use App\Models\PerusahaanEkspedisi;
-use App\Models\UsulanHarga;
 use App\Models\User;
+use App\Models\UsulanHarga;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
  * Isi tab "Vendor Baru" & "Perubahan Harga" di dashboard. Cakupan: KG & WM = cabang yang
- * dipegang, WH & DCI = semua. Proses yang masih berjalan selalu tampil; yang sudah
+ * dipegang, WC, WH & DCI = semua. Proses yang masih berjalan selalu tampil; yang sudah
  * diputuskan tampil kalau diajukan dalam periode filter dashboard.
- * Badge: WM/WH = jumlah yang menunggu keputusannya; KG/DCI = jumlah yang masih berjalan.
+ * Badge: WM/WC/WH = jumlah yang menunggu keputusannya; KG/DCI = jumlah yang masih berjalan.
  */
 class DaftarPersetujuanMaster
 {
-    public const PERAN = ['KG', 'WM', 'WH', 'DCI'];
+    /** Peran yang boleh membuka halaman proses vendor baru / usulan harga. */
+    public const PERAN = ['KG', 'WM', 'WC', 'WH', 'DCI'];
+
+    /** Peran yang bisa menjadi pemutus (tahap alur). */
+    public const PEMUTUS = AturanAlur::PERAN;
+
+    /**
+     * Dashboard peran ini memakai tab Vendor Baru / Perubahan Harga. WC hanya kalau WC ada
+     * di alur proses master sekarang atau masih ada proses yang menunggu WC.
+     */
+    public static function pakaiTab(?string $peran): bool
+    {
+        if ($peran !== 'WC') {
+            return in_array($peran, self::PERAN, true);
+        }
+
+        foreach (AturanAlur::semuaMaster() as $alur) {
+            if (in_array('WC', explode(',', $alur), true)) {
+                return true;
+            }
+        }
+
+        return PerusahaanEkspedisi::kolomAlurAda() && (
+            PerusahaanEkspedisi::withInactive()->sedangBerjalan()->where('giliran_approval', 'WC')->exists()
+            || UsulanHarga::withInactive()->sedangBerjalan()->where('giliran_approval', 'WC')->exists()
+        );
+    }
 
     /** @return array{vendor: Collection, harga: Collection, badge: array{vendor: int, harga: int}} */
     public function untuk(User $user, RentangTanggalDashboard $rentang): array
@@ -27,7 +54,7 @@ class DaftarPersetujuanMaster
             return ['vendor' => collect(), 'harga' => collect(), 'badge' => ['vendor' => 0, 'harga' => 0]];
         }
 
-        $cabang = in_array($peran, ['WH', 'DCI'], true)
+        $cabang = in_array($peran, ['WC', 'WH', 'DCI'], true)
             ? null
             : array_values(array_filter($user->getCabangIds() ?: [$user->getCabangId()]));
 
@@ -42,7 +69,7 @@ class DaftarPersetujuanMaster
 
         $this->lengkapiUsulan($harga);
 
-        $menunggu = fn (Collection $c) => $c->filter(fn ($m) => in_array($peran, ['WM', 'WH'], true)
+        $menunggu = fn (Collection $c) => $c->filter(fn ($m) => in_array($peran, self::PEMUTUS, true)
             ? $m->giliranPersetujuan() === $peran
             : $m->sedangBerjalan())->count();
 

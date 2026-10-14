@@ -11,12 +11,12 @@
     use App\Helpers\FormatHelper;
 
     $isVendor = $jenis === 'vendor';
-    // WM/WH: "pending" = yang menunggu keputusan peran ini; role lain = semua yang masih berjalan.
-    $approver = in_array($peran, ['WM', 'WH'], true);
+    // Peran pemutus: "pending" = yang menunggu keputusan peran ini; role lain = semua yang masih berjalan.
+    $approver = in_array($peran, \App\Services\DaftarPersetujuanMaster::PEMUTUS, true);
     $pending = fn ($r) => $approver ? $r->giliranPersetujuan() === $peran : $r->sedangBerjalan();
     $kartu = $peran === 'KG' ? [] : [
         ['semua', 'Total ' . ($isVendor ? 'Vendor Baru' : 'Usulan Harga'), $rows->count(), 'Semua status', 'gray'],
-        ['pending', 'Pending', $rows->filter($pending)->count(), match ($peran) { 'WM' => 'Menunggu validasi Anda', 'WH' => 'Menunggu approval Anda', default => 'Masih berjalan' }, 'yellow'],
+        ['pending', 'Pending', $rows->filter($pending)->count(), match (true) { $peran === 'WM' => 'Menunggu validasi Anda', $approver => 'Menunggu approval Anda', default => 'Masih berjalan' }, 'yellow'],
         ['approved', 'Disetujui', $rows->filter(fn ($r) => $r->sudahDisetujui())->count(), $isVendor ? 'Vendor disetujui' : 'Usulan disetujui', 'green'],
         ['rejected', 'Ditolak', $rows->filter(fn ($r) => $r->statusPersetujuan() === 'rejected')->count(), $isVendor ? 'Vendor ditolak' : 'Usulan ditolak', 'red'],
     ];
@@ -40,11 +40,12 @@
         <div class="min-w-0">
             <h2 class="text-sm font-semibold text-gray-700">{{ $isVendor ? 'Pengajuan Vendor Baru' : 'Usulan Perubahan Harga Master' }}</h2>
         </div>
-        {{-- KG: filter periode + jalan pintas mengajukan (role lain: filter ada di baris tab) --}}
-        @if($peran === 'KG')
+        {{-- KG: filter periode + jalan pintas mengajukan. WC: filter periode. Role lain: filter ada di baris tab --}}
+        @if(in_array($peran, ['KG', 'WC'], true))
             <div class="flex flex-wrap items-center gap-3">
                 <x-dashboard.filter-tanggal />
-                @if($isVendor)
+                @if($peran !== 'KG')
+                @elseif($isVendor)
                     <x-perusahaan.modal-vendor-baru :is-kg="true" kelas-tombol="px-3 py-1.5 text-xs" />
                 @else
                     {{-- Usulan harga diajukan per tarif, jadi vendornya dipilih dulu di halaman Perusahaan --}}
@@ -68,15 +69,15 @@
                 class="mb-4 w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-avian-green focus:outline-none">
             <table class="w-full min-w-[48rem] text-sm">
                 <thead>
-                    <tr class="border-b border-gray-200 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
-                        <th class="py-2.5 pr-3">{{ $isVendor ? 'Vendor' : 'Vendor & Tarif' }}</th>
-                        <th class="py-2.5 pr-3">Cabang</th>
+                    <tr class="kepala-tabel text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+                        <th class="px-4 py-2.5">{{ $isVendor ? 'Vendor' : 'Vendor & Tarif' }}</th>
+                        <th class="px-4 py-2.5">Cabang</th>
                         @unless($isVendor)
-                            <th class="py-2.5 pr-8">Master → Usulan</th>
+                            <th class="px-4 py-2.5">Master → Usulan</th>
                         @endunless
-                        <th class="py-2.5 pr-3">Diajukan</th>
-                        <th class="py-2.5 pr-3">Status</th>
-                        <th class="py-2.5 text-right">Aksi</th>
+                        <th class="px-4 py-2.5">Diajukan</th>
+                        <th class="px-4 py-2.5">Status</th>
+                        <th class="px-4 py-2.5 text-right">Aksi</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
@@ -91,7 +92,7 @@
                         @endphp
                         <tr class="hover:bg-gray-50" data-baris data-cari="{{ $cari }}"
                             data-status="{{ $r->statusPersetujuan() }}" data-pending="{{ $pending($r) ? '1' : '0' }}">
-                            <td class="py-3 pr-3">
+                            <td class="px-4 py-3">
                                 @if($isVendor)
                                     <p class="font-medium text-gray-800">{{ trim(($r->badan_usaha && $r->badan_usaha !== '-' ? $r->badan_usaha . ' ' : '') . $r->nama_perusahaan) }}</p>
                                     <p class="text-xs text-gray-400">{{ $r->no_telepon ?: '—' }}</p>
@@ -103,26 +104,26 @@
                                     </p>
                                 @endif
                             </td>
-                            <td class="py-3 pr-3 text-gray-600">{{ $r->id_cabang_pengaju }}</td>
+                            <td class="px-4 py-3 text-gray-600">{{ $r->id_cabang_pengaju }}</td>
                             @unless($isVendor)
                                 @php
                                     $lama = $r->harga_lama !== null ? (float) $r->harga_lama : null;
                                     $naik = $lama !== null && (float) $r->harga_usulan > $lama;
                                 @endphp
-                                <td class="whitespace-nowrap py-3 pr-8 tabular-nums">
+                                <td class="whitespace-nowrap py-3 pl-4 pr-8 tabular-nums">
                                     <span class="text-gray-500">{{ $lama !== null ? FormatHelper::rupiah($lama) : 'baru' }}</span>
                                     <span class="text-gray-300">→</span>
                                     <span class="font-semibold {{ $lama === null ? 'text-gray-800' : ($naik ? 'text-red-600' : 'text-avian-green') }}">{{ FormatHelper::rupiah($r->harga_usulan) }}</span>
                                 </td>
                             @endunless
-                            <td class="py-3 pr-3 text-gray-600">
+                            <td class="px-4 py-3 text-gray-600">
                                 <p>{{ $r->submittedBy?->name ?? '-' }}</p>
                                 <p class="text-xs text-gray-400">{{ $r->submitted_at?->translatedFormat('d M Y') }}</p>
                             </td>
-                            <td class="py-3 pr-3">
+                            <td class="px-4 py-3">
                                 <span class="whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium {{ $r->warnaStatusPersetujuan() }}">{{ $r->labelStatusPersetujuan() }}</span>
                             </td>
-                            <td class="py-3 text-right">
+                            <td class="px-4 py-3 text-right">
                                 @if($giliranSaya)
                                     <a href="{{ $url }}" class="inline-block whitespace-nowrap rounded-lg bg-avian-green px-3 py-1.5 text-xs font-medium text-white hover:bg-avian-green-dark">
                                         {{ $peran === 'WM' ? 'Validasi' : 'Review' }}

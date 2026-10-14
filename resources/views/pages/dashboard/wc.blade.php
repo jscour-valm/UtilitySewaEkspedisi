@@ -3,6 +3,8 @@
 @section('title', 'Dashboard WC')
 
 @section('content')
+{{-- Tab Vendor Baru / Perubahan Harga hanya muncul kalau WC terlibat di alurnya --}}
+<x-dashboard.tab>
 <div class="space-y-4">
 
     <x-dashboard.stat-filters
@@ -29,5 +31,6 @@
     </div>
 
 </div>
+</x-dashboard.tab>
 
 @endsection

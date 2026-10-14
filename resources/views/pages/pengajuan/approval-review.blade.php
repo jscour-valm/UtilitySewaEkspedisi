@@ -47,7 +47,7 @@
         <div class="flex items-stretch flex-wrap mt-5 border-t border-gray-100 pt-4">
             @if($pakaiRasio)
                 <div class="flex-1 min-w-[220px] basis-60 pr-6">
-                    <p class="text-[11px] font-semibold tracking-[0.09em] text-gray-500">RASIO SEWA</p>
+                    <p class="text-[13px] font-semibold tracking-[0.09em] text-gray-500">RASIO SEWA</p>
                     <div class="flex items-baseline gap-2.5 mt-1.5">
                         <span class="text-[34px] font-bold tracking-tight {{ $overAmbang ? 'text-red-600' : 'text-green-700' }}">
                             {{ number_format($rasio, 2, ',', '.') }}%
@@ -73,7 +73,7 @@
             @endif
 
             <div class="flex-1 min-w-[160px] basis-44 px-6">
-                <p class="text-[11px] font-semibold tracking-[0.09em] text-gray-500">TOTAL BIAYA SEWA</p>
+                <p class="text-[13px] font-semibold tracking-[0.09em] text-gray-500">TOTAL BIAYA SEWA</p>
                 <p class="text-[22px] font-bold tracking-tight text-gray-900 mt-2">{{ \App\Helpers\FormatHelper::rupiah($totalBiayaSewa) }}</p>
                 <p class="text-xs text-gray-400 mt-1">
                     {{ $totalBiayaTambahan > 0
@@ -86,7 +86,7 @@
             <div class="w-px bg-gray-100"></div>
 
             <div class="flex-1 min-w-[160px] basis-44 pl-6">
-                <p class="text-[11px] font-semibold tracking-[0.09em] text-gray-500">VALUE MUATAN</p>
+                <p class="text-[13px] font-semibold tracking-[0.09em] text-gray-500">VALUE MUATAN</p>
                 <p class="text-[22px] font-bold tracking-tight text-gray-900 mt-2">{{ $pengajuan->value_muatan ? \App\Helpers\FormatHelper::rupiah($pengajuan->value_muatan) : '-' }}</p>
                 <p class="text-xs text-gray-400 mt-1">
                     @if($isKirimanRutin)
@@ -107,7 +107,7 @@
         {{-- Kolom 1: Informasi Kendaraan (sewa_truk) / Informasi Vendor (pengiriman_rutin) --}}
         <div class="min-w-0">
             @if($isKirimanRutin)
-                <p class="text-[11px] font-semibold tracking-[0.09em] text-gray-500 mb-1">INFORMASI VENDOR</p>
+                <p class="text-[13px] font-semibold tracking-[0.09em] text-gray-500 mb-1">INFORMASI VENDOR</p>
 
                 <div class="flex justify-between gap-4 py-2.5 border-b border-gray-50">
                     <span class="text-sm text-gray-500">Badan Usaha &amp; Perusahaan</span>
@@ -134,7 +134,7 @@
                     <span class="text-sm font-semibold text-gray-900 text-right">{{ $vendor?->alamat_kantor }}</span>
                 </div>
             @else
-                <p class="text-[11px] font-semibold tracking-[0.09em] text-gray-500 mb-1">INFORMASI KENDARAAN</p>
+                <p class="text-[13px] font-semibold tracking-[0.09em] text-gray-500 mb-1">INFORMASI KENDARAAN</p>
 
                 <div class="flex justify-between gap-4 py-2.5 border-b border-gray-50">
                     <span class="text-sm text-gray-500">Jenis Kendaraan</span>
@@ -179,7 +179,7 @@
 
         {{-- Kolom 2: Detail Pengajuan --}}
         <div class="min-w-0">
-            <p class="text-[11px] font-semibold tracking-[0.09em] text-gray-500 mb-1">DETAIL PENGAJUAN</p>
+            <p class="text-[13px] font-semibold tracking-[0.09em] text-gray-500 mb-1">DETAIL PENGAJUAN</p>
 
             <div class="flex justify-between gap-4 py-2.5 border-b border-gray-50">
                 <span class="text-sm text-gray-500">Tanggal Pengiriman</span>
@@ -205,7 +205,7 @@
 
         {{-- Kolom 3: Rincian Biaya --}}
         <div class="min-w-0">
-            <p class="text-[11px] font-semibold tracking-[0.09em] text-gray-500 mb-1">RINCIAN BIAYA</p>
+            <p class="text-[13px] font-semibold tracking-[0.09em] text-gray-500 mb-1">RINCIAN BIAYA</p>
 
             @if($isKirimanRutin)
                 @forelse($pengajuan->detailKirimanRutin as $detail)
@@ -270,7 +270,7 @@
         $docSrcs = collect($dokumenIdentitas)->map(fn ($item) => \App\Helpers\FormatHelper::identitasOwnerSrc($item))->values();
     @endphp
     <div class="rounded-xl bg-white shadow-sm border border-gray-100 p-6">
-        <p class="text-[11px] font-semibold tracking-[0.09em] text-gray-500">DOKUMEN IDENTITAS PERUSAHAAN</p>
+        <p class="text-[13px] font-semibold tracking-[0.09em] text-gray-500">DOKUMEN IDENTITAS PERUSAHAAN</p>
         <p class="text-[13px] text-gray-400 mt-1 mb-4">Klik untuk memperbesar dan memverifikasi</p>
 
         <div class="grid grid-cols-2 gap-4">
@@ -303,7 +303,7 @@
 
     {{-- ==================== DOKUMEN SJ/TO-ACB ==================== --}}
     <div class="rounded-xl bg-white shadow-sm border border-gray-100 p-6">
-        <p class="text-[11px] font-semibold tracking-[0.09em] text-gray-500">
+        <p class="text-[13px] font-semibold tracking-[0.09em] text-gray-500">
             DOKUMEN
             @if($pengajuan->tujuan_penyewaan === 'Toko')
                 SJ
@@ -322,13 +322,13 @@
          Kiriman Rutin (lihat ApprovalController::getVendorLain()). --}}
     @unless($isKirimanRutin)
     <div class="rounded-xl bg-white shadow-sm border border-gray-100 p-6">
-        <p class="text-[11px] font-semibold tracking-[0.09em] text-gray-500">PERBANDINGAN VENDOR</p>
+        <p class="text-[13px] font-semibold tracking-[0.09em] text-gray-500">PERBANDINGAN VENDOR</p>
         <p class="text-[13px] text-gray-400 mt-1 mb-3.5">Kendaraan lain dengan skill {{ implode(', ', \App\Helpers\FormatHelper::skillNames($pengajuan->kendaraan->id_skill)) }}</p>
 
-        <div class="overflow-x-auto rounded-lg border border-gray-100">
+        <div class="overflow-x-auto">
             <table class="w-full text-sm">
                 <thead>
-                    <tr class="border-b border-gray-100 bg-gray-50 text-[11px] font-semibold tracking-wide text-gray-500">
+                    <tr class="kepala-tabel text-[11px] font-semibold tracking-wide text-gray-500">
                         <th class="px-3.5 py-2.5 text-left">NAMA VENDOR</th>
                         <th class="px-3.5 py-2.5 text-right">HARGA SEWA</th>
                         <th class="px-3.5 py-2.5 text-right">SELISIH</th>
@@ -390,7 +390,7 @@
 
     {{-- ==================== RIWAYAT VENDOR ==================== --}}
     <div class="rounded-xl bg-white shadow-sm border border-gray-100 p-6">
-        <p class="text-[11px] font-semibold tracking-[0.09em] text-gray-500">
+        <p class="text-[13px] font-semibold tracking-[0.09em] text-gray-500">
             RIWAYAT {{ strtoupper(trim(($vendor?->badan_usaha ?? '') . ' ' . ($vendor?->nama_perusahaan ?? ''))) }}
         </p>
         <p class="text-[13px] text-gray-400 mt-1 mb-3.5">
@@ -401,10 +401,10 @@
             @endif
         </p>
 
-        <div class="overflow-x-auto rounded-lg border border-gray-100">
+        <div class="overflow-x-auto">
             <table class="w-full text-sm">
                 <thead>
-                    <tr class="border-b border-gray-100 bg-gray-50 text-[11px] font-semibold tracking-wide text-gray-500">
+                    <tr class="kepala-tabel text-[11px] font-semibold tracking-wide text-gray-500">
                         <th class="px-3.5 py-2.5 text-left">TANGGAL</th>
                         <th class="px-3.5 py-2.5 text-right">VALUE MUATAN</th>
                         <th class="px-3.5 py-2.5 text-right">HARGA SEWA</th>
@@ -468,7 +468,7 @@
     {{-- ==================== RIWAYAT PENOLAKAN ==================== --}}
     @if($rejections->count() > 0)
         <div class="rounded-xl bg-white shadow-sm border border-gray-100 p-6">
-            <p class="text-[11px] font-semibold tracking-[0.09em] text-gray-500 mb-4">RIWAYAT PENOLAKAN</p>
+            <p class="text-[13px] font-semibold tracking-[0.09em] text-gray-500 mb-4">RIWAYAT PENOLAKAN</p>
             <div class="space-y-3">
                 @foreach($rejections as $rejection)
                     <div class="rounded-lg border border-red-100 bg-red-50 p-4">

@@ -113,7 +113,7 @@
                         <col style="width: {{ $widths['aksi'] }}px">
                     </colgroup>
                     <thead>
-                        <tr class="border-b border-gray-300 bg-gray-50 text-xs font-medium uppercase tracking-wide text-gray-500">
+                        <tr class="kepala-tabel text-xs font-medium uppercase tracking-wide text-gray-500">
                             <x-ui.sortable-th col="nama" label="Perusahaan" :class="$stickyTh . ' border-r border-gray-200'" style="left: 0px" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort" orderParam="order" />
                             <x-ui.sortable-th col="badan_usaha" label="Badan Usaha" :class="$plainTh" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort" orderParam="order" />
                             <th class="{{ $plainTh }} px-3 py-3 text-left whitespace-nowrap">Dokumen Identitas</th>
@@ -125,10 +125,10 @@
                             <th class="{{ $plainTh }} px-3 py-3 text-right whitespace-nowrap">Aksi</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-gray-200">
+                    <tbody class="[&>tr>td]:border-b [&>tr>td]:border-gray-100">
                         @forelse($rows as $r)
                         <tr class="group hover:bg-gray-50 transition">
-                            <td class="sticky z-10 bg-white group-hover:bg-gray-50 px-3 py-3 font-medium text-gray-800 border-r border-gray-200 truncate" style="left: 0px" title="{{ $r->nama_perusahaan }}"><div class="truncate">{{ $r->nama_perusahaan }}</div><x-perusahaan.badge-vendor-baru :status="$r->status_approval ?? null" :id="$r->id_perusahaan" class="mt-1" /></td>
+                            <td class="sticky z-10 bg-white group-hover:bg-gray-50 px-3 py-3 font-medium text-gray-800 border-r border-gray-200 truncate" style="left: 0px" title="{{ $r->nama_perusahaan }}"><div class="truncate">{{ $r->nama_perusahaan }}</div><x-perusahaan.badge-vendor-baru :status="$r->status_approval ?? null" :giliran="$r->giliran_approval ?? null" :id="$r->id_perusahaan" class="mt-1" /></td>
                             <td class="px-3 py-3 text-gray-600 truncate">{{ $r->badan_usaha ?: '—' }}</td>
                             <td class="px-3 py-3">
                                 @if(count($r->identitas_owner_src))
@@ -219,7 +219,7 @@
                     @endforeach
                 </colgroup>
                 <thead>
-                    <tr class="border-b border-gray-300 bg-gray-50 text-xs font-medium uppercase tracking-wide text-gray-500">
+                    <tr class="kepala-tabel text-xs font-medium uppercase tracking-wide text-gray-500">
                         <x-ui.sortable-th col="nama" label="Perusahaan" :class="$stickyTh . ' border-r border-gray-200'" style="left: 0px" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort" orderParam="order" />
                         <x-ui.sortable-th col="badan_usaha" label="Badan Usaha" :class="$plainTh" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort" orderParam="order" />
                         <x-ui.sortable-th col="cakupan" label="Cakupan" :class="$plainTh" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort" orderParam="order" />
@@ -229,10 +229,10 @@
                         <th class="{{ $plainTh }} px-3 py-3 text-right whitespace-nowrap">Aksi</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-gray-200">
+                <tbody class="[&>tr>td]:border-b [&>tr>td]:border-gray-100">
                     @forelse($rows as $r)
                     <tr class="group hover:bg-gray-50 transition">
-                        <td class="sticky z-10 bg-white group-hover:bg-gray-50 px-3 py-3 font-medium text-gray-800 border-r border-gray-200 truncate" style="left: 0px" title="{{ $r->nama_perusahaan }}"><div class="truncate">{{ $r->nama_perusahaan }}</div><x-perusahaan.badge-vendor-baru :status="$r->status_approval ?? null" :id="$r->id_perusahaan" class="mt-1" /></td>
+                        <td class="sticky z-10 bg-white group-hover:bg-gray-50 px-3 py-3 font-medium text-gray-800 border-r border-gray-200 truncate" style="left: 0px" title="{{ $r->nama_perusahaan }}"><div class="truncate">{{ $r->nama_perusahaan }}</div><x-perusahaan.badge-vendor-baru :status="$r->status_approval ?? null" :giliran="$r->giliran_approval ?? null" :id="$r->id_perusahaan" class="mt-1" /></td>
                         <td class="px-3 py-3 text-gray-600 truncate">{{ $r->badan_usaha ?: '—' }}</td>
                         <x-perusahaan.cakupan-popover mode="server" :row="$r" padding="px-3 py-3" />
                         <td class="px-3 py-3">
@@ -332,7 +332,7 @@
                     @endforeach
                 </colgroup>
                 <thead>
-                    <tr class="border-b border-gray-300 bg-gray-50 text-xs font-medium uppercase tracking-wide text-gray-500">
+                    <tr class="kepala-tabel text-xs font-medium uppercase tracking-wide text-gray-500">
                         <x-ui.sortable-th col="kode_area" label="Area" :class="$stickyTh" :style="'left: ' . $left['kode_area'] . 'px'" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort" orderParam="order" />
                         <x-ui.sortable-th col="cabang" label="Cabang" :class="$stickyTh" :style="'left: ' . $left['cabang'] . 'px'" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort" orderParam="order" />
                         <x-ui.sortable-th col="nama" label="Nama Ekspedisi" :class="$stickyTh . ' border-r border-gray-200'" :style="'left: ' . $left['nama'] . 'px'" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort" orderParam="order" />
@@ -345,7 +345,7 @@
                         <th class="{{ $plainTh }} px-3 py-3 text-right">Aksi</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-gray-200">
+                <tbody class="[&>tr>td]:border-b [&>tr>td]:border-gray-100">
                     @forelse($rows as $r)
                     <tr class="group hover:bg-gray-50 transition">
                         <td class="sticky z-10 bg-white group-hover:bg-gray-50 px-3 py-3 text-gray-600 truncate" style="left: {{ $left['kode_area'] }}px">{{ $r->kode_area ?? '—' }}</td>
@@ -417,7 +417,7 @@
                     <col style="width: 90px">
                 </colgroup>
                 <thead>
-                    <tr class="border-b border-gray-300 bg-gray-50 text-xs font-medium uppercase tracking-wide text-gray-500">
+                    <tr class="kepala-tabel text-xs font-medium uppercase tracking-wide text-gray-500">
                         <x-ui.sortable-th col="kode_area" label="Area" :class="$stickyTh" :style="'left: ' . $left['kode_area'] . 'px'" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort" orderParam="order" />
                         <x-ui.sortable-th col="cabang" label="Cabang" :class="$stickyTh" :style="'left: ' . $left['cabang'] . 'px'" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort" orderParam="order" />
                         <x-ui.sortable-th col="nama" label="Nama Ekspedisi" :class="$stickyTh . ' border-r border-gray-200'" :style="'left: ' . $left['nama'] . 'px'" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort" orderParam="order" />
@@ -430,7 +430,7 @@
                         <th class="{{ $plainTh }} px-3 py-3 text-right">Aksi</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-gray-200">
+                <tbody class="[&>tr>td]:border-b [&>tr>td]:border-gray-100">
                     @forelse($rows as $r)
                     <tr class="group hover:bg-gray-50 transition">
                         <td class="sticky z-10 bg-white group-hover:bg-gray-50 px-3 py-3 text-gray-600 truncate" style="left: {{ $left['kode_area'] }}px">{{ $r->kode_area ?? '—' }}</td>

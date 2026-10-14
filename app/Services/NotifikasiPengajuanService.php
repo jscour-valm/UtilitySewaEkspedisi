@@ -22,8 +22,9 @@ class NotifikasiPengajuanService
     public function pengajuanBaru(PengajuanSewa $p, bool $ulang = false): void
     {
         $aturan = AturanEmail::penerima('pengajuan_masuk');
+        [$to, $cc] = AturanEmail::denganGiliran($aturan['to'], $aturan['cc'], $p->alurApproval()[0] ?? null, true);
 
-        $this->kirim($p, 'baru', $this->emailPeran($aturan['to'], $p), $this->emailPeran($aturan['cc'], $p), $ulang, true);
+        $this->kirim($p, 'baru', $this->emailPeran($to, $p), $this->emailPeran($cc, $p), $ulang, true);
     }
 
     /** Satu email per keputusan (validasi / approval / tolak), penerima sesuai kejadiannya. */
@@ -63,7 +64,8 @@ class NotifikasiPengajuanService
     }
 
     /**
-     * Kejadian email untuk keputusan ini. Pada penolakan, WC/WH hanya dikirimi kalau ada di alur pengajuan.
+     * Kejadian email untuk keputusan ini. Pada penolakan, WC/WH hanya dikirimi kalau ada di alur
+     * pengajuan. Saat lanjut ke tahap berikutnya, peran yang giliran selalu ikut menerima.
      *
      * @return array{0: string, 1: string[], 2: string[]} [tipe email, peran To, peran CC]
      */
@@ -85,11 +87,12 @@ class NotifikasiPengajuanService
                 default => 'menunggu_wh_toko',
             };
             $aturan = AturanEmail::penerima($kejadian);
+            [$to, $cc] = AturanEmail::denganGiliran($aturan['to'], $aturan['cc'], $berikutnya, false);
 
-            return ['menunggu_approval', $aturan['to'], $aturan['cc']];
+            return ['menunggu_approval', $to, $cc];
         }
 
-        $aturan = AturanEmail::penerima($alur === ['WM'] ? 'final_wm' : 'final_tahap2');
+        $aturan = AturanEmail::penerima(count($alur) === 1 ? 'final_wm' : 'final_tahap2');
 
         return ['approved', $aturan['to'], $aturan['cc']];
     }

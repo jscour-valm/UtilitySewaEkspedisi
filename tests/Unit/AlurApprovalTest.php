@@ -29,6 +29,42 @@ class AlurApprovalTest extends TestCase
         $this->assertSame($harapan, AturanAlur::alurUntuk($jenis, $tujuan, $rasioDiAtas));
     }
 
+    public static function kasusRapikan(): array
+    {
+        return [
+            'satu tahap' => ['WM', 'WM'],
+            'tiga tahap' => ['WM,WC,WH', 'WM,WC,WH'],
+            'tahap pertama bukan WM' => [['WH', 'WM'], 'WH,WM'],
+            'tahap kosong dirapatkan' => [['WM', '', 'WH'], 'WM,WH'],
+            'huruf kecil & spasi' => [' wm , wh ', 'WM,WH'],
+            'kosong' => [['', '', ''], null],
+            'peran berulang' => [['WM', 'WM'], null],
+            'peran tidak dikenal' => ['WM,KA', null],
+            'lebih dari tiga tahap' => ['WM,WC,WH,WM', null],
+        ];
+    }
+
+    #[DataProvider('kasusRapikan')]
+    public function test_rapikan_alur(string|array $isian, ?string $harapan): void
+    {
+        $this->assertSame($harapan, AturanAlur::rapikan($isian));
+    }
+
+    public function test_alur_master_bawaan(): void
+    {
+        AturanAlur::lupakanCache();
+        $this->assertSame('WM,WH', AturanAlur::alurMaster(AturanAlur::MASTER_VENDOR));
+        $this->assertSame('WM,WH', AturanAlur::alurMaster(AturanAlur::MASTER_HARGA));
+    }
+
+    public function test_kg_boleh_edit_selama_menunggu_tahap_pertama(): void
+    {
+        $p = new PengajuanSewa(['status_pengajuan' => 'Pending', 'alur_approval' => 'WH,WM']);
+        $p->setRelation('approvalLogs', collect());
+        $this->assertSame('WH', $p->approverBerikutnya());
+        $this->assertTrue($p->bisaDieditPengaju());
+    }
+
     public static function kasusPakaiRasio(): array
     {
         return [

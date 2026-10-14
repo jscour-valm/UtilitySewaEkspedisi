@@ -1,15 +1,17 @@
 {{--
     Penanda vendor baru yang belum disetujui; tidak tampil untuk vendor approved.
     Dipakai di: daftar Perusahaan.
-    Props: status (status persetujuan vendor), id (id vendor, untuk tautan ke halaman proses).
+    Props: status (status persetujuan vendor), giliran (peran yang sedang ditunggu; kosong =
+           WM untuk menunggu_validasi, WH untuk menunggu_approval), id (id vendor, untuk tautan
+           ke halaman proses).
 --}}
-@props(['status' => null, 'id' => null])
+@props(['status' => null, 'giliran' => null, 'id' => null])
 
 @if($status && $status !== 'approved')
     @php
         $label = match ($status) {
-            'menunggu_validasi' => 'Vendor baru · menunggu WM',
-            'menunggu_approval' => 'Vendor baru · menunggu WH',
+            'menunggu_validasi' => 'Vendor baru · menunggu ' . ($giliran ?: 'WM'),
+            'menunggu_approval' => 'Vendor baru · menunggu ' . ($giliran ?: 'WH'),
             default => 'Vendor ditolak',
         };
         $warna = $status === 'rejected' ? 'bg-red-50 text-red-600' : 'bg-amber-50 text-amber-700';

@@ -11,9 +11,10 @@
 <script>window.__userId = @json(auth()->id());</script>
 <script>window.__rasioMaks = @json((float) (\App\Models\RasioSewa::aktif()?->persentase_maksimal ?? \App\Models\RasioSewa::BATAS_DEFAULT));</script>
 <script>window.__aturanAlur = @json(\App\Models\AturanAlur::semua());</script>
+{{-- data-tandai-ubah hanya saat mengedit pengajuan: isian yang diganti diberi latar kuning --}}
 <div
     class="flex flex-col gap-4 pb-2"
-    x-data="pengajuanSewa">
+    x-data="pengajuanSewa" :data-tandai-ubah="editId ? 'ya' : false">
 
     {{-- Clear Draft Button & Info Banner --}}
     <div x-show="!editId && adaDraft" class="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-xs text-amber-800">

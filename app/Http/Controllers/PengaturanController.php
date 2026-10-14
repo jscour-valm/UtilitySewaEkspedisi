@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\AturanAlur;
 use App\Models\AturanEmail;
+use App\Models\PengajuanSewa;
 use App\Models\RasioSewa;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -12,46 +13,93 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 
 /**
- * Pengaturan DCI: alur approval pengajuan sewa, penerima email per kejadian, batas rasio sewa.
- * Perubahan berlaku untuk pengajuan / email berikutnya; alur pengajuan yang sudah diajukan tetap.
+ * Pengaturan DCI, satu halaman per pengaturan: batas rasio sewa, alur approval (pengajuan sewa,
+ * vendor baru, usulan harga), penerima email per kejadian. Perubahan berlaku untuk pengajuan / email berikutnya; alur
+ * pengajuan yang sudah diajukan tetap.
  */
 class PengaturanController extends Controller
 {
     public function index()
     {
-        $schema = Schema::connection('sqlsrv');
+        return redirect()->route('pengaturan.rasio');
+    }
 
-        return view('pages.pengaturan.index', [
-            'tabelSiap' => $schema->hasTable('sesi_aturan_alur') && $schema->hasTable('sesi_aturan_email'),
-            'alur' => AturanAlur::semua(),
-            'email' => AturanEmail::semua(),
+    public function rasio()
+    {
+        return view('pages.pengaturan.rasio', [
             'rasioAktif' => RasioSewa::aktif(),
             'riwayatRasio' => RasioSewa::withInactive()->orderByDesc('effective_date')->orderByDesc('id_rasio_sewa')->get(),
         ]);
     }
 
+    public function alur()
+    {
+        return view('pages.pengaturan.alur', [
+            'tabelSiap' => Schema::connection('sqlsrv')->hasTable('sesi_aturan_alur'),
+            'alur' => AturanAlur::semua(),
+            'alurMaster' => AturanAlur::semuaMaster(),
+            'batas' => (float) (RasioSewa::aktif()?->persentase_maksimal ?? RasioSewa::BATAS_DEFAULT),
+        ]);
+    }
+
+    public function email()
+    {
+        return view('pages.pengaturan.email', [
+            'tabelSiap' => Schema::connection('sqlsrv')->hasTable('sesi_aturan_email'),
+            'email' => AturanEmail::semua(),
+        ]);
+    }
+
+    /**
+     * Isian per baris = daftar tahap (`alur[kunci][0..2]`); tahap kosong dirapatkan.
+     * Baris proses master memakai kunci "vendor_baru|-|-" / "usulan_harga|-|-".
+     */
     public function simpanAlur(Request $request)
     {
         $data = $request->validate([
             'alur' => 'required|array',
-            'alur.*' => ['required', Rule::in(AturanAlur::PILIHAN_ALUR)],
+            'alur.*' => 'array|max:'.AturanAlur::TAHAP_MAKS,
+            'alur.*.*' => ['nullable', Rule::in(AturanAlur::PERAN)],
         ]);
 
-        DB::connection('sqlsrv')->transaction(function () use ($data) {
-            foreach (array_keys(AturanAlur::ALUR_BAWAAN) as $kunci) {
-                if (! isset($data['alur'][$kunci])) {
-                    continue;
-                }
+        $label = [];
+        foreach (array_keys(AturanAlur::ALUR_BAWAAN) as $kunci) {
+            [$jenis, $tujuan, $rasio] = explode('|', $kunci);
+            $label[$kunci] = (PengajuanSewa::JENIS[$jenis] ?? $jenis)." · $tujuan".match ($rasio) {
+                'atas' => ' · di atas batas', 'bawah' => ' · di bawah batas', default => ''
+            };
+        }
+        foreach (AturanAlur::LABEL_MASTER as $proses => $nama) {
+            $label[AturanAlur::kunci($proses, '-', '-')] = $nama;
+        }
+
+        $simpan = [];
+        foreach ($label as $kunci => $nama) {
+            if (! isset($data['alur'][$kunci])) {
+                continue;
+            }
+            $tahap = array_filter($data['alur'][$kunci]);
+            $alur = AturanAlur::rapikan($tahap);
+            if ($alur === null) {
+                $pesan = $tahap === [] ? 'minimal satu tahap harus diisi' : 'satu peran hanya boleh dipakai sekali';
+
+                return back()->withInput()->withErrors(['alur' => "Alur \"$nama\": $pesan."]);
+            }
+            $simpan[$kunci] = $alur;
+        }
+
+        DB::connection('sqlsrv')->transaction(function () use ($simpan) {
+            foreach ($simpan as $kunci => $alur) {
                 [$jenis, $tujuan, $rasio] = explode('|', $kunci);
                 AturanAlur::updateOrCreate(
                     ['jenis_pengajuan' => $jenis, 'tujuan_penyewaan' => $tujuan, 'rasio' => $rasio],
-                    ['alur' => $data['alur'][$kunci], 'updated_by' => auth()->id()],
+                    ['alur' => $alur, 'updated_by' => auth()->id()],
                 );
             }
         });
         AturanAlur::lupakanCache();
 
-        return redirect()->route('pengaturan.index')->with('success', 'Alur approval disimpan. Berlaku untuk pengajuan yang diajukan setelah ini.');
+        return redirect()->route('pengaturan.alur')->with('success', 'Alur approval disimpan. Berlaku untuk yang diajukan setelah ini.');
     }
 
     public function simpanEmail(Request $request)
@@ -92,7 +140,7 @@ class PengaturanController extends Controller
         });
         AturanEmail::lupakanCache();
 
-        return redirect()->route('pengaturan.index')->with('success', 'Penerima email disimpan.');
+        return redirect()->route('pengaturan.email')->with('success', 'Penerima email disimpan.');
     }
 
     /**
@@ -123,6 +171,6 @@ class PengaturanController extends Controller
             ]);
         });
 
-        return redirect()->route('pengaturan.index')->with('success', 'Batas rasio '.rtrim(rtrim(number_format((float) $data['persentase_maksimal'], 2, ',', '.'), '0'), ',').'% berlaku mulai '.$mulai->translatedFormat('d M Y').'.');
+        return redirect()->route('pengaturan.rasio')->with('success', 'Batas rasio '.rtrim(rtrim(number_format((float) $data['persentase_maksimal'], 2, ',', '.'), '0'), ',').'% berlaku mulai '.$mulai->translatedFormat('d M Y').'.');
     }
 }

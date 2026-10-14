@@ -10,8 +10,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * Usulan perubahan harga master (KG → validasi WM → approval WH), terpisah dari
- * pengajuan sewa. Target tarif = perusahaan + skill + cabang (+ jenis barang untuk
+ * Usulan perubahan harga master (KG mengajukan → alur persetujuan, lihat
+ * HasStatusPersetujuan), terpisah dari pengajuan sewa. Target tarif = perusahaan + skill + cabang (+ jenis barang untuk
  * Kiriman Rutin). Satu tarif hanya boleh punya satu usulan yang sedang berjalan.
  */
 class UsulanHarga extends Model
@@ -37,6 +37,7 @@ class UsulanHarga extends Model
         'jenis', 'id_perusahaan', 'id_skill', 'cabang_code', 'id_jenis_barang',
         'id_vendor_skill', 'id_tarif', 'harga_lama', 'harga_usulan', 'sumber', 'catatan',
         'status', 'id_cabang_pengaju', 'submitted_by', 'submitted_at', 'alasan_penolakan', 'flag',
+        'alur_approval', 'giliran_approval',
     ];
 
     protected $casts = [
@@ -48,6 +49,11 @@ class UsulanHarga extends Model
     public function kolomStatusPersetujuan(): string
     {
         return 'status';
+    }
+
+    public function prosesMaster(): string
+    {
+        return AturanAlur::MASTER_HARGA;
     }
 
     /**

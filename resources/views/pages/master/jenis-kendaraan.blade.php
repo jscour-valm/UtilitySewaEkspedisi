@@ -90,7 +90,7 @@
 
         {{-- Add/Edit Form --}}
         @if($bolehKelola)
-        <div x-show="showForm" class="bg-blue-50 rounded-lg p-4 border border-blue-200 mb-4">
+        <div x-show="showForm" :data-tandai-ubah="editingId ? 'ya' : false" class="bg-blue-50 rounded-lg p-4 border border-blue-200 mb-4">
             <h3 class="font-semibold text-gray-900 mb-4">
                 <span x-show="!editingId">Tambah Jenis Kendaraan Baru</span>
                 <span x-show="editingId">Edit Jenis Kendaraan</span>
@@ -121,7 +121,7 @@
         @endif
 
         {{-- Table --}}
-        <div class="overflow-hidden rounded-xl border border-gray-200">
+        <div class="overflow-hidden">
             <table class="w-full text-sm">
                 <colgroup>
                     <col class="w-[35%]">
@@ -131,7 +131,7 @@
                     <col class="w-[15%]">
                 </colgroup>
                 <thead>
-                    <tr class="border-b border-gray-300 bg-gray-50 text-xs font-medium uppercase tracking-wide text-gray-500">
+                    <tr class="kepala-tabel text-xs font-medium uppercase tracking-wide text-gray-500">
                         <th class="px-4 py-3 text-left">Jenis Kendaraan</th>
                         <th class="px-4 py-3 text-right">Muatan Maksimal</th>
                         <th class="px-4 py-3 text-left">Dibuat</th>
@@ -139,7 +139,7 @@
                         @if($bolehKelola)<th class="px-4 py-3 text-right">Aksi</th>@endif
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-gray-200">
+                <tbody class="divide-y divide-gray-100">
                     <template x-for="item in items" :key="item.id_jenis_kendaraan">
                         <tr class="hover:bg-gray-50">
                             <td class="px-4 py-3 font-medium text-gray-800" x-text="item.nama_jenis"></td>

@@ -225,7 +225,7 @@ class PengajuanController extends Controller
                 : null;
 
             $alurApproval = $this->hitungAlurApproval($request->jenis_pengajuan, $rasioSewa ?? 0.0, $request->tujuan_penyewaan);
-            $kategoriApproval = $alurApproval === 'WM' ? 'normal' : 'over_threshold';
+            $kategoriApproval = str_contains($alurApproval, ',') ? 'over_threshold' : 'normal';
 
             $pengajuanData = [
                 'id_cabang' => $cabangId,
@@ -898,7 +898,7 @@ class PengajuanController extends Controller
                 ? (($hargaSewa + $totalBiayaTambahan) / $request->value_muatan) * 100
                 : null;
             $alurApproval = $this->hitungAlurApproval($request->jenis_pengajuan, $rasioSewa ?? 0.0, $request->tujuan_penyewaan);
-            $kategoriApproval = $alurApproval === 'WM' ? 'normal' : 'over_threshold';
+            $kategoriApproval = str_contains($alurApproval, ',') ? 'over_threshold' : 'normal';
 
             $updateData = [
                 'id_cabang_tujuan' => $request->tujuan_penyewaan === 'PAC' ? $request->id_cabang_tujuan : null,

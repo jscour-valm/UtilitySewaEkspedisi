@@ -3,6 +3,7 @@
 namespace App\Mail;
 
 use App\Helpers\FormatHelper;
+use App\Models\AturanAlur;
 use App\Models\PerusahaanEkspedisi;
 use App\Models\UsulanHarga;
 use Illuminate\Database\Eloquent\Model;
@@ -13,7 +14,8 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * Email proses persetujuan master: vendor baru atau usulan harga.
- * $aksi = diajukan | diajukan_ulang | divalidasi | disetujui | ditolak.
+ * $aksi = diajukan | diajukan_ulang | divalidasi (lanjut ke tahap berikutnya) | disetujui | ditolak.
+ * $peranPemutus = peran yang baru saja memutuskan (null untuk diajukan / diajukan ulang).
  */
 class NotifikasiMasterMail extends Mailable
 {
@@ -22,7 +24,20 @@ class NotifikasiMasterMail extends Mailable
         public string $aksi,
         public string $url,
         public ?string $alasanPenolakan = null,
+        public ?string $peranPemutus = null,
     ) {}
+
+    /** "Menunggu Validasi WM" / "Menunggu Approval WH" untuk peran yang sekarang giliran. */
+    private function menunggu(): string
+    {
+        return AturanAlur::labelMenunggu($this->objek->giliranPersetujuan() ?? $this->objek->alurPersetujuan()[0]);
+    }
+
+    /** "Divalidasi WM" / "Disetujui WH" untuk peran yang baru memutuskan. */
+    private function selesai(): string
+    {
+        return AturanAlur::labelSelesai($this->peranPemutus ?? $this->objek->alurPersetujuan()[0]);
+    }
 
     private function isVendor(): bool
     {
@@ -70,9 +85,9 @@ class NotifikasiMasterMail extends Mailable
     public function envelope(): Envelope
     {
         $awalan = match ($this->aksi) {
-            'diajukan' => '[Menunggu Validasi WM] ',
-            'diajukan_ulang' => '[Diajukan Ulang - Menunggu Validasi WM] ',
-            'divalidasi' => '[Divalidasi WM - Menunggu Approval WH] ',
+            'diajukan' => '['.$this->menunggu().'] ',
+            'diajukan_ulang' => '[Diajukan Ulang - '.$this->menunggu().'] ',
+            'divalidasi' => '['.$this->selesai().' - '.$this->menunggu().'] ',
             'disetujui' => '[APPROVED] ',
             'ditolak' => '[REJECTED] ',
         };
@@ -94,12 +109,12 @@ class NotifikasiMasterMail extends Mailable
         $kode = $this->cabang();
 
         [$judul, $intro] = match ($this->aksi) {
-            'diajukan' => ["$apa masuk", "$apa dari cabang $kode perlu divalidasi WM."],
-            'diajukan_ulang' => ["$apa diajukan ulang", "$apa dari cabang $kode telah diperbaiki dan perlu divalidasi kembali oleh WM."],
-            'divalidasi' => ["$apa menunggu approval WH", "$apa dari cabang $kode sudah divalidasi WM dan kini menunggu approval WH."],
+            'diajukan' => ["$apa masuk", "$apa dari cabang $kode ".lcfirst($this->menunggu()).'.'],
+            'diajukan_ulang' => ["$apa diajukan ulang", "$apa dari cabang $kode telah diperbaiki dan kembali ".lcfirst($this->menunggu()).'.'],
+            'divalidasi' => ["$apa ".lcfirst($this->menunggu()), "$apa dari cabang $kode sudah ".lcfirst($this->selesai()).' dan kini '.lcfirst($this->menunggu()).'.'],
             'disetujui' => ["$apa disetujui", $this->isVendor()
-                ? "Vendor baru dari cabang $kode telah disetujui WH dan bisa dipakai di pengajuan sewa."
-                : "Usulan dari cabang $kode telah disetujui WH. Harga master sudah diperbarui."],
+                ? "Vendor baru dari cabang $kode telah ".lcfirst($this->selesai()).' dan bisa dipakai di pengajuan sewa.'
+                : "Usulan dari cabang $kode telah ".lcfirst($this->selesai()).'. Harga master sudah diperbarui.'],
             'ditolak' => ["$apa ditolak", "$apa dari cabang $kode ditolak dengan alasan:"],
         };
 

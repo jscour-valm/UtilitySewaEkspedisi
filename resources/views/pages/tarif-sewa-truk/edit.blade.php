@@ -14,7 +14,7 @@
 
     <x-perusahaan.form-vendor-kendaraan-edit :vendorSkill="$vendorSkill" :kendaraanList="$kendaraanList" :skillList="$skillList" :cabangList="$cabangList" :jenisKendaraanList="$jenisKendaraanList" />
 
-    <div class="rounded-xl bg-white shadow-sm p-6"
+    <div class="rounded-xl bg-white shadow-sm p-6" data-tandai-ubah
         x-data="skillPicker({
             skillList: {{ Illuminate\Support\Js::from($tarifSkillList) }},
             selectedId: {{ $isSkillInScope ? (int) $vendorSkill->id_skill : 'null' }},

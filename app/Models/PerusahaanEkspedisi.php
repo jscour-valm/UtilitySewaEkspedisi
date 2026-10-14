@@ -9,8 +9,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * Vendor ekspedisi. Vendor baru dari KG berstatus menunggu_validasi → menunggu_approval
- * → approved; selama menunggu tetap flag=1 supaya bisa dipakai di pengajuan, ditolak → flag=0.
+ * Vendor ekspedisi. Vendor baru dari KG melewati alur persetujuan (lihat HasStatusPersetujuan);
+ * selama menunggu tetap flag=1 supaya bisa dipakai di pengajuan, ditolak → flag=0.
  */
 class PerusahaanEkspedisi extends Model
 {
@@ -44,6 +44,8 @@ class PerusahaanEkspedisi extends Model
         'submitted_by',
         'submitted_at',
         'alasan_penolakan',
+        'alur_approval',
+        'giliran_approval',
     ];
 
     protected $casts = [
@@ -55,6 +57,11 @@ class PerusahaanEkspedisi extends Model
     public function kolomStatusPersetujuan(): string
     {
         return 'status_approval';
+    }
+
+    public function prosesMaster(): string
+    {
+        return AturanAlur::MASTER_VENDOR;
     }
 
     public function kendaraan(): HasMany

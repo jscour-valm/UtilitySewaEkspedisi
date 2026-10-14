@@ -1,5 +1,5 @@
 {{--
-    Wadah tabel lebar yang bisa di-scroll: border membulat, tinggi maksimal 70vh dengan header
+    Wadah tabel lebar yang bisa di-scroll (tanpa bingkai): tinggi maksimal 70vh dengan header
     sticky, tabel `table-fixed` dengan lebar kolom lewat <colgroup>. Kolom sticky dan header-nya
     tetap diatur di view pemanggil.
     Dipakai di: Perusahaan (ketiga tab).
@@ -16,7 +16,7 @@
     $tableStyle = $width ? ($fluid ? 'width: max(100%, ' . (int) $width . 'px)' : 'width: ' . (int) $width . 'px') : null;
 @endphp
 
-<div {{ $attributes->merge(['class' => 'overflow-auto max-h-[70vh] rounded-xl border border-gray-200']) }}>
+<div {{ $attributes->merge(['class' => 'overflow-auto max-h-[70vh]']) }}>
     <table class="table-fixed border-separate border-spacing-0 text-sm" @if($tableStyle) style="{{ $tableStyle }}" @endif>
         {{ $slot }}
     </table>

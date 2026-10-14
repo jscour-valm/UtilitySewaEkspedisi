@@ -14,7 +14,7 @@
     $docs = $perusahaan->identitas_owner ?? [];
     $docSrcs = collect($docs)->map(fn ($item) => \App\Helpers\FormatHelper::identitasOwnerSrc($item))->values();
 
-    $sectionLabel = 'text-[11px] font-semibold tracking-[0.09em] text-gray-500';
+    $sectionLabel = 'text-[13px] font-semibold tracking-[0.09em] text-gray-500';
     $editBtn = 'rounded-lg border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50';
     $namaLengkap = trim(($perusahaan->badan_usaha && $perusahaan->badan_usaha !== '-' ? $perusahaan->badan_usaha . ' ' : '') . $perusahaan->nama_perusahaan);
 @endphp
@@ -111,10 +111,10 @@
             </div>
         </div>
         @if(count($kendaraan) > 0)
-        <div class="overflow-x-auto rounded-lg border border-gray-100">
+        <div class="overflow-x-auto">
             <table class="w-full text-sm">
                 <thead>
-                    <tr class="border-b border-gray-100 bg-gray-50 text-[11px] font-semibold tracking-wide text-gray-500">
+                    <tr class="kepala-tabel text-[11px] font-semibold tracking-wide text-gray-500">
                         <th class="px-3.5 py-2.5 text-left">CABANG</th>
                         <th class="px-3.5 py-2.5 text-left">JENIS KENDARAAN</th>
                         <th class="px-3.5 py-2.5 text-left">PLAT NOMOR</th>
@@ -177,10 +177,10 @@
             <p class="{{ $sectionLabel }}">TARIF SEWA TRUK</p>
             <span class="text-xs text-gray-400">{{ $tarifSewa->count() }} area</span>
         </div>
-        <div class="overflow-x-auto rounded-lg border border-gray-100">
+        <div class="overflow-x-auto">
             <table class="w-full text-sm">
                 <thead>
-                    <tr class="border-b border-gray-100 bg-gray-50 text-[11px] font-semibold tracking-wide text-gray-500">
+                    <tr class="kepala-tabel text-[11px] font-semibold tracking-wide text-gray-500">
                         <th class="px-3.5 py-2.5 text-left">CABANG</th>
                         <th class="px-3.5 py-2.5 text-left">AREA KIRIM</th>
                         <th class="px-3.5 py-2.5 text-right">HARGA SEWA</th>
@@ -233,10 +233,10 @@
             <p class="{{ $sectionLabel }}">TARIF KIRIMAN RUTIN</p>
             <span class="text-xs text-gray-400">{{ $tarifKiriman->count() }} area</span>
         </div>
-        <div class="overflow-x-auto rounded-lg border border-gray-100">
+        <div class="overflow-x-auto">
             <table class="w-full text-sm">
                 <thead>
-                    <tr class="border-b border-gray-100 bg-gray-50 text-[11px] font-semibold tracking-wide text-gray-500">
+                    <tr class="kepala-tabel text-[11px] font-semibold tracking-wide text-gray-500">
                         <th class="px-3.5 py-2.5 text-left whitespace-nowrap">CABANG</th>
                         <th class="px-3.5 py-2.5 text-left whitespace-nowrap">AREA KIRIM</th>
                         @foreach($jenisBarangCols as $jb)
@@ -307,7 +307,7 @@
     @if($bolehKelola)
         {{-- Edit profil vendor: nama perusahaan hanya bisa diubah DCI --}}
         <div x-data="{ buka: false }" @edit-profil-vendor.window="buka = true" @keydown.escape.window="buka = false">
-            <div x-show="buka" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div x-show="buka" x-cloak data-tandai-ubah class="fixed inset-0 z-50 flex items-center justify-center p-4">
                 <div class="absolute inset-0 bg-black/45" @click="buka = false"></div>
                 <div class="relative z-10 max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl"
                     x-data="formVendor(@js(route('pengajuan.update-vendor', $perusahaan->id_perusahaan)), @js($perusahaan->only(['nama_perusahaan', 'badan_usaha', 'no_telepon', 'alamat_kantor'])))">

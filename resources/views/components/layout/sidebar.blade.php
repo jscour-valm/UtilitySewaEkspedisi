@@ -108,43 +108,56 @@
         </a>
 
         {{--
-            Master Data — WM, WC, WH, DCI. Jenis Barang / Biaya Tambahan / Kendaraan: CRUD DCI,
-            role lain lihat saja. Master Skill: WM (cabang sendiri), WC, WH, DCI kelola; hapus DCI.
+            Menu bergrup (submenu):
+            - Master Data — WM, WC, WH, DCI. Jenis Barang / Biaya Tambahan / Kendaraan: CRUD DCI,
+              role lain lihat saja. Master Skill: WM (cabang sendiri), WC, WH, DCI kelola; hapus DCI.
+            - Pengaturan — hanya DCI: batas rasio, alur approval, WM per cabang, penerima email.
         --}}
         @php
-            $onMasterOrTarif = request()->is('master*');
-            $masterLinks = [
-                ['route' => 'master.jenis-barang-kiriman', 'match' => 'master/jenis-barang-kiriman*', 'label' => 'Jenis Barang Kiriman'],
-                ['route' => 'master.jenis-biaya-tambahan', 'match' => 'master/jenis-biaya-tambahan*', 'label' => 'Jenis Biaya Tambahan'],
-                ['route' => 'master.jenis-kendaraan', 'match' => 'master/jenis-kendaraan*', 'label' => 'Jenis Kendaraan'],
-                ['route' => 'master.skill', 'match' => 'master/skill*', 'label' => 'Master Skill'],
-            ];
+            $grupMenu = [];
+            if (in_array($role, ['DCI', 'WH', 'WC', 'WM'], true)) {
+                $grupMenu[] = ['label' => 'Master Data', 'ikon' => 'folder-tree', 'match' => 'master*', 'links' => [
+                    ['route' => 'master.jenis-barang-kiriman', 'match' => 'master/jenis-barang-kiriman*', 'label' => 'Jenis Barang Kiriman'],
+                    ['route' => 'master.jenis-biaya-tambahan', 'match' => 'master/jenis-biaya-tambahan*', 'label' => 'Jenis Biaya Tambahan'],
+                    ['route' => 'master.jenis-kendaraan', 'match' => 'master/jenis-kendaraan*', 'label' => 'Jenis Kendaraan'],
+                    ['route' => 'master.skill', 'match' => 'master/skill*', 'label' => 'Master Skill'],
+                ]];
+            }
+            if ($role === 'DCI') {
+                $grupMenu[] = ['label' => 'Pengaturan', 'ikon' => 'sliders-horizontal', 'match' => ['pengaturan*', 'setting-approver*'], 'links' => [
+                    ['route' => 'pengaturan.rasio', 'match' => 'pengaturan/rasio*', 'label' => 'Batas Rasio Sewa'],
+                    ['route' => 'pengaturan.alur', 'match' => 'pengaturan/alur*', 'label' => 'Alur Approval'],
+                    ['route' => 'setting-approver.index', 'match' => 'setting-approver*', 'label' => 'WM per Cabang'],
+                    ['route' => 'pengaturan.email', 'match' => 'pengaturan/email*', 'label' => 'Penerima Email'],
+                ]];
+            }
         @endphp
-        @if(in_array($role, ['DCI', 'WH', 'WC', 'WM'], true))
+        @foreach($grupMenu as $grup)
+        @php $diGrup = request()->is($grup['match']) ? 'true' : 'false'; @endphp
         {{--
             Sidebar terbuka: submenu menempel di bawah tombol (klik). Sidebar ciut: submenu jadi
             flyout saat hover. Flyout memakai `position: fixed` dengan koordinat dari
             getBoundingClientRect() tombol, karena <aside> `overflow-hidden` memotong elemen absolute.
         --}}
-        <div class="relative" x-data="{ open: {{ $onMasterOrTarif ? 'true' : 'false' }}, hovering: false, flyoutStyle: {} }"
-            @mouseenter="hovering = true; $nextTick(() => { const r = $refs.masterDataBtn.getBoundingClientRect(); flyoutStyle = { top: r.top + 'px', left: (r.right + 8) + 'px' } })"
+        <div class="relative" x-data="{ open: {{ $diGrup }}, hovering: false, flyoutStyle: {} }"
+            @mouseenter="hovering = true; $nextTick(() => { const r = $refs.tombolGrup.getBoundingClientRect(); flyoutStyle = { top: r.top + 'px', left: (r.right + 8) + 'px' } })"
             @mouseleave="hovering = false">
             <button
-                x-ref="masterDataBtn"
+                x-ref="tombolGrup"
                 type="button"
                 @click="open = !open"
                 class="flex items-center gap-3 py-3 px-4 rounded-lg mx-2 transition text-sm"
-                :class="((open && sidebarOpen) || {{ $onMasterOrTarif ? 'true' : 'false' }}) ? 'bg-green-800 text-white font-semibold' : 'text-green-100 hover:bg-green-800/60'">
+                :class="((open && sidebarOpen) || {{ $diGrup }}) ? 'bg-green-800 text-white font-semibold' : 'text-green-100 hover:bg-green-800/60'">
                 <span class="{{ $iconWrapClass }}" :class="sidebarOpen ? 'w-5' : 'w-full'">
-                    <i data-lucide="folder-tree" class="w-5 h-5"></i>
+                    <i data-lucide="{{ $grup['ikon'] }}" class="w-5 h-5"></i>
                 </span>
-                <span x-show="sidebarOpen" x-cloak class="truncate flex-1 text-left">Master Data</span>
+                <span x-show="sidebarOpen" x-cloak class="truncate flex-1 text-left">{{ $grup['label'] }}</span>
                 <i x-show="sidebarOpen" x-cloak data-lucide="chevron-down" class="w-4 h-4 shrink-0 transition-transform" :class="open ? 'rotate-180' : ''"></i>
             </button>
 
             {{-- Dropdown inline — sidebar expanded, dipicu klik (`open`) --}}
             <div x-show="open && sidebarOpen" x-cloak class="mt-1 ml-6 pl-4 border-l border-green-700/60 space-y-1">
-                @foreach($masterLinks as $link)
+                @foreach($grup['links'] as $link)
                 <a href="{{ route($link['route']) }}"
                     class="block py-2 px-3 mr-2 rounded-lg text-sm transition
                     {{ request()->is($link['match'])
@@ -158,8 +171,8 @@
             {{-- Flyout — sidebar collapsed, dipicu hover, position: fixed (lihat catatan di atas) --}}
             <div x-show="hovering && !sidebarOpen" x-cloak :style="flyoutStyle"
                 class="fixed w-56 rounded-lg bg-avian-green-dark shadow-lg border border-green-800 py-2 z-50">
-                <p class="px-4 py-1.5 text-xs font-semibold text-green-300 uppercase tracking-wide">Master Data</p>
-                @foreach($masterLinks as $link)
+                <p class="px-4 py-1.5 text-xs font-semibold text-green-300 uppercase tracking-wide">{{ $grup['label'] }}</p>
+                @foreach($grup['links'] as $link)
                 <a href="{{ route($link['route']) }}"
                     class="block py-2 px-4 text-sm transition
                     {{ request()->is($link['match'])
@@ -170,35 +183,7 @@
                 @endforeach
             </div>
         </div>
-        @endif
-
-        {{-- Pengaturan alur approval, penerima email, batas rasio — hanya DCI --}}
-        @if($role === 'DCI')
-        <a href="{{ route('pengaturan.index') }}"
-            class="flex items-center gap-3 py-3 px-4 rounded-lg mx-2 transition text-sm
-            {{ request()->is('pengaturan*')
-                ? 'bg-green-800 text-white font-semibold'
-                : 'text-green-100 hover:bg-green-800/60' }}">
-            <span class="{{ $iconWrapClass }}" :class="sidebarOpen ? 'w-5' : 'w-full'">
-                <i data-lucide="sliders-horizontal" class="w-5 h-5"></i>
-            </span>
-            <span x-show="sidebarOpen" x-cloak class="truncate">Pengaturan</span>
-        </a>
-        @endif
-
-        {{-- Setting Approver: hanya DCI (rutenya role:DCI), tidak ikut dibuka ke role lain seperti Master Data --}}
-        @if($role === 'DCI')
-        <a href="{{ route('setting-approver.index') }}"
-            class="flex items-center gap-3 py-3 px-4 rounded-lg mx-2 transition text-sm
-            {{ request()->is('setting-approver*')
-                ? 'bg-green-800 text-white font-semibold'
-                : 'text-green-100 hover:bg-green-800/60' }}">
-            <span class="{{ $iconWrapClass }}" :class="sidebarOpen ? 'w-5' : 'w-full'">
-                <i data-lucide="settings" class="w-5 h-5"></i>
-            </span>
-            <span x-show="sidebarOpen" x-cloak class="truncate">Setting Approver</span>
-        </a>
-        @endif
+        @endforeach
 
     </nav>
 

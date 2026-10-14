@@ -15,8 +15,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Proses persetujuan vendor baru & usulan harga master (KG → WM → WH).
- * Akses: KG cabang pengaju, WM yang memegang cabang pengaju, WH & DCI semua. WC/KA tidak.
+ * Proses persetujuan vendor baru & usulan harga master (KG mengajukan → alur pengaturan DCI).
+ * Akses: KG cabang pengaju, WM yang memegang cabang pengaju, WC, WH & DCI semua. KA tidak.
  */
 class PersetujuanMasterController extends Controller
 {
@@ -82,7 +82,7 @@ class PersetujuanMasterController extends Controller
         ]);
     }
 
-    /** Validasi WM / approval WH / tolak. */
+    /** Setuju / tolak oleh peran yang sedang giliran. */
     public function putuskanVendor(Request $request, int $id)
     {
         $data = $request->validate([
@@ -101,9 +101,9 @@ class PersetujuanMasterController extends Controller
         $vendor->refresh();
 
         return response()->json([
-            'message' => match ($vendor->statusPersetujuan()) {
-                PerusahaanEkspedisi::STATUS_MENUNGGU_APPROVAL => 'Vendor divalidasi, menunggu approval WH.',
-                PerusahaanEkspedisi::STATUS_APPROVED => 'Vendor disetujui.',
+            'message' => match (true) {
+                $vendor->sedangBerjalan() => 'Vendor diteruskan: '.lcfirst($vendor->labelStatusPersetujuan()).'.',
+                $vendor->sudahDisetujui() => 'Vendor disetujui.',
                 default => 'Vendor ditolak.',
             },
         ]);
@@ -153,7 +153,7 @@ class PersetujuanMasterController extends Controller
             return response()->json(['error' => 'Gagal mengajukan ulang vendor: '.$e->getMessage()], 500);
         }
 
-        return response()->json(['message' => 'Vendor diajukan ulang dan menunggu validasi WM.']);
+        return response()->json(['message' => 'Vendor diajukan ulang: '.lcfirst($vendor->labelStatusPersetujuan()).'.']);
     }
 
     /** Usulan harga master dari halaman detail perusahaan (KG, tarif cabang sendiri). */
@@ -202,7 +202,7 @@ class PersetujuanMasterController extends Controller
             return response()->json(['error' => 'Usulan dengan harga yang sama sudah diajukan dan masih menunggu keputusan.'], 422);
         }
 
-        return response()->json(['message' => 'Usulan harga diajukan dan menunggu validasi WM.', 'id_usulan_harga' => $usulan->id_usulan_harga]);
+        return response()->json(['message' => 'Usulan harga diajukan: '.lcfirst($usulan->labelStatusPersetujuan()).'.', 'id_usulan_harga' => $usulan->id_usulan_harga]);
     }
 
     public function showUsulan(int $id)
@@ -257,22 +257,22 @@ class PersetujuanMasterController extends Controller
         $usulan->refresh();
 
         return response()->json([
-            'message' => match ($usulan->status) {
-                UsulanHarga::STATUS_MENUNGGU_APPROVAL => 'Usulan divalidasi, menunggu approval WH.',
-                UsulanHarga::STATUS_APPROVED => 'Usulan disetujui, harga master sudah diperbarui.',
+            'message' => match (true) {
+                $usulan->sedangBerjalan() => 'Usulan diteruskan: '.lcfirst($usulan->labelStatusPersetujuan()).'.',
+                $usulan->sudahDisetujui() => 'Usulan disetujui, harga master sudah diperbarui.',
                 default => 'Usulan ditolak.',
             },
         ]);
     }
 
-    /** KG = cabang sendiri, WM = cabang yang dipegang, WH/DCI = semua. */
+    /** KG = cabang sendiri, WM = cabang yang dipegang, WC/WH/DCI = semua. */
     private function bolehAksesProses(?string $cabangPengaju): bool
     {
         $user = auth()->user();
         $role = $user->userUtility?->role;
 
         return match ($role) {
-            'WH', 'DCI' => true,
+            'WC', 'WH', 'DCI' => true,
             'KG' => in_array($cabangPengaju, $this->ownCabang(), true),
             'WM' => $user->canAccessCabang($cabangPengaju),
             default => false,

@@ -2567,6 +2567,45 @@ Alpine.data('riwayatHarga', () => ({
     },
 }))
 
+// ===== Tandai isian yang diubah =====
+// Di dalam wadah ber-atribut `data-tandai-ubah` (form / modal edit), isian yang nilainya beda
+// dari nilai awalnya diberi kelas `diubah` (latar kuning). Nilai awal dicatat saat isian itu
+// pertama kali disentuh, jadi berlaku juga untuk isian yang diisi Alpine setelah halaman tampil.
+// Tanda dihapus saat wadahnya disembunyikan (modal ditutup), supaya tidak terbawa ke data lain.
+{
+    const nilaiIsian = (el) => (el.type === 'checkbox' || el.type === 'radio' ? String(el.checked) : el.value)
+    const bisaDitandai = (el) => el instanceof HTMLElement
+        && el.matches('input, select, textarea')
+        && !['hidden', 'submit', 'button', 'file', 'password'].includes(el.type)
+        && el.closest('[data-tandai-ubah]') !== null
+    const catatAwal = (e) => {
+        const el = e.target
+        if (bisaDitandai(el) && el.dataset.nilaiAwal === undefined) el.dataset.nilaiAwal = nilaiIsian(el)
+    }
+    const periksa = (e) => {
+        const el = e.target
+        if (!bisaDitandai(el) || el.dataset.nilaiAwal === undefined) return
+        el.classList.toggle('diubah', nilaiIsian(el) !== el.dataset.nilaiAwal)
+    }
+    document.addEventListener('focusin', catatAwal)
+    document.addEventListener('pointerdown', catatAwal, true)
+    document.addEventListener('beforeinput', catatAwal, true)
+    document.addEventListener('input', periksa)
+    document.addEventListener('change', periksa)
+
+    new MutationObserver((daftar) => {
+        for (const m of daftar) {
+            const el = m.target
+            if (!(el instanceof HTMLElement) || el.style.display !== 'none') continue
+            if (!el.matches('[data-tandai-ubah]') && !el.querySelector('[data-tandai-ubah]')) continue
+            el.querySelectorAll('[data-nilai-awal]').forEach((isian) => {
+                isian.classList.remove('diubah')
+                delete isian.dataset.nilaiAwal
+            })
+        }
+    }).observe(document.documentElement, { subtree: true, attributes: true, attributeFilter: ['style'] })
+}
+
 // Ikon dirender sebelum Alpine.start(): di halaman dengan banyak komponen x-data, start()
 // cukup lama dan ikon (termasuk sidebar) sempat kosong kalau menunggu. Keduanya independen;
 // module script Vite sudah jalan setelah DOM ter-parse, jadi tidak perlu DOMContentLoaded.

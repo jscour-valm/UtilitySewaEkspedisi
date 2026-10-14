@@ -79,12 +79,12 @@ Route::middleware(['auth', 'role:KG,WM,WC,WH,DCI'])->group(function () {
         ->whereIn('jenis', ['vendor', 'harga'])->whereNumber('id')->name('persetujuan.buka');
 });
 
-// Proses vendor baru & usulan harga master (KG → validasi WM → approval WH); akses per cabang dicek di controller
-Route::middleware(['auth', 'role:KG,WM,WH,DCI'])->group(function () {
+// Proses vendor baru & usulan harga master (KG mengajukan → alur pengaturan DCI); akses per cabang dicek di controller
+Route::middleware(['auth', 'role:KG,WM,WC,WH,DCI'])->group(function () {
     Route::get('/persetujuan/vendor/{id}', [PersetujuanMasterController::class, 'showVendor'])->whereNumber('id')->name('persetujuan.vendor.show');
     Route::get('/persetujuan/harga/{id}', [PersetujuanMasterController::class, 'showUsulan'])->whereNumber('id')->name('persetujuan.harga.show');
 });
-Route::middleware(['auth', 'role:WM,WH'])->group(function () {
+Route::middleware(['auth', 'role:WM,WC,WH'])->group(function () {
     Route::post('/api/persetujuan/vendor/{id}/putuskan', [PersetujuanMasterController::class, 'putuskanVendor'])->whereNumber('id')->name('persetujuan.vendor.putuskan');
     Route::post('/api/persetujuan/harga/{id}/putuskan', [PersetujuanMasterController::class, 'putuskanUsulan'])->whereNumber('id')->name('persetujuan.harga.putuskan');
 });
@@ -183,10 +183,14 @@ Route::middleware(['auth', 'role:DCI'])->group(function () {
 
     Route::delete('/api/kendaraan/{id}', [KendaraanController::class, 'destroy'])->name('kendaraan.destroy');
 
+    // Pengaturan: satu halaman per pengaturan; /pengaturan mengalihkan ke Batas Rasio.
     Route::get('/pengaturan', [PengaturanController::class, 'index'])->name('pengaturan.index');
-    Route::post('/pengaturan/alur', [PengaturanController::class, 'simpanAlur'])->name('pengaturan.alur');
-    Route::post('/pengaturan/email', [PengaturanController::class, 'simpanEmail'])->name('pengaturan.email');
-    Route::post('/pengaturan/rasio', [PengaturanController::class, 'simpanRasio'])->name('pengaturan.rasio');
+    Route::get('/pengaturan/rasio', [PengaturanController::class, 'rasio'])->name('pengaturan.rasio');
+    Route::post('/pengaturan/rasio', [PengaturanController::class, 'simpanRasio'])->name('pengaturan.rasio.simpan');
+    Route::get('/pengaturan/alur', [PengaturanController::class, 'alur'])->name('pengaturan.alur');
+    Route::post('/pengaturan/alur', [PengaturanController::class, 'simpanAlur'])->name('pengaturan.alur.simpan');
+    Route::get('/pengaturan/email', [PengaturanController::class, 'email'])->name('pengaturan.email');
+    Route::post('/pengaturan/email', [PengaturanController::class, 'simpanEmail'])->name('pengaturan.email.simpan');
 
     Route::get('/setting-approver', [ApproverController::class, 'index'])->name('setting-approver.index');
     Route::post('/setting-approver', [ApproverController::class, 'store'])->name('setting-approver.store');

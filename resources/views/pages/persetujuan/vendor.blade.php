@@ -8,7 +8,7 @@
     $warnaStatus = $vendor->warnaStatusPersetujuan();
     $namaLengkap = trim(($vendor->badan_usaha && $vendor->badan_usaha !== '-' ? $vendor->badan_usaha . ' ' : '') . $vendor->nama_perusahaan);
     $labelAksi = $peran === 'WM' ? 'Validasi' : 'Setujui';
-    $sectionLabel = 'text-[11px] font-semibold tracking-[0.09em] text-gray-500';
+    $sectionLabel = 'text-[13px] font-semibold tracking-[0.09em] text-gray-500';
 @endphp
 
 <div class="space-y-4 pb-6">
@@ -27,13 +27,17 @@
             <span class="rounded-full px-3 py-1 text-sm font-semibold {{ $warnaStatus }}">{{ $vendor->labelStatusPersetujuan() }}</span>
         </div>
 
-        {{-- Alur: Diajukan KG → Validasi WM → Approval WH --}}
+        {{-- Alur proses ini: Diajukan KG → tiap peran di alurnya --}}
         @php
-            $langkah = [
-                ['label' => 'Diajukan KG', 'selesai' => true],
-                ['label' => 'Validasi WM', 'selesai' => in_array($status, ['menunggu_approval', 'approved'], true)],
-                ['label' => 'Approval WH', 'selesai' => $status === 'approved'],
-            ];
+            $giliranAlur = $vendor->giliranPersetujuan();
+            $posisiGiliran = $giliranAlur === null ? null : array_search($giliranAlur, $vendor->alurPersetujuan(), true);
+            $langkah = [['label' => 'Diajukan KG', 'selesai' => true]];
+            foreach ($vendor->alurPersetujuan() as $i => $peranAlur) {
+                $langkah[] = [
+                    'label' => ($peranAlur === 'WM' ? 'Validasi ' : 'Approval ') . $peranAlur,
+                    'selesai' => $status === 'approved' || ($posisiGiliran !== null && $posisiGiliran !== false && $i < $posisiGiliran),
+                ];
+            }
         @endphp
         <div class="mt-4 flex flex-wrap items-center gap-2 text-xs">
             @foreach($langkah as $i => $l)
@@ -55,7 +59,7 @@
             <div class="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 pt-4">
                 <p class="text-sm text-gray-600">
                     {{ $peran === 'WM' ? 'Menunggu validasi Anda.' : 'Menunggu approval Anda.' }}
-                    Pengajuan sewa yang memakai vendor ini baru bisa divalidasi setelah vendor disetujui WH.
+                    Pengajuan sewa yang memakai vendor ini baru bisa disetujui setelah vendornya disetujui.
                 </p>
                 <div class="flex gap-2.5">
                     <button type="button"
@@ -77,9 +81,9 @@
         {{-- ==================== DATA VENDOR ==================== --}}
         <div class="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
             @if($bisaAjukanUlang)
-                <div x-data="formVendor(@js(route('persetujuan.vendor.ajukan-ulang', $vendor->id_perusahaan)), @js($vendor->only(['nama_perusahaan', 'badan_usaha', 'no_telepon', 'alamat_kantor'])))">
+                <div data-tandai-ubah x-data="formVendor(@js(route('persetujuan.vendor.ajukan-ulang', $vendor->id_perusahaan)), @js($vendor->only(['nama_perusahaan', 'badan_usaha', 'no_telepon', 'alamat_kantor'])))">
                     <p class="{{ $sectionLabel }} mb-1">PERBAIKI & AJUKAN ULANG</p>
-                    <p class="mb-4 text-xs text-gray-500">Perbaiki data sesuai alasan penolakan, lalu ajukan lagi ke WM.</p>
+                    <p class="mb-4 text-xs text-gray-500">Perbaiki data sesuai alasan penolakan, lalu ajukan lagi.</p>
                     <x-perusahaan.form-vendor :foto-lama="$docs->all()" />
                     <div class="mt-4 flex justify-end">
                         <button type="button" @click="simpan()" :disabled="menyimpan"
@@ -161,22 +165,22 @@
             <div class="overflow-x-auto">
                 <table class="w-full min-w-[36rem] text-sm">
                     <thead>
-                        <tr class="border-b border-gray-200 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
-                            <th class="py-2 pr-3">No.</th>
-                            <th class="py-2 pr-3">Jenis</th>
-                            <th class="py-2 pr-3">Tgl Kirim</th>
-                            <th class="py-2 pr-3">Diajukan oleh</th>
-                            <th class="py-2 pr-3">Status</th>
-                            <th class="py-2"></th>
+                        <tr class="kepala-tabel text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+                            <th class="px-3 py-2">No.</th>
+                            <th class="px-3 py-2">Jenis</th>
+                            <th class="px-3 py-2">Tgl Kirim</th>
+                            <th class="px-3 py-2">Diajukan oleh</th>
+                            <th class="px-3 py-2">Status</th>
+                            <th class="px-3 py-2"></th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100">
                         @foreach($pengajuan as $p)
                             <tr>
-                                <td class="py-2 pr-3 font-medium text-gray-800">#{{ $p->id_pengajuan_sewa }}</td>
-                                <td class="py-2 pr-3 text-gray-600">{{ $p->jenis_pengajuan === 'sewa_truk' ? 'Sewa Truk' : 'Kiriman Rutin' }}</td>
-                                <td class="py-2 pr-3 text-gray-600">{{ $p->tanggal_pengiriman?->format('d M Y') }}</td>
-                                <td class="py-2 pr-3 text-gray-600">{{ $p->submittedBy?->name ?? '-' }}</td>
+                                <td class="px-3 py-2 font-medium text-gray-800">#{{ $p->id_pengajuan_sewa }}</td>
+                                <td class="px-3 py-2 text-gray-600">{{ $p->jenis_pengajuan === 'sewa_truk' ? 'Sewa Truk' : 'Kiriman Rutin' }}</td>
+                                <td class="px-3 py-2 text-gray-600">{{ $p->tanggal_pengiriman?->format('d M Y') }}</td>
+                                <td class="px-3 py-2 text-gray-600">{{ $p->submittedBy?->name ?? '-' }}</td>
                                 @php
                                     [$labelP, $warnaP] = match (strtolower($p->status_pengajuan)) {
                                         'approved' => ['Disetujui', 'bg-avian-green-light text-avian-green'],
@@ -185,8 +189,8 @@
                                         default => ['Pending', 'bg-amber-50 text-amber-700'],
                                     };
                                 @endphp
-                                <td class="py-2 pr-3"><span class="rounded-full px-2 py-0.5 text-xs font-medium {{ $warnaP }}">{{ $labelP }}</span></td>
-                                <td class="py-2 text-right">
+                                <td class="px-3 py-2"><span class="rounded-full px-2 py-0.5 text-xs font-medium {{ $warnaP }}">{{ $labelP }}</span></td>
+                                <td class="px-3 py-2 text-right">
                                     <a href="{{ route('pengajuan.buka', $p->id_pengajuan_sewa) }}" class="text-xs font-medium text-avian-green hover:underline">Buka →</a>
                                 </td>
                             </tr>

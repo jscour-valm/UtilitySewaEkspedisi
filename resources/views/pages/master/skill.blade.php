@@ -31,17 +31,17 @@
             @endif
         </form>
 
-        <div class="overflow-x-auto rounded-xl border border-gray-200">
+        <div class="overflow-x-auto">
             <table class="w-full min-w-[36rem] text-sm">
                 <thead>
-                    <tr class="border-b border-gray-300 bg-gray-50 text-xs font-medium uppercase tracking-wide text-gray-500">
+                    <tr class="kepala-tabel text-xs font-medium uppercase tracking-wide text-gray-500">
                         <th class="px-4 py-3 text-left">Cabang</th>
                         <th class="px-4 py-3 text-left">Area</th>
                         <th class="px-4 py-3 text-left">Didaftarkan</th>
                         <th class="px-4 py-3 text-right">Aksi</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-gray-200">
+                <tbody class="divide-y divide-gray-100">
                     @forelse($rows as $r)
                         <tr class="hover:bg-gray-50">
                             <td class="px-4 py-3 text-gray-600">{{ $r->cabang_code }} — {{ $r->nama_cabang ?? '—' }}</td>
@@ -69,7 +69,7 @@
     </div>
 
     {{-- Modal tambah / ganti nama --}}
-    <div x-show="buka" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4" @keydown.escape.window="buka = false">
+    <div x-show="buka" x-cloak :data-tandai-ubah="idEdit ? 'ya' : false" class="fixed inset-0 z-50 flex items-center justify-center p-4" @keydown.escape.window="buka = false">
         <div class="absolute inset-0 bg-black/45" @click="buka = false"></div>
         <div class="relative z-10 w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
             <h3 class="text-[17px] font-bold text-gray-900" x-text="idEdit ? 'Ganti Nama Area' : 'Tambah Area'"></h3>

@@ -1,6 +1,6 @@
 {{-- Modal tambah / edit unit kendaraan di detail perusahaan. Dipakai di dalam x-data="kelolaKendaraan(...)".
      Butuh $cabangKelola (cabang yang boleh dipilih). Cabang tidak bisa diganti saat edit. --}}
-<div x-show="buka" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4" @keydown.escape.window="buka = false">
+<div x-show="buka" x-cloak :data-tandai-ubah="idEdit ? 'ya' : false" class="fixed inset-0 z-50 flex items-center justify-center p-4" @keydown.escape.window="buka = false">
     <div class="absolute inset-0 bg-black/45" @click="buka = false"></div>
     <div class="relative z-10 max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
         <h3 class="mb-4 text-[17px] font-bold text-gray-900" x-text="idEdit ? 'Edit Kendaraan' : 'Tambah Kendaraan'"></h3>

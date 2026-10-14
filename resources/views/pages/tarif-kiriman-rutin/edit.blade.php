@@ -20,7 +20,7 @@
         );
     @endphp
 
-    <div class="rounded-xl bg-white shadow-sm p-6"
+    <div class="rounded-xl bg-white shadow-sm p-6" data-tandai-ubah
         x-data="skillPicker({
             skillList: {{ Illuminate\Support\Js::from($tarifSkillList) }},
             selectedId: {{ $isSkillInScope ? (int) $vendorSkill->id_skill : 'null' }},
@@ -34,19 +34,19 @@
 
         <p class="text-sm text-gray-600 mb-3">Isi harga per unit tiap jenis barang. Kosongkan kalau vendor ini tidak melayani jenis barang tersebut di area ini.</p>
 
-        <div class="overflow-hidden rounded-xl border border-gray-200" x-data="{ harga: {{ Illuminate\Support\Js::from($hargaInit) }} }">
+        <div class="overflow-hidden" x-data="{ harga: {{ Illuminate\Support\Js::from($hargaInit) }} }">
             <table class="w-full text-sm">
                 <colgroup>
                     <col class="w-[60%]">
                     <col class="w-[40%]">
                 </colgroup>
                 <thead>
-                    <tr class="border-b border-gray-300 bg-gray-50 text-xs font-medium uppercase tracking-wide text-gray-500">
+                    <tr class="kepala-tabel text-xs font-medium uppercase tracking-wide text-gray-500">
                         <th class="px-4 py-3 text-left">Jenis Barang</th>
                         <th class="px-4 py-3 text-left">Biaya Per Unit (Rp)</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-gray-200">
+                <tbody class="divide-y divide-gray-100">
                     @foreach($jenisBarangList as $jb)
                     <tr>
                         <td class="px-4 py-3 font-medium text-gray-800">{{ $jb->nama_barang }}</td>

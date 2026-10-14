@@ -22,7 +22,7 @@
 @endphp
 
 <div class="flex items-center gap-2.5 mt-3.5 flex-wrap">
-    <span class="text-[11px] font-semibold tracking-[0.09em] text-gray-500">ALUR</span>
+    <span class="text-[13px] font-semibold tracking-[0.09em] text-gray-500">ALUR</span>
     <div class="flex items-center gap-2.5 flex-wrap">
         @foreach($alur as $i => $peran)
             @php

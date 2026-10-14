@@ -15,12 +15,16 @@
     $selisih = $lama !== null ? $usul - $lama : null;
     $persen = ($selisih !== null && $lama > 0) ? abs($selisih) / $lama * 100 : null;
     $labelAksi = $peran === 'WM' ? 'Validasi' : 'Setujui';
-    $sectionLabel = 'text-[11px] font-semibold tracking-[0.09em] text-gray-500';
-    $langkah = [
-        ['label' => 'Diajukan KG', 'selesai' => true],
-        ['label' => 'Validasi WM', 'selesai' => in_array($status, ['menunggu_approval', 'approved'], true)],
-        ['label' => 'Approval WH', 'selesai' => $status === 'approved'],
-    ];
+    $sectionLabel = 'text-[13px] font-semibold tracking-[0.09em] text-gray-500';
+    $giliranAlur = $usulan->giliranPersetujuan();
+    $posisiGiliran = $giliranAlur === null ? null : array_search($giliranAlur, $usulan->alurPersetujuan(), true);
+    $langkah = [['label' => 'Diajukan KG', 'selesai' => true]];
+    foreach ($usulan->alurPersetujuan() as $i => $peranAlur) {
+        $langkah[] = [
+            'label' => ($peranAlur === 'WM' ? 'Validasi ' : 'Approval ') . $peranAlur,
+            'selesai' => $status === 'approved' || ($posisiGiliran !== null && $posisiGiliran !== false && $i < $posisiGiliran),
+        ];
+    }
 @endphp
 
 <div class="space-y-4 pb-6">
@@ -91,7 +95,8 @@
         @if($bisaPutuskan)
             <div class="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 pt-4">
                 <p class="text-sm text-gray-600">
-                    {{ $peran === 'WM' ? 'Menunggu validasi Anda.' : 'Menunggu approval Anda. Kalau disetujui, harga master langsung diganti.' }}
+                    {{ $peran === 'WM' ? 'Menunggu validasi Anda.' : 'Menunggu approval Anda.' }}
+                    @if($usulan->peranSesudah($peran) === null) Kalau disetujui, harga master langsung diganti. @endif
                 </p>
                 <div class="flex gap-2.5">
                     <button type="button"
@@ -145,20 +150,20 @@
                 <div class="overflow-x-auto">
                     <table class="w-full min-w-[28rem] text-sm">
                         <thead>
-                            <tr class="border-b border-gray-200 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
-                                <th class="py-2 pr-3">No.</th>
-                                <th class="py-2 pr-3">Tgl Kirim</th>
-                                <th class="py-2 pr-3">Diajukan oleh</th>
-                                <th class="py-2"></th>
+                            <tr class="kepala-tabel text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+                                <th class="px-3 py-2">No.</th>
+                                <th class="px-3 py-2">Tgl Kirim</th>
+                                <th class="px-3 py-2">Diajukan oleh</th>
+                                <th class="px-3 py-2"></th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100">
                             @foreach($pengajuan as $p)
                                 <tr>
-                                    <td class="py-2 pr-3 font-medium text-gray-800">#{{ $p->id_pengajuan_sewa }}</td>
-                                    <td class="py-2 pr-3 text-gray-600">{{ $p->tanggal_pengiriman?->format('d M Y') }}</td>
-                                    <td class="py-2 pr-3 text-gray-600">{{ $p->submittedBy?->name ?? '-' }}</td>
-                                    <td class="py-2 text-right">
+                                    <td class="px-3 py-2 font-medium text-gray-800">#{{ $p->id_pengajuan_sewa }}</td>
+                                    <td class="px-3 py-2 text-gray-600">{{ $p->tanggal_pengiriman?->format('d M Y') }}</td>
+                                    <td class="px-3 py-2 text-gray-600">{{ $p->submittedBy?->name ?? '-' }}</td>
+                                    <td class="px-3 py-2 text-right">
                                         <a href="{{ route('pengajuan.buka', $p->id_pengajuan_sewa) }}" class="text-xs font-medium text-avian-green hover:underline">Buka →</a>
                                     </td>
                                 </tr>

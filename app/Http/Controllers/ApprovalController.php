@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Helpers\FormatHelper;
 use App\Models\Approval;
 use App\Models\ApprovalLog;
+use App\Models\AturanAlur;
 use App\Models\Kendaraan;
 use App\Models\PengajuanSewa;
 use App\Models\RasioSewa;
@@ -22,7 +23,7 @@ class ApprovalController extends Controller
     /** WM = "Validasi", WC/WH = "Approval" (istilah di Wewenang Role). */
     public static function labelMenunggu(string $peran): string
     {
-        return $peran === 'WM' ? 'Menunggu Validasi WM' : "Menunggu Approval {$peran}";
+        return AturanAlur::labelMenunggu($peran);
     }
 
     /**
@@ -350,12 +351,12 @@ class ApprovalController extends Controller
                 return response()->json(['error' => $pesan], 400);
             }
 
-            // Vendor baru harus disetujui WH dulu sebelum pengajuannya divalidasi (menolak tetap boleh).
+            // Vendor baru harus selesai disetujui dulu sebelum pengajuannya disetujui (menolak tetap boleh).
             $vendorMenunggu = $keputusan === 'approved' ? $pengajuan->vendorMenungguApproval() : null;
             if ($vendorMenunggu) {
                 $db->rollBack();
 
-                return response()->json(['error' => "Vendor {$vendorMenunggu->nama_perusahaan} masih ".lcfirst($vendorMenunggu->labelStatusPersetujuan()).'. Pengajuan ini baru bisa divalidasi setelah vendornya disetujui WH.'], 400);
+                return response()->json(['error' => "Vendor {$vendorMenunggu->nama_perusahaan} masih ".lcfirst($vendorMenunggu->labelStatusPersetujuan()).'. Pengajuan ini baru bisa disetujui setelah vendornya disetujui.'], 400);
             }
 
             $alur = $pengajuan->alurApproval();

@@ -30,7 +30,7 @@
         class="mb-4 w-full rounded-lg border border-gray-300 px-4 py-2 text-sm
         focus:border-avian-green focus:outline-none">
 
-    <div class="overflow-hidden rounded-xl border border-gray-200">
+    <div class="overflow-hidden">
         <table class="w-full text-sm">
             <colgroup>
                 <col class="w-[26%]">
@@ -41,7 +41,7 @@
                 <col class="w-[12%]">
             </colgroup>
             <thead>
-                <tr class="border-b border-gray-300 bg-gray-50 text-xs font-medium uppercase tracking-wide text-gray-500">
+                <tr class="kepala-tabel text-xs font-medium uppercase tracking-wide text-gray-500">
                     <th class="px-4 py-3 text-left">Perusahaan</th>
                     <th class="px-4 py-3 text-left">Badan Usaha</th>
                     <th class="px-4 py-3 text-left">Area Kirim</th>
@@ -50,7 +50,7 @@
                     <th class="px-4 py-3 text-right">Aksi</th>
                 </tr>
             </thead>
-            <tbody class="divide-y divide-gray-200">
+            <tbody class="divide-y divide-gray-100">
                 <template x-for="r in rows" :key="r.id_perusahaan">
                     <tr class="hover:bg-gray-50 transition">
                         <td class="px-4 py-3 font-medium text-gray-800">
@@ -68,7 +68,7 @@
                         <td class="px-4 py-3 text-gray-600" x-text="r.kendaraan_count ?? 0"></td>
                         <td class="px-4 py-3 text-right">
                             <a :href="'{{ url('/perusahaan') }}/' + r.id_perusahaan"
-                                class="rounded-lg border border-avian-green px-3 py-1.5 text-xs font-medium text-avian-green transition hover:bg-avian-green-light whitespace-nowrap">
+                                class="whitespace-nowrap rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50">
                                 Detail
                             </a>
                         </td>

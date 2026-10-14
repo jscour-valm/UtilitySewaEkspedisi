@@ -60,10 +60,10 @@
 
         <p class="mb-3 text-xs text-gray-400">{{ number_format($rows->total(), 0, ',', '.') }} pengajuan{{ $adaFilter ? ' cocok dengan filter' : '' }}.</p>
 
-        <div class="overflow-x-auto rounded-xl border border-gray-200">
+        <div class="overflow-x-auto">
             <table class="w-full min-w-[70rem] text-sm">
                 <thead>
-                    <tr class="border-b border-gray-300 bg-gray-50 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+                    <tr class="kepala-tabel text-left text-xs font-medium uppercase tracking-wide text-gray-500">
                         <th class="px-4 py-3">No.</th>
                         <th class="px-4 py-3">Diajukan</th>
                         <th class="px-4 py-3">Pengiriman</th>
@@ -79,7 +79,7 @@
                         <th class="px-4 py-3 text-right">Action</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-gray-200">
+                <tbody class="divide-y divide-gray-100">
                     @forelse($rows as $p)
                         @php
                             $kunci = strtolower($p->status_pengajuan ?? '');

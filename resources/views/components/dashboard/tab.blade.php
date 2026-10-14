@@ -1,8 +1,8 @@
 {{--
     Tab dashboard: Pengajuan Sewa (isi slot) | Vendor Baru | Perubahan Harga dengan badge jumlah
-    yang menunggu, dan filter periode di kanan baris tab. Tab hanya untuk KG, WM, WH, DCI;
-    role lain cuma melihat isi slot.
-    Dipakai di: dashboard KG, WM, WH, DCI.
+    yang menunggu, dan filter periode di kanan baris tab. Tab untuk KG, WM, WH, DCI, dan WC
+    selama WC terlibat di alur vendor baru / usulan harga; role lain cuma melihat isi slot.
+    Dipakai di: dashboard KG, WM, WC, WH, DCI.
     Tab menempel langsung ke isi di bawahnya dan tab aktif berwarna sama dengan isi itu.
     Props: filter (true = tampilkan filter periode di baris kepala, berlaku untuk semua tab);
            panel (true = isi tab terdiri dari beberapa kartu, jadi dibungkus satu wadah abu-abu
@@ -16,7 +16,7 @@
     $kelasIsi = $panel ? 'space-y-4 rounded-xl bg-gray-200/70 p-4' : '';
     $user = auth()->user();
     $peran = $user?->userUtility?->role;
-    $pakaiTab = in_array($peran, \App\Services\DaftarPersetujuanMaster::PERAN, true);
+    $pakaiTab = \App\Services\DaftarPersetujuanMaster::pakaiTab($peran);
     $daftar = $pakaiTab
         ? app(\App\Services\DaftarPersetujuanMaster::class)->untuk($user, \App\Helpers\RentangTanggalDashboard::dariRequest())
         : null;

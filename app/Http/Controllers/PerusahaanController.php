@@ -280,7 +280,7 @@ class PerusahaanController extends Controller
         ) t)';
         $kendaraanCountSql = '(SELECT COUNT(*) FROM sesi_unit_kendaraan WHERE id_perusahaan = pe.id_perusahaan AND flag = 1)';
 
-        $query->select('pe.id_perusahaan', 'pe.nama_perusahaan', 'pe.badan_usaha', 'pe.identitas_owner', 'pe.status_approval')
+        $query->select('pe.id_perusahaan', 'pe.nama_perusahaan', 'pe.badan_usaha', 'pe.identitas_owner', 'pe.status_approval', DB::raw(PerusahaanEkspedisi::kolomAlurAda() ? 'pe.giliran_approval' : 'NULL as giliran_approval'))
             ->selectRaw("{$lastUpdate} as last_update")
             ->selectRaw("{$mineSql} as is_mine", $mineBindings)
             ->selectRaw("{$cabangCountSql} as cakupan_sort")

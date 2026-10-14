@@ -3,6 +3,7 @@
 namespace App\Mail;
 
 use App\Helpers\FormatHelper;
+use App\Models\AturanAlur;
 use App\Models\PengajuanSewa;
 use App\Models\RasioSewa;
 use Carbon\Carbon;
@@ -33,9 +34,15 @@ class NotifikasiPengajuanMail extends Mailable
     {
         $alur = $this->pengajuan->alurApproval();
         $idx = array_search($this->peranBerikutnya, $alur, true);
-        $sebelum = ($idx !== false && $idx > 0) ? $alur[$idx - 1] : 'WM';
+        $sebelum = ($idx !== false && $idx > 0) ? $alur[$idx - 1] : ($alur[0] ?? 'WM');
 
-        return $sebelum === 'WM' ? 'Divalidasi WM' : "Disetujui $sebelum";
+        return AturanAlur::labelSelesai($sebelum);
+    }
+
+    /** Peran tahap pertama alur pengajuan. */
+    private function tahapPertama(): string
+    {
+        return $this->pengajuan->alurApproval()[0] ?? 'WM';
     }
 
     private function namaVendor(): string
@@ -56,7 +63,7 @@ class NotifikasiPengajuanMail extends Mailable
             : 'Pengajuan Kiriman Rutin '.$this->namaVendor()." Tgl $tgl";
 
         $awalan = match ($this->tipe) {
-            'baru' => $this->ulang ? '[Diajukan Ulang - Menunggu Validasi WM] ' : '[Menunggu Validasi WM] ',
+            'baru' => ($this->ulang ? '[Diajukan Ulang - ' : '[').AturanAlur::labelMenunggu($this->tahapPertama()).'] ',
             'menunggu_approval' => '['.$this->langkahSebelumnya()." - Menunggu Approval {$this->peranBerikutnya}] ",
             'approved' => '[APPROVED] ',
             'rejected' => '[REJECTED] ',
@@ -87,14 +94,14 @@ class NotifikasiPengajuanMail extends Mailable
         $kode = $p->id_cabang;
         [$judul, $intro] = match ($this->tipe) {
             'baru' => $this->ulang
-                ? ['Pengajuan diajukan ulang', "Pengajuan sewa dari cabang $kode telah diperbaiki dan diajukan ulang, dan perlu divalidasi kembali oleh WM."]
-                : ['Pengajuan baru masuk', "Ada pengajuan sewa baru dari cabang $kode yang perlu divalidasi WM."],
+                ? ['Pengajuan diajukan ulang', "Pengajuan sewa dari cabang $kode telah diperbaiki dan diajukan ulang, dan kembali ".lcfirst(AturanAlur::labelMenunggu($this->tahapPertama())).'.']
+                : ['Pengajuan baru masuk', "Ada pengajuan sewa baru dari cabang $kode yang ".lcfirst(AturanAlur::labelMenunggu($this->tahapPertama())).'.'],
             'menunggu_approval' => [
                 "Pengajuan menunggu approval {$this->peranBerikutnya}",
                 "Pengajuan sewa dari cabang $kode sudah ".lcfirst($this->langkahSebelumnya())." dan kini menunggu approval {$this->peranBerikutnya}.",
             ],
-            'approved' => $p->alurApproval() === ['WM']
-                ? ['Pengajuan disetujui', "Pengajuan sewa dari cabang $kode telah divalidasi WM (validasi WM = keputusan final)."]
+            'approved' => count($p->alurApproval()) === 1
+                ? ['Pengajuan disetujui', "Pengajuan sewa dari cabang $kode telah ".lcfirst(AturanAlur::labelSelesai($this->tahapPertama())).' (keputusan final).']
                 : ['Pengajuan disetujui', "Pengajuan sewa dari cabang $kode telah disetujui."],
             'rejected' => ['Pengajuan ditolak', "Pengajuan sewa dari cabang $kode ditolak dengan alasan:"],
             'dibatalkan' => ['Pengajuan dibatalkan', "Pengajuan sewa dari cabang $kode dibatalkan oleh pengaju dengan alasan:"],

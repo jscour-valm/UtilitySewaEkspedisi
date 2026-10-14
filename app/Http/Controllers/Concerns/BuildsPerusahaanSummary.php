@@ -236,7 +236,7 @@ trait BuildsPerusahaanSummary
         ) AS t(d))';
         [$mineSql, $mineBindings] = $this->mineCompanySql($own);
 
-        $query->select('pe.id_perusahaan', 'pe.nama_perusahaan', 'pe.badan_usaha', 'pe.no_telepon', 'pe.alamat_kantor', 'pe.status_approval')
+        $query->select('pe.id_perusahaan', 'pe.nama_perusahaan', 'pe.badan_usaha', 'pe.no_telepon', 'pe.alamat_kantor', 'pe.status_approval', DB::raw(PerusahaanEkspedisi::kolomAlurAda() ? 'pe.giliran_approval' : 'NULL as giliran_approval'))
             ->selectRaw("{$lastUpdate} as last_update")
             ->selectRaw("{$mineSql} as is_mine", $mineBindings);
 

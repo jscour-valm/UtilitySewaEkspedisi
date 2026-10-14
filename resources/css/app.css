@@ -28,6 +28,49 @@ input[type='date']::-webkit-calendar-picker-indicator {
     cursor: pointer;
 }
 
+/* Baris kepala tabel berupa pita abu-abu bersudut bulat, untuk tabel tanpa garis kotak di
+   sekelilingnya. Dipasang di <tr> dalam <thead>. Hanya mengatur latar dan sudut: jarak sel dan
+   lebar kolom tetap diatur tiap tabel (kelas di <th>/<td> dan <colgroup>).
+   Warna latar bisa diganti per tabel lewat --latar-kepala di <tr>, mis. untuk tabel di atas
+   panel abu-abu: class="kepala-tabel [--latar-kepala:var(--color-gray-100)]". */
+.kepala-tabel > th {
+    background-color: var(--latar-kepala, var(--color-gray-50));
+}
+.kepala-tabel > th:first-child {
+    @apply rounded-l-lg;
+}
+.kepala-tabel > th:last-child {
+    @apply rounded-r-lg;
+}
+
+/* Dropdown pilih peran (halaman Alur Approval): warna mengikuti peran terpilih lewat
+   atribut data-peran, yang diperbarui saat pilihan diganti. Kosong = abu-abu. */
+.pilih-peran {
+    @apply border-gray-200 text-gray-400;
+}
+.pilih-peran[data-peran='WM'] {
+    @apply border-avian-green bg-avian-green-light font-semibold text-avian-green;
+}
+.pilih-peran[data-peran='WC'] {
+    @apply border-blue-300 bg-blue-50 font-semibold text-blue-700;
+}
+.pilih-peran[data-peran='WH'] {
+    @apply border-purple-300 bg-purple-50 font-semibold text-purple-700;
+}
+.pilih-peran option {
+    @apply bg-white font-normal text-gray-800;
+}
+
+/* Isian yang nilainya sudah diganti di form edit (lihat "Tandai isian yang diubah" di app.js). */
+:is(input, select, textarea).diubah {
+    background-color: var(--color-yellow-100) !important;
+    border-color: var(--color-yellow-500) !important;
+}
+:is(input[type='checkbox'], input[type='radio']).diubah {
+    outline: 2px solid var(--color-yellow-500);
+    outline-offset: 2px;
+}
+
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
 

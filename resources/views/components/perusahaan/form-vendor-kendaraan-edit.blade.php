@@ -20,7 +20,7 @@
 @endphp
 
 {{-- ===== Profil Perusahaan ===== --}}
-<div class="rounded-xl bg-white shadow-sm p-6"
+<div class="rounded-xl bg-white shadow-sm p-6" data-tandai-ubah
     x-data="vendorProfilEdit({
         idPerusahaan: {{ (int) $vendorSkill->id_perusahaan }},
         namaPerusahaan: @js($vendorSkill->perusahaan->nama_perusahaan),
@@ -191,10 +191,10 @@
     </div>
     @endif
 
-    <div class="overflow-hidden rounded-xl border border-gray-200">
+    <div class="overflow-hidden" data-tandai-ubah>
         <table class="w-full text-sm">
             <thead>
-                <tr class="border-b border-gray-300 bg-gray-50 text-xs font-medium uppercase tracking-wide text-gray-500">
+                <tr class="kepala-tabel text-xs font-medium uppercase tracking-wide text-gray-500">
                     <th class="px-4 py-3 text-left">Jenis</th>
                     <th class="px-4 py-3 text-left">Plat Nomor</th>
                     <th class="px-4 py-3 text-right">Muatan (Ton)</th>
@@ -202,7 +202,7 @@
                     <th class="px-4 py-3 text-right">Aksi</th>
                 </tr>
             </thead>
-            <tbody class="divide-y divide-gray-200">
+            <tbody class="divide-y divide-gray-100">
                 @forelse($kendaraanList as $k)
                 <tr x-data="{
                         editing: false,

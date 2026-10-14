@@ -152,7 +152,7 @@ $searchPlaceholder = match ($mode) {
 
 {{-- Tabel --}}
 {{-- Lebar minimum + scroll horizontal supaya kolom Action tidak terpotong di layar sempit --}}
-<div class="overflow-x-auto rounded-xl border border-gray-200">
+<div class="overflow-x-auto">
     <table class="w-full min-w-[56rem] table-fixed text-sm">
         <colgroup>
             @if(in_array($mode, ['wm', 'ka']))
@@ -181,7 +181,7 @@ $searchPlaceholder = match ($mode) {
         </colgroup>
 
         <thead>
-            <tr class="border-b border-gray-300 text-xs font-medium uppercase tracking-wide text-gray-500">
+            <tr class="kepala-tabel text-xs font-medium uppercase tracking-wide text-gray-500 [&>th]:px-4">
                 @if(in_array($mode, ['wm', 'ka']))
                     <th class="px-4 py-3 text-left">KaGud</th>
                     <th class="px-4 py-3 text-left">Nama Perusahaan</th>
@@ -197,8 +197,8 @@ $searchPlaceholder = match ($mode) {
                     <th class="px-4 py-3 text-left">Status</th>
                     <th class="px-4 py-3 text-right">Action</th>
                 @else
-                    <x-ui.sortable-th col="submitted_at" label="Tanggal Pengajuan" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort_pengajuan" orderParam="order_pengajuan" />
-                    <x-ui.sortable-th col="tanggal" label="Tanggal Pengiriman" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort_pengajuan" orderParam="order_pengajuan" />
+                    <x-ui.sortable-th col="submitted_at" label="Tgl Pengajuan" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort_pengajuan" orderParam="order_pengajuan" />
+                    <x-ui.sortable-th col="tanggal" label="Tgl Pengiriman" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort_pengajuan" orderParam="order_pengajuan" />
                     <x-ui.sortable-th col="nama" label="Nama Perusahaan" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort_pengajuan" orderParam="order_pengajuan" />
                     <x-ui.sortable-th col="harga" label="Harga Sewa" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort_pengajuan" orderParam="order_pengajuan" />
                     <x-ui.sortable-th col="rasio" label="Rasio Sewa" :sortBy="$sortBy" :sortOrder="$sortOrder" sortParam="sort_pengajuan" orderParam="order_pengajuan" />
@@ -208,7 +208,7 @@ $searchPlaceholder = match ($mode) {
             </tr>
         </thead>
 
-        <tbody class="divide-y divide-gray-200 text-sm">
+        <tbody class="divide-y divide-gray-100 text-sm">
             @if($error)
                 <tr>
                     <td colspan="7" class="py-6 px-4 text-center text-sm text-red-600">

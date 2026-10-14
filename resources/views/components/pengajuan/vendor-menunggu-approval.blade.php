@@ -1,6 +1,6 @@
 {{--
-    Kotak info: vendor pengajuan ini masih vendor baru yang belum disetujui WH, jadi pengajuan
-    belum bisa divalidasi WM.
+    Kotak info: vendor pengajuan ini masih vendor baru yang belum selesai disetujui, jadi
+    pengajuan belum bisa disetujui.
     Dipakai di: detail pengajuan, review approval.
     Props: vendor (null = tidak ditampilkan).
 --}}
@@ -19,7 +19,7 @@
             <p>
                 Vendor <strong>{{ $vendor->nama_perusahaan }}</strong> masih vendor baru
                 (<span class="font-semibold">{{ $vendor->labelStatusPersetujuan() }}</span>).
-                Pengajuan ini baru bisa divalidasi WM setelah vendornya disetujui WH.
+                Pengajuan ini baru bisa disetujui setelah vendornya disetujui.
             </p>
             @if($bolehBuka)
                 <a href="{{ route('persetujuan.vendor.show', $vendor->id_perusahaan) }}"

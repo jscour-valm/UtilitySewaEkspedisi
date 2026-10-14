@@ -14,10 +14,10 @@
             <p x-show="memuat" class="py-8 text-center text-sm text-gray-400">Memuat…</p>
             <p x-show="!memuat && riwayat.length === 0" class="py-8 text-center text-sm text-gray-400">Belum ada perubahan harga tercatat.</p>
 
-            <div x-show="!memuat && riwayat.length > 0" class="overflow-x-auto rounded-lg border border-gray-100">
+            <div x-show="!memuat && riwayat.length > 0" class="overflow-x-auto">
                 <table class="w-full min-w-[30rem] text-sm">
                     <thead>
-                        <tr class="border-b border-gray-100 bg-gray-50 text-[11px] font-semibold tracking-wide text-gray-500">
+                        <tr class="kepala-tabel text-[11px] font-semibold tracking-wide text-gray-500">
                             <th class="px-3 py-2 text-left">TANGGAL</th>
                             <th x-show="barisBarang" class="px-3 py-2 text-left">JENIS BARANG</th>
                             <th class="px-3 py-2 text-right">HARGA LAMA</th>

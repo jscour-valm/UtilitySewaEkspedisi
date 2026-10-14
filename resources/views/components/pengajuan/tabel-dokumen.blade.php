@@ -21,7 +21,7 @@
         class="mb-3 w-full rounded-lg border border-gray-300 px-4 py-2 text-sm
         focus:border-avian-green focus:outline-none">
 
-    <div class="overflow-hidden rounded-xl border border-gray-200">
+    <div class="overflow-hidden">
         {{-- Varian SJ (tujuan_penyewaan = Toko) --}}
         <template x-if="pengajuan.tujuan_penyewaan !== 'PAC'">
             <table class="w-full text-sm">
@@ -34,7 +34,7 @@
                     <col class="w-[14%]">
                 </colgroup>
                 <thead>
-                    <tr class="border-b border-gray-300 bg-gray-50">
+                    <tr class="kepala-tabel">
                         <th class="px-4 py-3 text-left">
                             <input
                                 type="checkbox"
@@ -111,7 +111,7 @@
                     <col class="w-[14%]">
                 </colgroup>
                 <thead>
-                    <tr class="border-b border-gray-300 bg-gray-50">
+                    <tr class="kepala-tabel">
                         <th class="px-4 py-3 text-left">
                             <input
                                 type="checkbox"

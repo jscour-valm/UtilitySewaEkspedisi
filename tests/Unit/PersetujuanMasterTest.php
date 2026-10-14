@@ -34,6 +34,42 @@ class PersetujuanMasterTest extends TestCase
         $this->assertSame($berjalan, $usulan->sedangBerjalan());
     }
 
+    public function test_giliran_mengikuti_alur_yang_dikunci(): void
+    {
+        $usulan = new UsulanHarga(['status' => 'menunggu_validasi', 'alur_approval' => 'WH,WC,WM', 'giliran_approval' => 'WH']);
+        $this->assertSame(['WH', 'WC', 'WM'], $usulan->alurPersetujuan());
+        $this->assertSame('WH', $usulan->giliranPersetujuan());
+        $this->assertSame('Menunggu Approval WH', $usulan->labelStatusPersetujuan());
+        $this->assertSame('WC', $usulan->peranSesudah('WH'));
+        $this->assertSame('WM', $usulan->peranSesudah('WC'));
+        $this->assertNull($usulan->peranSesudah('WM'));
+
+        $usulan->forceFill(['status' => 'menunggu_approval', 'giliran_approval' => 'WM']);
+        $this->assertSame('WM', $usulan->giliranPersetujuan());
+        $this->assertSame('Menunggu Validasi WM', $usulan->labelStatusPersetujuan());
+
+        $usulan->forceFill(['status' => 'approved', 'giliran_approval' => null]);
+        $this->assertNull($usulan->giliranPersetujuan());
+        $this->assertSame('Disetujui', $usulan->labelStatusPersetujuan());
+    }
+
+    public function test_penerima_email_mengikuti_alur(): void
+    {
+        // Alur WH → WC: diajukan menunggu WH, lanjut menunggu WC; keduanya ikut jadi penerima To.
+        [$to] = PersetujuanMasterService::penerima('diajukan', null, ['WH', 'WC'], 'WH');
+        $this->assertContains('WH', $to);
+
+        [$to, $cc] = PersetujuanMasterService::penerima('divalidasi', 'WH', ['WH', 'WC'], 'WC');
+        $this->assertContains('WC', $to);
+        $this->assertNotContains('WC', $cc);
+
+        // Penolakan di tahap pertama memakai aturan "ditolak di tahap pertama", siapa pun perannya.
+        $this->assertSame(
+            PersetujuanMasterService::penerima('ditolak', 'WM'),
+            PersetujuanMasterService::penerima('ditolak', 'WH', ['WH', 'WC']),
+        );
+    }
+
     public function test_putusan_bentrok_usulan(): void
     {
         $this->assertSame('baru', UsulanHarga::putusanBentrok(null, 1200000));

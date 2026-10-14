@@ -159,8 +159,8 @@ class PengajuanSewa extends Model
     }
 
     /**
-     * Vendor baru yang belum di-approve WH. Selama ada, WM belum boleh memvalidasi
-     * pengajuan ini. Usulan harga tidak menahan pengajuan (proses terpisah).
+     * Vendor baru yang proses persetujuannya belum selesai. Selama ada, pengajuan ini
+     * belum boleh disetujui approver mana pun. Usulan harga tidak menahan pengajuan (proses terpisah).
      */
     public function vendorMenungguApproval(): ?PerusahaanEkspedisi
     {
@@ -246,13 +246,13 @@ class PengajuanSewa extends Model
     }
 
     /**
-     * KG pengaju cuma boleh edit selama masih menunggu validasi WM. Setelah WM validasi,
-     * pengajuan terkunci.
+     * KG pengaju cuma boleh edit selama masih menunggu tahap pertama alur. Setelah tahap
+     * pertama memutuskan, pengajuan terkunci.
      */
     public function bisaDieditPengaju(): bool
     {
         return strtolower((string) $this->status_pengajuan) === 'pending'
-            && $this->approverBerikutnya() === 'WM';
+            && $this->approverBerikutnya() === ($this->alurApproval()[0] ?? null);
     }
 
     /** Pengaju boleh membatalkan selama pengajuan masih pending (tahap mana pun). */

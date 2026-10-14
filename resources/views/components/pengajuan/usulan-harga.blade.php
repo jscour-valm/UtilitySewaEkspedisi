@@ -23,7 +23,7 @@
 
 @if($baris->isNotEmpty())
 <div {{ $attributes->merge(['class' => 'rounded-xl border border-gray-100 bg-white p-6 shadow-sm']) }}>
-    <p class="text-[11px] font-semibold tracking-[0.09em] text-gray-500">USULAN PERUBAHAN HARGA MASTER</p>
+    <p class="text-[13px] font-semibold tracking-[0.09em] text-gray-500">USULAN PERUBAHAN HARGA MASTER</p>
     <p class="mb-4 mt-1 text-[13px] text-gray-400">Diproses terpisah (validasi WM → approval WH) dan tidak menahan pengajuan ini.</p>
 
     @foreach($baris as $b)

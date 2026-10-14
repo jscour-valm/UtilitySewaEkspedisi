@@ -51,11 +51,9 @@ class ApproverController extends Controller
             });
 
             $liveUsernames = $liveWmByCabang->get($c->Code, collect())->pluck('username')->unique();
-            $sudahAdaUserId = $override->pluck('user_id')->all();
             $live = $liveUsernames
                 ->map(fn ($username) => $wmUserByUsername->get($username))
                 ->filter()
-                ->reject(fn ($u) => in_array($u->id, $sudahAdaUserId, true)) // hindari duplikat kalau kebetulan ada di override juga
                 ->map(fn ($u) => (object) [
                     'id_approval_rule' => null,
                     'cabang_code' => $c->Code,
@@ -65,7 +63,13 @@ class ApproverController extends Controller
                     'source' => 'live',
                 ]);
 
-            $c->wmList = $override->merge($live)->sortBy('name')->values();
+            // WM manual yang sama dengan WM dari sistem = rangkap: tidak ditampilkan dua kali,
+            // tapi baris manualnya tetap bisa dihapus dari panel Kelola.
+            $idSistem = $live->map(fn ($wm) => (int) $wm->user_id)->all();
+            $override->each(fn ($wm) => $wm->rangkap = in_array((int) $wm->user_id, $idSistem, true));
+
+            $c->wmSistem = $live->sortBy('name')->values();
+            $c->wmManual = $override->sortBy('name')->values();
 
             return $c;
         });
