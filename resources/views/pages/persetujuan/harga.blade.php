@@ -164,7 +164,7 @@
                                     <td class="px-3 py-2 text-gray-600">{{ $p->tanggal_pengiriman?->format('d M Y') }}</td>
                                     <td class="px-3 py-2 text-gray-600">{{ $p->submittedBy?->name ?? '-' }}</td>
                                     <td class="px-3 py-2 text-right">
-                                        <a href="{{ route('pengajuan.buka', $p->id_pengajuan_sewa) }}" class="text-xs font-medium text-avian-green hover:underline">Buka →</a>
+                                        <a href="{{ route('pengajuan.buka', $p->kunci_url) }}" class="text-xs font-medium text-avian-green hover:underline">Buka →</a>
                                     </td>
                                 </tr>
                             @endforeach

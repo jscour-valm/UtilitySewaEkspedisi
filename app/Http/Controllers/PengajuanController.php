@@ -154,13 +154,16 @@ class PengajuanController extends Controller
             $baseRules['id_perusahaan_ekspedisi'] = 'required|integer|exists:sqlsrv.dbo.sesi_perusahaan_ekspedisi,id_perusahaan';
             $baseRules['detail_kiriman'] = 'required|array|min:1';
             $baseRules['detail_kiriman.*.id_jenis_barang'] = 'required|integer|exists:sqlsrv.dbo.sesi_jenis_barang_kiriman,id_jenis_barang';
-            $baseRules['detail_kiriman.*.quantity'] = 'required|numeric|min:0.01';
+            $baseRules['detail_kiriman.*.quantity'] = 'required|integer|min:1';
             $baseRules['detail_kiriman.*.biaya_per_unit'] = 'nullable|numeric|min:0.01';
             $baseRules['detail_kiriman.*.usulan_update_master'] = 'nullable|boolean';
             $baseRules['detail_kiriman.*.harga_custom'] = 'nullable|boolean';
         }
 
-        $request->validate($baseRules + $this->aturanDokumen($request), $this->pesanDokumen($request));
+        $request->validate($baseRules + $this->aturanDokumen($request), $this->pesanDokumen($request) + [
+            'detail_kiriman.*.quantity.integer' => 'Qty barang harus bilangan bulat (tanpa koma).',
+            'detail_kiriman.*.quantity.min' => 'Qty barang minimal 1.',
+        ]);
         $this->cekJumlahArea($request);
 
         try {
@@ -320,6 +323,7 @@ class PengajuanController extends Controller
                 'message' => 'Pengajuan berhasil disubmit',
                 'id_pengajuan' => $pengajuan->id_pengajuan_sewa,
                 'kode_pengajuan' => $pengajuan->kode,
+                'url' => route('pengajuan.show', $pengajuan->kunci_url),
             ]);
         } catch (\InvalidArgumentException $e) {
             DB::connection('sqlsrv')->rollBack();
@@ -732,6 +736,7 @@ class PengajuanController extends Controller
 
     public function edit($id)
     {
+        $id = PengajuanSewa::idDariKunci((string) $id);
         $relations = [
             'biayaTambahan.jenisBiaya',
             'suratJalans',
@@ -885,13 +890,16 @@ class PengajuanController extends Controller
             $baseRules['id_perusahaan_ekspedisi'] = 'required|integer|exists:sqlsrv.dbo.sesi_perusahaan_ekspedisi,id_perusahaan';
             $baseRules['detail_kiriman'] = 'required|array|min:1';
             $baseRules['detail_kiriman.*.id_jenis_barang'] = 'required|integer|exists:sqlsrv.dbo.sesi_jenis_barang_kiriman,id_jenis_barang';
-            $baseRules['detail_kiriman.*.quantity'] = 'required|numeric|min:0.01';
+            $baseRules['detail_kiriman.*.quantity'] = 'required|integer|min:1';
             $baseRules['detail_kiriman.*.biaya_per_unit'] = 'nullable|numeric|min:0.01';
             $baseRules['detail_kiriman.*.usulan_update_master'] = 'nullable|boolean';
             $baseRules['detail_kiriman.*.harga_custom'] = 'nullable|boolean';
         }
 
-        $request->validate($baseRules + $this->aturanDokumen($request), $this->pesanDokumen($request));
+        $request->validate($baseRules + $this->aturanDokumen($request), $this->pesanDokumen($request) + [
+            'detail_kiriman.*.quantity.integer' => 'Qty barang harus bilangan bulat (tanpa koma).',
+            'detail_kiriman.*.quantity.min' => 'Qty barang minimal 1.',
+        ]);
         $this->cekJumlahArea($request);
 
         try {
@@ -1043,6 +1051,7 @@ class PengajuanController extends Controller
                 'message' => 'Pengajuan berhasil diperbarui',
                 'id_pengajuan' => $pengajuan->id_pengajuan_sewa,
                 'kode_pengajuan' => $pengajuan->kode,
+                'url' => route('pengajuan.show', $pengajuan->kunci_url),
             ]);
         } catch (\InvalidArgumentException $e) {
             DB::connection('sqlsrv')->rollBack();
@@ -1061,18 +1070,23 @@ class PengajuanController extends Controller
         }
     }
 
-    /** GET /pengajuan/{id}/buka — link email: approver (WM/WC/WH) ke halaman review, role lain ke detail. */
+    /**
+     * GET /pengajuan/{kode|id}/buka — link email: approver (WM/WC/WH) ke halaman review, role lain
+     * ke detail. Link lama ber-id angka diarahkan ke URL kode.
+     */
     public function buka($id)
     {
         $role = auth()->user()->userUtility?->role;
+        $kunci = PengajuanSewa::findOrFail(PengajuanSewa::idDariKunci((string) $id))->kunci_url;
 
         return in_array($role, ApprovalController::PERAN_APPROVER, true)
-            ? redirect()->route('approval.show', $id)
-            : redirect()->route('pengajuan.show', $id);
+            ? redirect()->route('approval.show', $kunci)
+            : redirect()->route('pengajuan.show', $kunci);
     }
 
     public function show($id)
     {
+        $id = PengajuanSewa::idDariKunci((string) $id);
         $pengajuan = PengajuanSewa::with([
             'kendaraan.perusahaan',
             'perusahaanEkspedisi',

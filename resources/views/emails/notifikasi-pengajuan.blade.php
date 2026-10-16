@@ -41,7 +41,9 @@
         $p->pakaiRasio() ? ['Nilai ' . ($isRutin ? 'Muatan' : 'SJ'), F::rupiah($p->value_muatan)] : null,
         $p->pakaiRasio() ? ['Rasio Sewa', $persen($rasio) . ' (' . ($overAmbang ? 'di atas' : 'di bawah') . ' ambang ' . $persen($ambangRasio) . ')', $overAmbang] : null,
         ['Alur Approval', implode(' → ', $alur) . ($alasanAlur ? ' — ' . implode(', ', $alasanAlur) : '')],
-        ['Diajukan oleh', ($p->submittedBy?->name ?? '-') . ' (' . Carbon::parse($p->submitted_at)->format('d/m/Y H:i') . ')'],
+        ['Diajukan oleh', ($p->submittedBy
+            ? $p->submittedBy->name . ' — ' . $p->submittedBy->username . ' · ' . $p->submittedBy->getRoleLabel() . ' · ' . $p->id_cabang
+            : '-') . ' (' . Carbon::parse($p->submitted_at)->format('d/m/Y H:i') . ' WIB)'],
     ];
 
     $barisBarang = $isRutin

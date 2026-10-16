@@ -298,7 +298,7 @@
                                         <input type="number" x-model="detail.quantity" placeholder="Qty"
                                             @input="detail.subtotal = Number(detail.quantity) * Number(detail.harga_satuan || 0)"
                                             @wheel="$event.target.blur()"
-                                            class="w-full rounded border border-gray-300 px-2 py-1.5 text-xs" min="0.01" step="0.01">
+                                            class="w-full rounded border border-gray-300 px-2 py-1.5 text-xs" min="1" step="1">
                                     </div>
 
                                     {{-- Penanda perkalian: subtotal = qty × harga per 1 item --}}

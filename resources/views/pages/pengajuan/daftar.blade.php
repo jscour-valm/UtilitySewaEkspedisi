@@ -107,7 +107,7 @@
                                 <span class="whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium {{ $kelas }}">{{ $label }}</span>
                             </td>
                             <td class="px-4 py-3 text-right">
-                                <a href="{{ route('pengajuan.buka', $p->id) }}"
+                                <a href="{{ route('pengajuan.buka', \App\Models\PengajuanSewa::kunciUrlDari($p->kode_pengajuan ?? null, $p->id)) }}"
                                     class="inline-block whitespace-nowrap rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50">Detail</a>
                             </td>
                         </tr>

@@ -19,6 +19,7 @@ use App\Http\Controllers\TarifKirimanRutinController;
 use App\Http\Controllers\WcDashboardController;
 use App\Http\Controllers\WhDashboardController;
 use App\Http\Controllers\WmDashboardController;
+use App\Models\PengajuanSewa;
 use Illuminate\Support\Facades\Route;
 
 // Auth
@@ -35,7 +36,7 @@ Route::middleware(['auth', 'role:KG'])->group(function () {
     Route::get('/dashboard/kg', fn () => view('pages.dashboard.kg'))->name('dashboard.kg')->middleware('query.sesi');
     Route::get('/pengajuan', fn () => view('pages.pengajuan.index'))->name('pengajuan.kg');
     Route::redirect('/history', '/daftar-pengajuan');
-    Route::get('/pengajuan/{id}/edit', [PengajuanController::class, 'edit'])->name('pengajuan.edit');
+    Route::get('/pengajuan/{id}/edit', [PengajuanController::class, 'edit'])->where('id', PengajuanSewa::POLA_KUNCI_URL)->name('pengajuan.edit');
 
     // API endpoints untuk pengajuan
     Route::post('/api/pengajuan/perusahaan', [PengajuanController::class, 'storePerusahaan'])->name('pengajuan.store-perusahaan');
@@ -65,12 +66,12 @@ Route::middleware(['auth', 'role:KG'])->group(function () {
 });
 
 Route::middleware(['auth', 'role:KG,WH,WC,DCI,KA'])->group(function () {
-    Route::get('/pengajuan/{id}', [PengajuanController::class, 'show'])->name('pengajuan.show');
+    Route::get('/pengajuan/{id}', [PengajuanController::class, 'show'])->where('id', PengajuanSewa::POLA_KUNCI_URL)->name('pengajuan.show');
 });
 
 // Link di email notifikasi (1 email dibaca banyak role): redirect sesuai role
 Route::middleware(['auth', 'role:KG,KA,WM,WC,WH,DCI'])->group(function () {
-    Route::get('/pengajuan/{id}/buka', [PengajuanController::class, 'buka'])->name('pengajuan.buka');
+    Route::get('/pengajuan/{id}/buka', [PengajuanController::class, 'buka'])->where('id', PengajuanSewa::POLA_KUNCI_URL)->name('pengajuan.buka');
 });
 
 // Link di email proses vendor baru / usulan harga master
@@ -110,7 +111,7 @@ Route::middleware(['auth', 'role:WC'])->group(function () {
 });
 
 Route::middleware(['auth', 'role:WM,WC,WH'])->group(function () {
-    Route::get('/approval/pengajuan/{id}', [ApprovalController::class, 'show'])->name('approval.show');
+    Route::get('/approval/pengajuan/{id}', [ApprovalController::class, 'show'])->where('id', PengajuanSewa::POLA_KUNCI_URL)->name('approval.show');
     Route::post('/approval/{id}/approve', [ApprovalController::class, 'approve'])->name('approval.approve');
     Route::post('/approval/{id}/reject', [ApprovalController::class, 'reject'])->name('approval.reject');
 });

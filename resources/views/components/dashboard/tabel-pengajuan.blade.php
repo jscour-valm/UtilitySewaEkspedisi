@@ -51,6 +51,9 @@ $result = DbHelper::safeQuery(function () use ($limit, $sortBy, $sortOrder, $mod
         'sesi_pengajuan_sewa.id_cabang as cabang',
         'sesi_pengajuan_sewa.kategori_approval as kategori_approval'
     );
+    if (\App\Models\PengajuanSewa::kolomKodeAda()) {
+        $query->addSelect('sesi_pengajuan_sewa.kode_pengajuan as kode_pengajuan');
+    }
 
     // Kalau mode=wm, tambah nama pengaju
     if (in_array($mode, ['wm', 'ka'])) {
@@ -303,12 +306,12 @@ $searchPlaceholder = match ($mode) {
                     {{-- Action --}}
                     <td class="px-4 py-3 text-right">
                         @if($isReviewer)
-                            <a href="{{ route('approval.show', $p['id']) }}"
+                            <a href="{{ route('approval.show', \App\Models\PengajuanSewa::kunciUrlDari($p['kode_pengajuan'] ?? null, $p['id'])) }}"
                                 class="inline-block whitespace-nowrap rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50">
                                 Review
                             </a>
                         @else
-                            <a href="{{ route('pengajuan.show', $p['id']) }}"
+                            <a href="{{ route('pengajuan.show', \App\Models\PengajuanSewa::kunciUrlDari($p['kode_pengajuan'] ?? null, $p['id'])) }}"
                                 class="inline-block whitespace-nowrap rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50">
                                 Detail
                             </a>

@@ -104,6 +104,7 @@ class ApprovalController extends Controller
      */
     public function show($id)
     {
+        $id = PengajuanSewa::idDariKunci((string) $id);
         $pengajuan = PengajuanSewa::with([
             'kendaraan',
             'kendaraan.perusahaan',

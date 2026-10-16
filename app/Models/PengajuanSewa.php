@@ -98,6 +98,36 @@ class PengajuanSewa extends Model
         return $kode ?: '#'.$id;
     }
 
+    /** Pola parameter URL halaman pengajuan: id angka (link lama) atau kode SE-…. */
+    public const POLA_KUNCI_URL = '[0-9]+|SE-[A-Za-z0-9]+-[0-9]{4}-[0-9]{4,}';
+
+    /** Kunci di URL halaman pengajuan: kode, atau id kalau kode belum ada. */
+    public function getKunciUrlAttribute(): string
+    {
+        return self::kunciUrlDari($this->kode_pengajuan, $this->id_pengajuan_sewa);
+    }
+
+    public static function kunciUrlDari(?string $kode, int|string|null $id): string
+    {
+        return $kode ?: (string) $id;
+    }
+
+    /**
+     * id_pengajuan_sewa dari parameter URL (kode atau id angka). Kode tidak dikenal → 404
+     * (ditampilkan sebagai popup "tidak ditemukan").
+     */
+    public static function idDariKunci(string $kunci): int
+    {
+        if (ctype_digit($kunci)) {
+            return (int) $kunci;
+        }
+
+        $id = self::kolomKodeAda() ? self::where('kode_pengajuan', $kunci)->value('id_pengajuan_sewa') : null;
+        abort_if($id === null, 404);
+
+        return (int) $id;
+    }
+
     /** Kolom kode_pengajuan sudah ada (migration 2026_10_16_000001 sudah dijalankan). */
     public static function kolomKodeAda(): bool
     {

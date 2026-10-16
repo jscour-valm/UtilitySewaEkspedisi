@@ -100,9 +100,9 @@ class NotifikasiPengajuanService
     private function kirim(PengajuanSewa $p, string $tipe, array $to, array $ccTambahan = [], bool $ulang = false, bool $perbaruiSnapshot = false, ?string $peranBerikutnya = null, ?string $alasan = null): void
     {
         // Satu link untuk semua penerima: redirect sesuai role (approver → halaman review, lainnya → detail)
-        $url = route('pengajuan.buka', $p->id_pengajuan_sewa);
+        $url = route('pengajuan.buka', $p->kunci_url);
 
-        $this->pengirim->kirim("'$tipe' pengajuan #{$p->id_pengajuan_sewa}", $to, $ccTambahan, function () use ($p, $tipe, $url, $alasan, $ulang, $perbaruiSnapshot, $peranBerikutnya) {
+        $this->pengirim->kirim("'$tipe' pengajuan {$p->kode}", $to, $ccTambahan, function () use ($p, $tipe, $url, $alasan, $ulang, $perbaruiSnapshot, $peranBerikutnya) {
             $dokumen = $perbaruiSnapshot ? $this->snapshot->simpan($p) : $this->snapshot->ambil($p);
 
             return new NotifikasiPengajuanMail($p->fresh(), $tipe, $url, $alasan, $dokumen, $ulang, $peranBerikutnya);

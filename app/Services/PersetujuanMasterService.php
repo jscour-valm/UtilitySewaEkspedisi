@@ -209,7 +209,7 @@ class PersetujuanMasterService
             try {
                 app(NotifikasiPengajuanService::class)->keputusan($p, $peran, null, $alasanPengajuan);
             } catch (\Throwable $e) {
-                Log::warning("Notifikasi penolakan otomatis pengajuan #{$p->id_pengajuan_sewa} gagal: ".$e->getMessage());
+                Log::warning("Notifikasi penolakan otomatis pengajuan {$p->kode} gagal: ".$e->getMessage());
             }
         }
     }

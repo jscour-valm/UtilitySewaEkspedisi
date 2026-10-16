@@ -529,7 +529,8 @@ Alpine.data('pengajuanSewa', () => ({
         const terisi = this.detailKirimanRutin.filter(d => Number(d.quantity) > 0)
         if (terisi.length === 0) return false
         return terisi.every(d =>
-            d.id_jenis_barang !== '' && d.id_jenis_barang !== null
+            Number.isInteger(Number(d.quantity))
+            && d.id_jenis_barang !== '' && d.id_jenis_barang !== null
             && (d.id_tarif_kiriman_rutin || d.tarif_baru)
             && Number(d.harga_satuan) > 0
         )
@@ -1360,11 +1361,20 @@ Alpine.data('pengajuanSewa', () => ({
             : (p.has_kiriman && !p.has_sewa ? 'pengiriman_rutin' : null)
 
         if (!this.editId && jenisTarif && jenisTarif !== aktif) {
-            const pindah = await confirmDialog(
-                `Perusahaan ${p.nama_perusahaan} punya tarif ${label[jenisTarif]}, tapi kamu sedang di form ${label[aktif]}.`,
-                { title: 'Jenis tarif tidak cocok', confirmText: `Pindah ke ${label[jenisTarif]}`, cancelText: `Tetap di ${label[aktif]}` }
-            )
-            if (pindah) return this.gantiJenis(jenisTarif, { tanpaKonfirmasi: true, perusahaan: p })
+            const hasil = await Swal.fire({
+                icon: 'warning',
+                title: 'Jenis tarif tidak cocok',
+                text: `Perusahaan ${p.nama_perusahaan} punya tarif ${label[jenisTarif]}, tapi kamu sedang di form ${label[aktif]}.`,
+                showCancelButton: true,
+                confirmButtonText: `Pindah ke ${label[jenisTarif]}`,
+                cancelButtonText: `Tetap di ${label[aktif]}`,
+                confirmButtonColor: '#1B7A43',
+                cancelButtonColor: '#6b7280',
+                reverseButtons: true,
+            })
+            if (hasil.isConfirmed) return this.gantiJenis(jenisTarif, { tanpaKonfirmasi: true, perusahaan: p })
+            // Popup ditutup tanpa memilih (klik di luar / Esc / ×): batal, perusahaan tidak dipilih
+            if (hasil.dismiss !== Swal.DismissReason.cancel) return
         }
 
         this.kendaraanTerpilih = null
@@ -1596,7 +1606,7 @@ Alpine.data('pengajuanSewa', () => ({
         } else { // pengiriman_rutin
             if (!this.perusahaanTerpilih || !this.pengajuan.tanggal_pengiriman ||
                 !this.detailKirimanRutinValid) {
-                notify('Data tidak lengkap! Pastikan vendor, tanggal, dan tiap baris Daftar Barang sudah pilih jenis barang & isi qty/harga.', 'warning')
+                notify('Data tidak lengkap! Pastikan vendor, tanggal, dan tiap baris Daftar Barang sudah pilih jenis barang & isi qty (bilangan bulat)/harga.', 'warning')
                 return
             }
         }
@@ -1676,7 +1686,7 @@ Alpine.data('pengajuanSewa', () => ({
             }
 
             const msg = this.editId ? 'Pengajuan berhasil diperbarui!' : 'Pengajuan berhasil disubmit!'
-            const redirectTo = this.editId ? `/pengajuan/${json.id_pengajuan}` : '/dashboard/kg'
+            const redirectTo = this.editId ? (json.url || `/pengajuan/${json.id_pengajuan}`) : '/dashboard/kg'
 
             // Dokumen sudah ditautkan server di request submit/update yang sama.
             // Email notifikasi ke WM — dipicu setelah tersimpan supaya daftar SJ di email terisi.

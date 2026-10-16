@@ -58,9 +58,9 @@ class NotifikasiPengajuanMail extends Mailable
         $p = $this->pengajuan;
         $tgl = Carbon::parse($p->tanggal_pengiriman)->format('d/m/Y');
 
-        $inti = $p->jenis_pengajuan === 'sewa_truk'
+        $inti = ($p->kode_pengajuan ? $p->kode_pengajuan.' · ' : '').($p->jenis_pengajuan === 'sewa_truk'
             ? 'Pengajuan Sewa Truk '.($p->kendaraan?->plat_nomor_truk ?: $this->namaVendor())." Tgl $tgl"
-            : 'Pengajuan Kiriman Rutin '.$this->namaVendor()." Tgl $tgl";
+            : 'Pengajuan Kiriman Rutin '.$this->namaVendor()." Tgl $tgl");
 
         $awalan = match ($this->tipe) {
             'baru' => ($this->ulang ? '[Diajukan Ulang - ' : '[').AturanAlur::labelMenunggu($this->tahapPertama()).'] ',
@@ -70,7 +70,18 @@ class NotifikasiPengajuanMail extends Mailable
             'dibatalkan' => '[DIBATALKAN] ',
         };
 
-        return new Envelope(subject: $awalan.$inti);
+        return new Envelope(subject: $awalan.$inti.$this->olehPengaju());
+    }
+
+    /** " · oleh Nama (username, KG 01A)" — pengaju pengajuan, supaya jelas dari subjek saja. */
+    private function olehPengaju(): string
+    {
+        $u = $this->pengajuan->submittedBy;
+        if (! $u) {
+            return '';
+        }
+
+        return ' · oleh '.$u->name.' ('.$u->username.', '.($u->userUtility?->role ?? '-').' '.$this->pengajuan->id_cabang.')';
     }
 
     public function content(): Content

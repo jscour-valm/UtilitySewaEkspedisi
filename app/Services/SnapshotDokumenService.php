@@ -35,7 +35,7 @@ class SnapshotDokumenService
         try {
             Storage::disk('local')->put($this->path($p), json_encode($detail));
         } catch (\Throwable $e) {
-            Log::warning("Gagal menyimpan snapshot dokumen pengajuan #{$p->id_pengajuan_sewa}: ".$e->getMessage());
+            Log::warning("Gagal menyimpan snapshot dokumen pengajuan {$p->kode}: ".$e->getMessage());
         }
 
         return $detail;

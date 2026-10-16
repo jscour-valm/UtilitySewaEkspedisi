@@ -191,7 +191,7 @@
                                 @endphp
                                 <td class="px-3 py-2"><span class="rounded-full px-2 py-0.5 text-xs font-medium {{ $warnaP }}">{{ $labelP }}</span></td>
                                 <td class="px-3 py-2 text-right">
-                                    <a href="{{ route('pengajuan.buka', $p->id_pengajuan_sewa) }}" class="text-xs font-medium text-avian-green hover:underline">Buka →</a>
+                                    <a href="{{ route('pengajuan.buka', $p->kunci_url) }}" class="text-xs font-medium text-avian-green hover:underline">Buka →</a>
                                 </td>
                             </tr>
                         @endforeach

@@ -443,7 +443,7 @@
 
 @if(auth()->id() == $pengajuan->submitted_by && $pengajuan->bisaDieditPengaju())
 <div class="fixed bottom-6 right-6">
-    <a href="{{ route('pengajuan.edit', $pengajuan->id_pengajuan_sewa) }}"
+    <a href="{{ route('pengajuan.edit', $pengajuan->kunci_url) }}"
         class="group relative flex h-14 w-14 items-center justify-center rounded-full bg-avian-green text-white shadow-lg hover:shadow-xl transition-all hover:scale-105"
         title="Edit Pengajuan">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
