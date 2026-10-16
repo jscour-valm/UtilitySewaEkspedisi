@@ -108,81 +108,41 @@
         </a>
 
         {{--
-            Menu bergrup (submenu):
-            - Master Data — WM, WC, WH, DCI. Jenis Barang / Biaya Tambahan / Kendaraan: CRUD DCI,
+            Master data & pengaturan, tiap halaman satu menu (tanpa submenu).
+            - Master data — WM, WC, WH, DCI. Jenis Barang / Biaya Tambahan / Kendaraan: CRUD DCI,
               role lain lihat saja. Master Skill: WM (cabang sendiri), WC, WH, DCI kelola; hapus DCI.
             - Pengaturan — hanya DCI: batas rasio, alur approval, WM per cabang, penerima email.
         --}}
         @php
-            $grupMenu = [];
+            $menuLain = [];
             if (in_array($role, ['DCI', 'WH', 'WC', 'WM'], true)) {
-                $grupMenu[] = ['label' => 'Master Data', 'ikon' => 'folder-tree', 'match' => 'master*', 'links' => [
-                    ['route' => 'master.jenis-barang-kiriman', 'match' => 'master/jenis-barang-kiriman*', 'label' => 'Jenis Barang Kiriman'],
-                    ['route' => 'master.jenis-biaya-tambahan', 'match' => 'master/jenis-biaya-tambahan*', 'label' => 'Jenis Biaya Tambahan'],
-                    ['route' => 'master.jenis-kendaraan', 'match' => 'master/jenis-kendaraan*', 'label' => 'Jenis Kendaraan'],
-                    ['route' => 'master.skill', 'match' => 'master/skill*', 'label' => 'Master Skill'],
-                ]];
+                $menuLain = [
+                    ['route' => 'master.jenis-barang-kiriman', 'match' => 'master/jenis-barang-kiriman*', 'label' => 'Jenis Barang Kiriman', 'ikon' => 'package'],
+                    ['route' => 'master.jenis-biaya-tambahan', 'match' => 'master/jenis-biaya-tambahan*', 'label' => 'Jenis Biaya Tambahan', 'ikon' => 'receipt'],
+                    ['route' => 'master.jenis-kendaraan', 'match' => 'master/jenis-kendaraan*', 'label' => 'Jenis Kendaraan', 'ikon' => 'truck'],
+                    ['route' => 'master.skill', 'match' => 'master/skill*', 'label' => 'Master Skill', 'ikon' => 'map-pin'],
+                ];
             }
             if ($role === 'DCI') {
-                $grupMenu[] = ['label' => 'Pengaturan', 'ikon' => 'sliders-horizontal', 'match' => ['pengaturan*', 'setting-approver*'], 'links' => [
-                    ['route' => 'pengaturan.rasio', 'match' => 'pengaturan/rasio*', 'label' => 'Batas Rasio Sewa'],
-                    ['route' => 'pengaturan.alur', 'match' => 'pengaturan/alur*', 'label' => 'Alur Approval'],
-                    ['route' => 'setting-approver.index', 'match' => 'setting-approver*', 'label' => 'WM per Cabang'],
-                    ['route' => 'pengaturan.email', 'match' => 'pengaturan/email*', 'label' => 'Penerima Email'],
-                ]];
+                $menuLain = [...$menuLain,
+                    ['route' => 'pengaturan.rasio', 'match' => 'pengaturan/rasio*', 'label' => 'Batas Rasio Sewa', 'ikon' => 'percent'],
+                    ['route' => 'pengaturan.alur', 'match' => 'pengaturan/alur*', 'label' => 'Alur Approval', 'ikon' => 'git-branch'],
+                    ['route' => 'setting-approver.index', 'match' => 'setting-approver*', 'label' => 'WM per Cabang', 'ikon' => 'user-cog'],
+                    ['route' => 'pengaturan.email', 'match' => 'pengaturan/email*', 'label' => 'Penerima Email', 'ikon' => 'mail'],
+                ];
             }
         @endphp
-        @foreach($grupMenu as $grup)
-        @php $diGrup = request()->is($grup['match']) ? 'true' : 'false'; @endphp
-        {{--
-            Sidebar terbuka: submenu menempel di bawah tombol (klik). Sidebar ciut: submenu jadi
-            flyout saat hover. Flyout memakai `position: fixed` dengan koordinat dari
-            getBoundingClientRect() tombol, karena <aside> `overflow-hidden` memotong elemen absolute.
-        --}}
-        <div class="relative" x-data="{ open: {{ $diGrup }}, hovering: false, flyoutStyle: {} }"
-            @mouseenter="hovering = true; $nextTick(() => { const r = $refs.tombolGrup.getBoundingClientRect(); flyoutStyle = { top: r.top + 'px', left: (r.right + 8) + 'px' } })"
-            @mouseleave="hovering = false">
-            <button
-                x-ref="tombolGrup"
-                type="button"
-                @click="open = !open"
-                class="flex items-center gap-3 py-3 px-4 rounded-lg mx-2 transition text-sm"
-                :class="((open && sidebarOpen) || {{ $diGrup }}) ? 'bg-green-800 text-white font-semibold' : 'text-green-100 hover:bg-green-800/60'">
-                <span class="{{ $iconWrapClass }}" :class="sidebarOpen ? 'w-5' : 'w-full'">
-                    <i data-lucide="{{ $grup['ikon'] }}" class="w-5 h-5"></i>
-                </span>
-                <span x-show="sidebarOpen" x-cloak class="truncate flex-1 text-left">{{ $grup['label'] }}</span>
-                <i x-show="sidebarOpen" x-cloak data-lucide="chevron-down" class="w-4 h-4 shrink-0 transition-transform" :class="open ? 'rotate-180' : ''"></i>
-            </button>
-
-            {{-- Dropdown inline — sidebar expanded, dipicu klik (`open`) --}}
-            <div x-show="open && sidebarOpen" x-cloak class="mt-1 ml-6 pl-4 border-l border-green-700/60 space-y-1">
-                @foreach($grup['links'] as $link)
-                <a href="{{ route($link['route']) }}"
-                    class="block py-2 px-3 mr-2 rounded-lg text-sm transition
-                    {{ request()->is($link['match'])
-                        ? 'bg-green-800 text-white font-semibold'
-                        : 'text-green-200 hover:bg-green-800/60' }}">
-                    <span class="truncate">{{ $link['label'] }}</span>
-                </a>
-                @endforeach
-            </div>
-
-            {{-- Flyout — sidebar collapsed, dipicu hover, position: fixed (lihat catatan di atas) --}}
-            <div x-show="hovering && !sidebarOpen" x-cloak :style="flyoutStyle"
-                class="fixed w-56 rounded-lg bg-avian-green-dark shadow-lg border border-green-800 py-2 z-50">
-                <p class="px-4 py-1.5 text-xs font-semibold text-green-300 uppercase tracking-wide">{{ $grup['label'] }}</p>
-                @foreach($grup['links'] as $link)
-                <a href="{{ route($link['route']) }}"
-                    class="block py-2 px-4 text-sm transition
-                    {{ request()->is($link['match'])
-                        ? 'bg-green-800 text-white font-semibold'
-                        : 'text-green-100 hover:bg-green-800/60' }}">
-                    <span class="truncate">{{ $link['label'] }}</span>
-                </a>
-                @endforeach
-            </div>
-        </div>
+        @foreach($menuLain as $menu)
+        <a href="{{ route($menu['route']) }}" title="{{ $menu['label'] }}"
+            class="flex items-center gap-3 py-3 px-4 rounded-lg mx-2 transition text-sm
+            {{ request()->is($menu['match'])
+                ? 'bg-green-800 text-white font-semibold'
+                : 'text-green-100 hover:bg-green-800/60' }}">
+            <span class="{{ $iconWrapClass }}" :class="sidebarOpen ? 'w-5' : 'w-full'">
+                <i data-lucide="{{ $menu['ikon'] }}" class="w-5 h-5"></i>
+            </span>
+            <span x-show="sidebarOpen" x-cloak class="truncate">{{ $menu['label'] }}</span>
+        </a>
         @endforeach
 
     </nav>

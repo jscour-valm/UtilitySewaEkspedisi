@@ -71,8 +71,10 @@ class AturanEmail extends Model
     }
 
     /**
-     * Pastikan peran yang sedang giliran ikut menerima: $keTo = true → jadi penerima To;
-     * false → cukup ada di To atau CC (ditambahkan ke CC kalau belum).
+     * Pastikan peran yang sedang giliran ikut menerima.
+     * $keTo = true (email yang meminta keputusan): giliran jadi penerima To, dan peran approver
+     * lain (WM/WC/WH) yang tercantum di To dipindah ke CC — mereka belum/tidak perlu bertindak.
+     * $keTo = false: giliran cukup ada di To atau CC (ditambahkan ke CC kalau belum).
      *
      * @param  string[]  $to
      * @param  string[]  $cc
@@ -80,11 +82,18 @@ class AturanEmail extends Model
      */
     public static function denganGiliran(array $to, array $cc, ?string $giliran, bool $keTo): array
     {
-        if ($giliran === null || in_array($giliran, $to, true)) {
+        if ($giliran === null) {
             return [$to, $cc];
         }
         if ($keTo) {
-            return [[...$to, $giliran], array_values(array_diff($cc, [$giliran]))];
+            $pindah = array_values(array_diff(array_intersect($to, AturanAlur::PERAN), [$giliran]));
+            $to = array_values(array_unique([...array_diff($to, $pindah), $giliran]));
+            $cc = array_values(array_unique([...array_diff($cc, [$giliran]), ...$pindah]));
+
+            return [$to, $cc];
+        }
+        if (in_array($giliran, $to, true)) {
+            return [$to, $cc];
         }
 
         return [$to, in_array($giliran, $cc, true) ? $cc : [...$cc, $giliran]];

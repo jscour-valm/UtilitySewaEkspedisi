@@ -60,6 +60,9 @@ class RiwayatPengajuanController extends Controller
                         if (ctype_digit(ltrim($search, '#'))) {
                             $qq->orWhere('p.id_pengajuan_sewa', (int) ltrim($search, '#'));
                         }
+                        if (PengajuanSewa::kolomKodeAda()) {
+                            $qq->orWhere('p.kode_pengajuan', 'like', '%'.str_replace(['[', '%', '_'], ['[[]', '[%]', '[_]'], $search).'%');
+                        }
                     });
                 })
                 ->when($filters['status'], fn ($q, $v) => $q->whereIn(DB::raw('LOWER(p.status_pengajuan)'), $v))
@@ -116,6 +119,7 @@ class RiwayatPengajuanController extends Controller
                 'p.id_pengajuan_sewa as id', 'p.id_cabang', 'p.jenis_pengajuan', 'p.tujuan_penyewaan', 'p.tanggal_pengiriman',
                 'p.submitted_at', 'p.created_at', 'p.harga_sewa', 'p.rasio_sewa', 'p.status_pengajuan',
                 'p.alur_approval', 'p.kategori_approval', 'pe.badan_usaha', 'pe.nama_perusahaan',
+                ...(PengajuanSewa::kolomKodeAda() ? ['p.kode_pengajuan'] : []),
             ])
             ->paginate($perHalaman)->withQueryString();
 

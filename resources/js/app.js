@@ -15,6 +15,8 @@ window.notify = function (message, type = 'success', title = null) {
         icon: type,
         title: title ?? defaultTitle[type] ?? 'Info',
         text: message,
+        // Pesan berisi daftar ("\n• ...", mis. alasan dokumen ditolak) dirata kiri supaya mudah dibaca
+        customClass: String(message ?? '').includes('\n•') ? { htmlContainer: 'swal-daftar' } : {},
         confirmButtonColor: type === 'error' ? '#dc2626' : '#1B7A43',
     });
 };
@@ -27,6 +29,7 @@ window.batalkanPengajuan = async function (id) {
         icon: 'warning',
         input: 'textarea',
         inputPlaceholder: 'Alasan pembatalan',
+        inputLabel: 'Maksimal 500 karakter',
         inputAttributes: { maxlength: 500 },
         showCancelButton: true,
         confirmButtonText: 'Batalkan Pengajuan',
@@ -1283,6 +1286,8 @@ Alpine.data('pengajuanSewa', () => ({
     canGoToStep(target) {
         // Pas edit mode, nggak boleh balik ke step 1 (vendor/kendaraan dikunci, harga nempel ke vendor)
         if (this.editId && target === 1) return false
+        // Step 3 terkunci untuk Kiriman Rutin tujuan Toko, juga saat kembali dari step 4
+        if (target === 3 && this.step3Dikunci) return false
         if (target <= this.step) return true
         // Kiriman Rutin: Daftar Barang harus sudah diisi ulang untuk area yang sekarang dipilih.
         if (target >= 3 && this.pengajuan.jenis_pengajuan === 'pengiriman_rutin'
@@ -1575,8 +1580,8 @@ Alpine.data('pengajuanSewa', () => ({
     },
 
     async submitPengajuan() {
-        // Validation: untuk create mode, dokumen harus dipilih
-        if (!this.editId && this.dokumenDipilih.length === 0) {
+        // Create mode: dokumen wajib dipilih, kecuali Kiriman Rutin tujuan Toko (tanpa dokumen)
+        if (!this.editId && !this.step3Dikunci && this.dokumenDipilih.length === 0) {
             notify('Mohon pilih dokumen terlebih dahulu!', 'warning')
             return
         }
@@ -1673,12 +1678,8 @@ Alpine.data('pengajuanSewa', () => ({
             const msg = this.editId ? 'Pengajuan berhasil diperbarui!' : 'Pengajuan berhasil disubmit!'
             const redirectTo = this.editId ? `/pengajuan/${json.id_pengajuan}` : '/dashboard/kg'
 
-            // Link dokumen ke pengajuan via junction table
-            if (this.dokumenDipilih.length > 0) {
-                await this.linkDokumenToPengajuan(json.id_pengajuan)
-            }
-
-            // Email notifikasi ke WM — dipicu SETELAH dokumen ter-link supaya daftar SJ di email terisi.
+            // Dokumen sudah ditautkan server di request submit/update yang sama.
+            // Email notifikasi ke WM — dipicu setelah tersimpan supaya daftar SJ di email terisi.
             // Gagal kirim notifikasi tidak boleh mengganggu alur submit.
             try {
                 await fetch(`/api/pengajuan/${json.id_pengajuan}/notifikasi-baru`, {
@@ -1697,44 +1698,11 @@ Alpine.data('pengajuanSewa', () => ({
             this.hapusDraft()
             // Redirect begitu user nutup dialognya sendiri (bukan timer 1.5 detik
             // yang dulu ngikutin blocking-nya alert() native — SweetAlert2 non-blocking).
-            await notify(msg + '\nID: ' + json.id_pengajuan, 'success')
+            await notify(msg + '\nKode pengajuan: ' + (json.kode_pengajuan || '#' + json.id_pengajuan), 'success')
             window.location.href = redirectTo
         } catch (e) {
             this.submitting = false
             notify('Error: ' + e.message, 'error')
-        }
-    },
-
-    async linkDokumenToPengajuan(pengajuanId) {
-        // Link each selected dokumen ke pengajuan via junction table
-        try {
-            for (const docId of this.dokumenDipilih) {
-                const doc = this.dokumenMaster.find(d => d.id === docId)
-                if (!doc) continue
-
-                const endpoint = doc.tipe === 'SJ'
-                    ? `/api/pengajuan/${pengajuanId}/surat-jalan/link`
-                    : `/api/pengajuan/${pengajuanId}/transfer-antar-cabang/link`
-
-                const payload = doc.tipe === 'SJ'
-                    ? { id_surat_jalan: doc.nomor_dokumen }
-                    : { id_to_acb: doc.nomor_dokumen }
-
-                const res = await fetch(endpoint, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                    },
-                    body: JSON.stringify(payload)
-                })
-
-                if (!res.ok) {
-                    console.error(`Gagal link dokumen ${doc.nomor_dokumen}:`, await res.json())
-                }
-            }
-        } catch (e) {
-            console.error('Error linking dokumen:', e)
         }
     },
 
@@ -2091,6 +2059,7 @@ window.putuskanPersetujuan = async function (url, setuju, { label = 'Setujui', o
             icon: 'warning',
             input: 'textarea',
             inputPlaceholder: 'Alasan penolakan',
+            inputLabel: 'Maksimal 500 karakter',
             inputAttributes: { maxlength: 500 },
             showCancelButton: true,
             confirmButtonText: 'Tolak',

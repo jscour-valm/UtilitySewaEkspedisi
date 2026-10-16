@@ -23,7 +23,8 @@
     <div class="rounded-xl bg-white shadow-sm border border-gray-100 p-5">
         <div class="flex items-start justify-between gap-5 flex-wrap">
             <div class="min-w-0">
-                <h1 class="text-[22px] font-bold tracking-tight text-gray-900">
+                <p class="font-mono text-xs font-semibold tracking-wide text-gray-500">{{ $pengajuan->kode }}</p>
+                <h1 class="mt-0.5 text-[22px] font-bold tracking-tight text-gray-900">
                     {{ $namaPerusahaan?->nama_perusahaan }}
                 </h1>
                 <p class="text-[13px] text-gray-500 mt-1">

@@ -83,3 +83,11 @@ input[type='date']::-webkit-calendar-picker-indicator {
     --color-avian-green-light: #E8F3EC;
     --color-avian-green-dark: #145C33;
 }
+
+/* Popup notify(): baris baru (\n) di pesan tampil sebagai baris baru; pesan daftar dirata kiri */
+.swal2-html-container {
+    white-space: pre-line;
+}
+.swal2-html-container.swal-daftar {
+    text-align: left;
+}

@@ -24,7 +24,7 @@
 
     // [label, nilai, tebal?] — baris bernilai null tidak ditampilkan
     $info = [
-        ['No. Pengajuan', '#' . $p->id_pengajuan_sewa],
+        ['No. Pengajuan', $p->kode],
         ['Cabang', $namaCabang . ' (' . $p->id_cabang . ')'],
         ['Jenis', $isRutin ? 'Kiriman Rutin' : 'Sewa Truk'],
         ['Nama Ekspedisi', $namaVendorLengkap ?: '-'],

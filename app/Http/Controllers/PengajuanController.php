@@ -14,8 +14,6 @@ use App\Models\JenisBiaya;
 use App\Models\Kendaraan;
 use App\Models\MasterJenisKendaraan;
 use App\Models\PengajuanSewa;
-use App\Models\PengajuanSewaSuratJalan;
-use App\Models\PengajuanSewaToAcb;
 use App\Models\PerusahaanEkspedisi;
 use App\Models\PerusahaanSkill;
 use App\Models\RasioSewa;
@@ -162,10 +160,7 @@ class PengajuanController extends Controller
             $baseRules['detail_kiriman.*.harga_custom'] = 'nullable|boolean';
         }
 
-        $request->validate($baseRules + $this->aturanDokumen($request), [
-            'dokumen_dipilih.required' => 'Kiriman Rutin tujuan PAC wajib memilih minimal 1 TO-ACB.',
-            'dokumen_dipilih.min' => 'Kiriman Rutin tujuan PAC wajib memilih minimal 1 TO-ACB.',
-        ]);
+        $request->validate($baseRules + $this->aturanDokumen($request), $this->pesanDokumen($request));
         $this->cekJumlahArea($request);
 
         try {
@@ -175,6 +170,8 @@ class PengajuanController extends Controller
             $cabangId = $user->getCabangId();
 
             if (! $cabangId) {
+                DB::connection('sqlsrv')->rollBack();
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Cabang tidak ditemukan',
@@ -182,8 +179,12 @@ class PengajuanController extends Controller
             }
 
             if ($pesan = $this->cekCabangTujuan($request, $cabangId)) {
+                DB::connection('sqlsrv')->rollBack();
+
                 return response()->json(['success' => false, 'message' => $pesan], 422);
             }
+
+            $dokumen = $this->dokumenTerverifikasi($request, $cabangId);
 
             $allSkills = collect($request->id_skill)
                 ->map(fn ($s) => (int) $s)
@@ -220,8 +221,9 @@ class PengajuanController extends Controller
 
             // Hitung rasio sewa termasuk biaya tambahan
             $totalBiayaTambahan = collect($request->biaya_tambahan ?? [])->sum('nominal');
-            $rasioSewa = $request->value_muatan > 0
-                ? (($hargaSewa + $totalBiayaTambahan) / $request->value_muatan) * 100
+            $valueMuatan = $dokumen ? array_sum(array_column($dokumen, 'nilai')) : null;
+            $rasioSewa = $valueMuatan > 0
+                ? (($hargaSewa + $totalBiayaTambahan) / $valueMuatan) * 100
                 : null;
 
             $alurApproval = $this->hitungAlurApproval($request->jenis_pengajuan, $rasioSewa ?? 0.0, $request->tujuan_penyewaan);
@@ -231,7 +233,7 @@ class PengajuanController extends Controller
                 'id_cabang' => $cabangId,
                 'id_cabang_tujuan' => $request->tujuan_penyewaan === 'PAC' ? $request->id_cabang_tujuan : null,
                 'tanggal_pengiriman' => $request->tanggal_pengiriman,
-                'value_muatan' => $request->value_muatan ?: null,
+                'value_muatan' => $valueMuatan ?: null,
                 'harga_sewa' => $hargaSewa,
                 'rasio_sewa' => $rasioSewa !== null ? round($rasioSewa, 2) : null,
                 'kategori_approval' => $kategoriApproval,
@@ -255,7 +257,12 @@ class PengajuanController extends Controller
                 $pengajuanData['id_perusahaan_ekspedisi'] = $request->id_perusahaan_ekspedisi;
             }
 
+            if (PengajuanSewa::kolomKodeAda()) {
+                $pengajuanData['kode_pengajuan'] = PengajuanSewa::kodeBerikutnya($cabangId, now());
+            }
+
             $pengajuan = PengajuanSewa::create($pengajuanData);
+            app(DocumentLinkageService::class)->tautkanDokumen($pengajuan, $dokumen);
 
             if ($request->jenis_pengajuan === 'sewa_truk' && $request->boolean('usulan_harga_sewa')) {
                 $ctx = app(HargaMasterPengajuanService::class)->konteksSewaTruk($pengajuan);
@@ -312,6 +319,7 @@ class PengajuanController extends Controller
                 'success' => true,
                 'message' => 'Pengajuan berhasil disubmit',
                 'id_pengajuan' => $pengajuan->id_pengajuan_sewa,
+                'kode_pengajuan' => $pengajuan->kode,
             ]);
         } catch (\InvalidArgumentException $e) {
             DB::connection('sqlsrv')->rollBack();
@@ -479,35 +487,90 @@ class PengajuanController extends Controller
         return $request->jenis_pengajuan === 'pengiriman_rutin' && $request->tujuan_penyewaan === 'Toko';
     }
 
-    /** Aturan value muatan & dokumen: rutin + Toko tanpa dokumen, rutin + PAC wajib TO-ACB. */
+    /**
+     * Aturan dokumen: Kiriman Rutin tujuan Toko tanpa dokumen, selain itu minimal satu SJ / TO-ACB.
+     * value_muatan dari browser tidak dipakai; nilainya dihitung server dari dokumen (dokumenTerverifikasi).
+     */
     private function aturanDokumen(Request $request): array
     {
         if ($this->tanpaDokumen($request)) {
             return ['value_muatan' => 'nullable|numeric|min:0'];
         }
 
-        $wajib = $request->jenis_pengajuan === 'pengiriman_rutin' && $request->tujuan_penyewaan === 'PAC';
-
         return [
-            'value_muatan' => 'required|numeric|min:1',
-            'dokumen_dipilih' => $wajib ? 'required|array|min:1' : 'nullable|array',
+            'value_muatan' => 'nullable|numeric',
+            'dokumen_dipilih' => 'required|array|min:1',
             'dokumen_dipilih.*' => 'string|max:50',
         ];
     }
 
-    /** Edit: lepas tautan SJ / TO-ACB yang tidak lagi dipilih. */
-    private function sinkronDokumen(PengajuanSewa $pengajuan, Request $request): void
+    private function pesanDokumen(Request $request): array
     {
-        $dipilih = $this->tanpaDokumen($request)
-            ? []
-            : array_map('strval', (array) $request->input('dokumen_dipilih', []));
+        $pesan = $request->jenis_pengajuan === 'pengiriman_rutin' && $request->tujuan_penyewaan === 'PAC'
+            ? 'Kiriman Rutin tujuan PAC wajib memilih minimal 1 TO-ACB.'
+            : 'Pilih minimal 1 dokumen ('.($request->tujuan_penyewaan === 'PAC' ? 'TO-ACB' : 'Surat Jalan').').';
 
-        PengajuanSewaSuratJalan::where('id_pengajuan_sewa', $pengajuan->id_pengajuan_sewa)
-            ->whereNotIn('id_surat_jalan', $dipilih)
-            ->update(['flag' => false]);
-        PengajuanSewaToAcb::where('id_pengajuan_sewa', $pengajuan->id_pengajuan_sewa)
-            ->whereNotIn('id_to_acb', $dipilih)
-            ->update(['flag' => false]);
+        return ['dokumen_dipilih.required' => $pesan, 'dokumen_dipilih.min' => $pesan];
+    }
+
+    /**
+     * Dokumen pilihan yang lolos pengecekan (lihat DocumentLinkageService::periksaDokumen) beserta
+     * nilainya. Ada yang tidak lolos → InvalidArgumentException berisi semua alasannya (dibalas 422).
+     *
+     * @return array<string, array{tipe:string, nilai:float}>
+     */
+    private function dokumenTerverifikasi(Request $request, string $cabangId, ?int $kecualiPengajuan = null): array
+    {
+        if ($this->tanpaDokumen($request)) {
+            return [];
+        }
+
+        $hasil = app(DocumentLinkageService::class)->periksaDokumen(
+            (array) $request->input('dokumen_dipilih', []), $cabangId, $request->tujuan_penyewaan, $kecualiPengajuan
+        );
+        if ($hasil['masalah']) {
+            throw new \InvalidArgumentException("Dokumen berikut tidak bisa dipakai:\n• ".implode("\n• ", $hasil['masalah']));
+        }
+        if (array_sum(array_column($hasil['items'], 'nilai')) <= 0) {
+            throw new \InvalidArgumentException('Nilai dokumen yang dipilih Rp0, rasio sewa tidak bisa dihitung. Pilih dokumen lain.');
+        }
+
+        return $hasil['items'];
+    }
+
+    /**
+     * Edit: samakan biaya tambahan dengan isian form. Baris yang sama dipertahankan (jumlah
+     * diperbarui kalau berubah), baris baru ditambah, sisanya dihapus — tidak hapus-insert ulang
+     * semua baris supaya nomor ID tidak terbuang tiap edit.
+     */
+    private function sinkronBiayaTambahan(PengajuanSewa $pengajuan, array $biaya): void
+    {
+        $lama = BiayaTambahan::where('id_pengajuan_sewa', $pengajuan->id_pengajuan_sewa)
+            ->orderBy('id_biaya_tambahan')
+            ->get()
+            ->groupBy('id_jenis_biaya');
+
+        foreach ($biaya as $b) {
+            $baris = $lama->get($b['id_jenis_biaya'])?->shift();
+            if ($baris) {
+                if (abs((float) $baris->jumlah - (float) $b['nominal']) >= 0.01) {
+                    $baris->update(['jumlah' => $b['nominal']]);
+                }
+
+                continue;
+            }
+            BiayaTambahan::create([
+                'id_pengajuan_sewa' => $pengajuan->id_pengajuan_sewa,
+                'id_jenis_biaya' => $b['id_jenis_biaya'],
+                'jumlah' => $b['nominal'],
+                'flag' => true,
+            ]);
+        }
+
+        $sisa = $lama->flatten()->pluck('id_biaya_tambahan')->all();
+        if ($sisa) {
+            BiayaTambahan::whereIn('id_biaya_tambahan', $sisa)->delete();
+        }
     }
 
     /** Dropdown "Cabang Tujuan" (PAC) di wizard. */
@@ -828,10 +891,7 @@ class PengajuanController extends Controller
             $baseRules['detail_kiriman.*.harga_custom'] = 'nullable|boolean';
         }
 
-        $request->validate($baseRules + $this->aturanDokumen($request), [
-            'dokumen_dipilih.required' => 'Kiriman Rutin tujuan PAC wajib memilih minimal 1 TO-ACB.',
-            'dokumen_dipilih.min' => 'Kiriman Rutin tujuan PAC wajib memilih minimal 1 TO-ACB.',
-        ]);
+        $request->validate($baseRules + $this->aturanDokumen($request), $this->pesanDokumen($request));
         $this->cekJumlahArea($request);
 
         try {
@@ -858,6 +918,8 @@ class PengajuanController extends Controller
 
                 return response()->json(['success' => false, 'message' => $pesan], 422);
             }
+
+            $dokumen = $this->dokumenTerverifikasi($request, $cabangId, $pengajuan->id_pengajuan_sewa);
 
             $allSkills = collect($request->id_skill)
                 ->map(fn ($s) => (int) $s)
@@ -894,8 +956,9 @@ class PengajuanController extends Controller
 
             // Hitung rasio sewa termasuk biaya tambahan
             $totalBiayaTambahan = collect($request->biaya_tambahan ?? [])->sum('nominal');
-            $rasioSewa = $request->value_muatan > 0
-                ? (($hargaSewa + $totalBiayaTambahan) / $request->value_muatan) * 100
+            $valueMuatan = $dokumen ? array_sum(array_column($dokumen, 'nilai')) : null;
+            $rasioSewa = $valueMuatan > 0
+                ? (($hargaSewa + $totalBiayaTambahan) / $valueMuatan) * 100
                 : null;
             $alurApproval = $this->hitungAlurApproval($request->jenis_pengajuan, $rasioSewa ?? 0.0, $request->tujuan_penyewaan);
             $kategoriApproval = str_contains($alurApproval, ',') ? 'over_threshold' : 'normal';
@@ -903,7 +966,7 @@ class PengajuanController extends Controller
             $updateData = [
                 'id_cabang_tujuan' => $request->tujuan_penyewaan === 'PAC' ? $request->id_cabang_tujuan : null,
                 'tanggal_pengiriman' => $request->tanggal_pengiriman,
-                'value_muatan' => $request->value_muatan ?: null,
+                'value_muatan' => $valueMuatan ?: null,
                 'harga_sewa' => $hargaSewa,
                 'rasio_sewa' => $rasioSewa !== null ? round($rasioSewa, 2) : null,
                 'kategori_approval' => $kategoriApproval,
@@ -928,20 +991,8 @@ class PengajuanController extends Controller
             }
 
             $pengajuan->update($updateData);
-            $this->sinkronDokumen($pengajuan, $request);
-
-            BiayaTambahan::where('id_pengajuan_sewa', $pengajuan->id_pengajuan_sewa)->delete();
-
-            if ($request->biaya_tambahan) {
-                foreach ($request->biaya_tambahan as $biaya) {
-                    BiayaTambahan::create([
-                        'id_pengajuan_sewa' => $pengajuan->id_pengajuan_sewa,
-                        'id_jenis_biaya' => $biaya['id_jenis_biaya'],
-                        'jumlah' => $biaya['nominal'],
-                        'flag' => true,
-                    ]);
-                }
-            }
+            app(DocumentLinkageService::class)->tautkanDokumen($pengajuan, $dokumen);
+            $this->sinkronBiayaTambahan($pengajuan, (array) ($request->biaya_tambahan ?? []));
 
             if ($request->jenis_pengajuan === 'pengiriman_rutin' && $detailKiriman) {
                 // Usulan harga baris lama (status apa pun) dibawa apa adanya; baris baru boleh mengusulkan
@@ -991,6 +1042,7 @@ class PengajuanController extends Controller
                 'success' => true,
                 'message' => 'Pengajuan berhasil diperbarui',
                 'id_pengajuan' => $pengajuan->id_pengajuan_sewa,
+                'kode_pengajuan' => $pengajuan->kode,
             ]);
         } catch (\InvalidArgumentException $e) {
             DB::connection('sqlsrv')->rollBack();

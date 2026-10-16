@@ -24,7 +24,8 @@
     <div class="rounded-xl bg-white shadow-sm border border-gray-100 p-5">
         <div class="flex items-start justify-between gap-5 flex-wrap">
             <div class="min-w-0">
-                <h1 class="text-[22px] font-bold tracking-tight text-gray-900">
+                <p class="font-mono text-xs font-semibold tracking-wide text-gray-500">{{ $pengajuan->kode }}</p>
+                <h1 class="mt-0.5 text-[22px] font-bold tracking-tight text-gray-900">
                     {{ $vendor?->badan_usaha }} {{ $vendor?->nama_perusahaan }}
                 </h1>
                 <p class="text-[13px] text-gray-500 mt-1">
@@ -592,11 +593,14 @@
             Alasan akan dikirimkan ke pengaju, {{ $pengajuan->submittedBy?->name ?? 'pengaju' }}.
         </p>
 
-        <textarea id="rejection-reason-input" rows="4"
+        <textarea id="rejection-reason-input" rows="4" maxlength="500"
             placeholder="Contoh: Harga sewa terlalu tinggi dibanding vendor lain..."
             class="mt-3.5 w-full resize-none rounded-lg border border-gray-300 px-3.5 py-3 text-sm text-gray-800
                     focus:border-red-400 focus:outline-none focus:ring-1 focus:ring-red-400"></textarea>
-        <p id="rejection-error" class="mt-1 hidden text-xs text-red-500">Alasan penolakan tidak boleh kosong.</p>
+        <div class="mt-1 flex items-start justify-between gap-3">
+            <p id="rejection-error" class="hidden text-xs text-red-500">Alasan penolakan tidak boleh kosong.</p>
+            <p class="ml-auto shrink-0 text-xs text-gray-400">Maksimal 500 karakter · <span id="rejection-counter">0</span>/500</p>
+        </div>
 
         {{-- Alasan cepat: isi textarea, tetap bisa diedit --}}
         <div class="mt-2.5 flex flex-wrap gap-2">
@@ -630,10 +634,14 @@
     const modalReject  = document.getElementById('modal-reject');
     const textarea     = document.getElementById('rejection-reason-input');
     const errorMsg     = document.getElementById('rejection-error');
+    const counter      = document.getElementById('rejection-counter');
+    const hitung       = () => { counter.textContent = textarea.value.length; };
+    textarea.addEventListener('input', hitung);
 
     document.getElementById('approve-btn').addEventListener('click', () => show(modalApprove));
     document.getElementById('reject-btn').addEventListener('click', () => {
         textarea.value = '';
+        hitung();
         errorMsg.classList.add('hidden');
         show(modalReject);
         setTimeout(() => textarea.focus(), 80);
@@ -649,6 +657,7 @@
     document.querySelectorAll('.reason-preset').forEach(btn =>
         btn.addEventListener('click', () => {
             textarea.value = btn.textContent.trim();
+            hitung();
             errorMsg.classList.add('hidden');
             textarea.focus();
         })

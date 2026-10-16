@@ -166,7 +166,7 @@
                 <table class="w-full min-w-[36rem] text-sm">
                     <thead>
                         <tr class="kepala-tabel text-left text-xs font-medium uppercase tracking-wide text-gray-500">
-                            <th class="px-3 py-2">No.</th>
+                            <th class="px-3 py-2">Kode</th>
                             <th class="px-3 py-2">Jenis</th>
                             <th class="px-3 py-2">Tgl Kirim</th>
                             <th class="px-3 py-2">Diajukan oleh</th>
@@ -177,7 +177,7 @@
                     <tbody class="divide-y divide-gray-100">
                         @foreach($pengajuan as $p)
                             <tr>
-                                <td class="px-3 py-2 font-medium text-gray-800">#{{ $p->id_pengajuan_sewa }}</td>
+                                <td class="px-3 py-2 font-medium text-gray-800">{{ $p->kode }}</td>
                                 <td class="px-3 py-2 text-gray-600">{{ $p->jenis_pengajuan === 'sewa_truk' ? 'Sewa Truk' : 'Kiriman Rutin' }}</td>
                                 <td class="px-3 py-2 text-gray-600">{{ $p->tanggal_pengiriman?->format('d M Y') }}</td>
                                 <td class="px-3 py-2 text-gray-600">{{ $p->submittedBy?->name ?? '-' }}</td>

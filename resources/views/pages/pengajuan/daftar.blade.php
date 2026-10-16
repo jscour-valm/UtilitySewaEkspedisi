@@ -29,7 +29,7 @@
         {{-- Cari + tombol Filter (rentang tanggal diajukan & pill di dalam modal); semua lewat query string --}}
         <form method="GET" class="mb-4 flex flex-wrap items-center gap-3">
             <div class="relative min-w-[16rem] flex-1" x-data="{ q: @js($search) }">
-                <input type="text" name="search" x-model="q" placeholder="Cari nama perusahaan, pengaju, atau no. pengajuan…"
+                <input type="text" name="search" x-model="q" placeholder="Cari nama perusahaan, pengaju, atau kode pengajuan…"
                     class="w-full rounded-lg border border-gray-300 px-4 py-2 pr-9 text-sm focus:border-avian-green focus:outline-none">
                 <button type="button" x-show="q.length > 0" x-cloak @click="q = ''; $nextTick(() => $el.closest('form').submit())"
                     class="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
@@ -64,7 +64,7 @@
             <table class="w-full min-w-[70rem] text-sm">
                 <thead>
                     <tr class="kepala-tabel text-left text-xs font-medium uppercase tracking-wide text-gray-500">
-                        <th class="px-4 py-3">No.</th>
+                        <th class="px-4 py-3">Kode</th>
                         <th class="px-4 py-3">Diajukan</th>
                         <th class="px-4 py-3">Pengiriman</th>
                         @if($multiCabang)
@@ -89,7 +89,7 @@
                             }
                         @endphp
                         <tr class="hover:bg-gray-50">
-                            <td class="whitespace-nowrap px-4 py-3 font-medium text-gray-800">#{{ $p->id }}</td>
+                            <td class="whitespace-nowrap px-4 py-3 font-medium text-gray-800">{{ \App\Models\PengajuanSewa::kodeDari($p->kode_pengajuan ?? null, $p->id) }}</td>
                             <td class="whitespace-nowrap px-4 py-3 text-gray-600">{{ $tgl($p->submitted_at ?? $p->created_at) }}</td>
                             <td class="whitespace-nowrap px-4 py-3 text-gray-600">{{ $tgl($p->tanggal_pengiriman) }}</td>
                             @if($multiCabang)

@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class PengajuanSewa extends Model
 {
@@ -62,6 +63,7 @@ class PengajuanSewa extends Model
         'dibatalkan_at',
         'alasan_pembatalan',
         'id_usulan_harga',
+        'kode_pengajuan',
     ];
 
     protected $casts = [
@@ -75,6 +77,63 @@ class PengajuanSewa extends Model
         'usulan_decided_at' => 'datetime',
         'dibatalkan_at' => 'datetime',
     ];
+
+    /** Prefix kode pengajuan (Sewa Ekspedisi). */
+    public const PREFIX_KODE = 'SE';
+
+    private static ?bool $kolomKodeAda = null;
+
+    /**
+     * Kode tampilan, mis. SE-01A-2610-0007. Baris tanpa kode (sebelum migration kode dijalankan)
+     * tampil sebagai #id.
+     */
+    public function getKodeAttribute(): string
+    {
+        return $this->kode_pengajuan ?: '#'.$this->id_pengajuan_sewa;
+    }
+
+    /** Kode untuk baris hasil query builder (stdClass) yang memuat kode_pengajuan & id. */
+    public static function kodeDari(?string $kode, int|string|null $id): string
+    {
+        return $kode ?: '#'.$id;
+    }
+
+    /** Kolom kode_pengajuan sudah ada (migration 2026_10_16_000001 sudah dijalankan). */
+    public static function kolomKodeAda(): bool
+    {
+        if (self::$kolomKodeAda === null) {
+            try {
+                self::$kolomKodeAda = ! app()->runningUnitTests()
+                    && Schema::connection('sqlsrv')->hasColumn('sesi_pengajuan_sewa', 'kode_pengajuan');
+            } catch (\Throwable) {
+                self::$kolomKodeAda = false;
+            }
+        }
+
+        return self::$kolomKodeAda;
+    }
+
+    public static function lupakanKolomKode(): void
+    {
+        self::$kolomKodeAda = null;
+    }
+
+    /**
+     * Kode berikutnya untuk cabang & bulan $waktu: SE-{cabang}-{yyMM}-{urut}. Wajib dipanggil di
+     * dalam transaksi: nomor terakhir dibaca dengan kunci (UPDLOCK + HOLDLOCK) sehingga submit
+     * bersamaan di cabang & bulan yang sama menunggu bergiliran; transaksi gagal tidak memakai nomor.
+     */
+    public static function kodeBerikutnya(string $cabang, \DateTimeInterface $waktu): string
+    {
+        $awalan = self::PREFIX_KODE.'-'.$cabang.'-'.$waktu->format('ym').'-';
+        $terakhir = DB::connection('sqlsrv')->table('sesi_pengajuan_sewa')
+            ->lock('WITH (UPDLOCK, HOLDLOCK)')
+            ->where('kode_pengajuan', 'like', str_replace(['[', '%', '_'], ['[[]', '[%]', '[_]'], $awalan).'%')
+            ->selectRaw('MAX(CAST(SUBSTRING(kode_pengajuan, ?, 10) AS int)) AS nomor', [strlen($awalan) + 1])
+            ->first()?->nomor;
+
+        return $awalan.str_pad((string) ((int) $terakhir + 1), 4, '0', STR_PAD_LEFT);
+    }
 
     public function kendaraan(): BelongsTo
     {

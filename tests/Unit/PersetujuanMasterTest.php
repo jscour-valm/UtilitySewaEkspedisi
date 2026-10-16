@@ -62,6 +62,9 @@ class PersetujuanMasterTest extends TestCase
         [$to, $cc] = PersetujuanMasterService::penerima('divalidasi', 'WH', ['WH', 'WC'], 'WC');
         $this->assertContains('WC', $to);
         $this->assertNotContains('WC', $cc);
+        // WH (To bawaan "lanjut ke tahap berikutnya") tidak sedang giliran → pindah ke CC
+        $this->assertNotContains('WH', $to);
+        $this->assertContains('WH', $cc);
 
         // Penolakan di tahap pertama memakai aturan "ditolak di tahap pertama", siapa pun perannya.
         $this->assertSame(

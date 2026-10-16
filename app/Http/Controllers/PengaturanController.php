@@ -131,11 +131,20 @@ class PengaturanController extends Controller
             return back()->withInput()->withErrors(['email' => 'Setiap kejadian butuh minimal satu penerima "To": '.implode('; ', $tanpaTo)]);
         }
 
+        // Disamakan per (kejadian, role): baris yang tidak berubah dibiarkan, yang berubah di-update,
+        // yang baru ditambah, yang dikosongkan dihapus — bukan hapus-insert ulang semua baris.
         DB::connection('sqlsrv')->transaction(function () use ($baris) {
-            AturanEmail::query()->delete();
-            $sekarang = now();
+            $lama = AturanEmail::query()->get()->keyBy(fn ($r) => $r->kejadian.'|'.$r->role);
             foreach ($baris as $b) {
-                AturanEmail::create($b + ['updated_by' => auth()->id(), 'created_at' => $sekarang, 'updated_at' => $sekarang]);
+                $r = $lama->pull($b['kejadian'].'|'.$b['role']);
+                if (! $r) {
+                    AturanEmail::create($b + ['updated_by' => auth()->id()]);
+                } elseif ($r->jenis !== $b['jenis']) {
+                    $r->update(['jenis' => $b['jenis'], 'updated_by' => auth()->id()]);
+                }
+            }
+            if ($lama->isNotEmpty()) {
+                AturanEmail::whereIn('id_aturan_email', $lama->pluck('id_aturan_email'))->delete();
             }
         });
         AturanEmail::lupakanCache();

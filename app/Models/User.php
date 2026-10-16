@@ -71,7 +71,7 @@ class User extends Authenticatable
         $roleMap = [
             'KG' => 'Kepala Gudang',
             'WM' => 'Warehouse Manager',
-            'WC' => 'Warehouse Manager Coordinator',
+            'WC' => 'Warehouse Coordinator',
             'WH' => 'Warehouse Head',
             'DCI' => 'Distribution Continuous Improvement',
             'KA' => 'Kepala Admin',
